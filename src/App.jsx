@@ -1,4 +1,6 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
+import { useEffect } from "react";
+import api from "./api/api";
 import HomePage from "./pages/HomePage";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -32,7 +34,70 @@ import Checkout from "./pages/customer/Checkout";
 import CustomerProductDetail from "./pages/customer/ProductDetail";
 import Profile from "./pages/customer/Profile";
 import StoreDetail from "./pages/customer/StoreDetail";
+
 function App() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // ================= HANDLE GOOGLE OAUTH CALLBACK =================
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const token = params.get("token");
+    const error = params.get("error");
+
+    if (error) {
+      console.error("Google OAuth error:", error);
+      navigate("/");
+      return;
+    }
+
+    if (token) {
+      console.log(
+        "🔑 Token received from Google:",
+        token.substring(0, 20) + "...",
+      );
+
+      // Simpan token
+      localStorage.setItem("token", token);
+
+      // Set token di axios interceptor
+      api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+
+      // Ambil data user
+      const fetchUser = async () => {
+        try {
+          console.log("📡 Fetching user data from /pengguna/me...");
+          const response = await api.get("/pengguna/me");
+          console.log("✅ Full response from /pengguna/me:", response.data);
+
+          const user = response.data.data;
+          console.log("👤 User data received:", user);
+          console.log("👤 User name:", user.nama);
+
+          // Update localStorage
+          localStorage.setItem("currentUser", JSON.stringify(user));
+
+          // 🔥 FORCE RELOAD PAGE
+          let redirectUrl = "/customer";
+          if (user.role === "admin") redirectUrl = "/admin";
+          else if (user.role === "penjual") redirectUrl = "/seller";
+
+          console.log("🔄 Redirecting to:", redirectUrl);
+          window.location.href = redirectUrl;
+        } catch (error) {
+          console.error("❌ Error fetching user:", error);
+          console.error("❌ Error response:", error.response?.data);
+          localStorage.removeItem("token");
+          navigate("/");
+        }
+      };
+      fetchUser();
+
+      // Bersihkan URL dari token
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [location, navigate]);
+
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
@@ -40,10 +105,9 @@ function App() {
       <Route path="/store/:id" element={<PublicStoreDetail />} />
 
       <Route path="/login" element={<Login />} />
-
       <Route path="/register" element={<Register />} />
-
       <Route path="/forgot-password" element={<ForgotPassword />} />
+
       <Route path="/admin" element={<DashboardAdmin />} />
       <Route path="/admin/users" element={<UsersAdmin />} />
       <Route path="/admin/reports" element={<Reports />} />
@@ -65,12 +129,15 @@ function App() {
       <Route path="/seller/settings" element={<Settings />} />
       <Route path="/seller/store-profile" element={<StoreProfile />} />
       <Route path="/seller/add-product" element={<AddProduct />} />
+
       <Route path="/customer" element={<Home />} />
       <Route path="/customer/orders" element={<Orders />} />
       <Route path="/customer/chat/:id" element={<Chat />} />
       <Route path="/customer/chat" element={<Chat />} />
       <Route path="/customer/checkout" element={<Checkout />} />
-      <Route path="/customer/product-detail/:id" element={<CustomerProductDetail />}
+      <Route
+        path="/customer/product-detail/:id"
+        element={<CustomerProductDetail />}
       />
       <Route path="/customer/store/:id" element={<StoreDetail />} />
       <Route path="/customer/profile" element={<Profile />} />

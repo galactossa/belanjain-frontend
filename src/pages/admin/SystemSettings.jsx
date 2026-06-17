@@ -1,16 +1,40 @@
 import { Search, Bell, ShieldCheck, ShoppingCart, User } from "lucide-react";
-
 import AdminLayout from "../../layouts/AdminLayout";
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-
 import ModalNotfications from "../../components/admin/ModalNotfications";
-import { notifications as defaultNotifications } from "../../data/notifications";
-import { chats as defaultChats } from "../../data/chat";
+import api from "../../api/api";
+
+// STATIC - karena belum ada API untuk chat count
+const CHAT_COUNT = 5;
+
 function SystemSettings() {
   const navigate = useNavigate();
   const [showNotif, setShowNotif] = useState(false);
   const notifRef = useRef(null);
+  const [notifications, setNotifications] = useState([]);
+  const unreadCount = notifications.filter((notif) => !notif.read).length;
+
+  // Fetch notifications
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const response = await api.get("/notifikasi");
+        const data = (response.data.data || []).map((n) => ({
+          ...n,
+          read: n.sudah_dibaca || false,
+          time: n.created_at
+            ? new Date(n.created_at).toLocaleString()
+            : "Baru saja",
+          message: n.pesan || n.judul,
+        }));
+        setNotifications(data);
+      } catch (error) {
+        console.error("Error fetching notifications:", error);
+      }
+    };
+    fetchNotifications();
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -18,17 +42,10 @@ function SystemSettings() {
         setShowNotif(false);
       }
     }
-
     document.addEventListener("mousedown", handleClickOutside);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const [notifications, setNotifications] = useState(
-    defaultNotifications.filter((item) => item.role === "admin"),
-  );
   const [articles, setArticles] = useState([
     {
       id: "FAQ-001",
@@ -63,14 +80,12 @@ function SystemSettings() {
 
   const handleAddArticle = () => {
     if (!newArticleTitle.trim() || !newArticleDescription.trim()) return;
-
     const newArticle = {
       id: `FAQ-${String(articles.length + 1).padStart(3, "0")}`,
       tag: newArticleTag,
       title: newArticleTitle,
       description: newArticleDescription,
     };
-
     setArticles([newArticle, ...articles]);
     setNewArticleTitle("");
     setNewArticleDescription("");
@@ -78,45 +93,36 @@ function SystemSettings() {
 
   return (
     <AdminLayout>
-      {/* ================= TOPBAR ================= */}
       <div className="flex items-center justify-between mb-8">
-        {/* LEFT */}
         <div>
           <h1 className="text-[46px] font-black text-[#071437] leading-none">
             System Settings
           </h1>
-
           <p className="text-[#64748B] text-[17px] font-semibold mt-3">
             Atur informasi platform, kebijakan, dan konfigurasi utama BelanjaIn.
           </p>
         </div>
-
-        {/* RIGHT */}
         <div className="flex items-center gap-3">
-          {/* SEARCH */}
           <div className="bg-white border border-slate-200 shadow-sm h-11 w-[280px] rounded-2xl px-3 flex items-center gap-2">
             <Search size={16} className="text-slate-400" />
-
             <input
               type="text"
               placeholder="Cari pengaturan..."
               className="w-full h-full bg-transparent outline-none px-2 text-slate-700 text-sm"
             />
           </div>
-
-          {/* NOTIFICATION */}
           <div className="relative" ref={notifRef}>
             <button
               onClick={() => setShowNotif(true)}
               className="relative w-11 h-11 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center hover:bg-slate-100 duration-300"
             >
               <Bell size={16} className="text-slate-600" />
-
-              <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-blue-500 text-white text-[10px] font-black flex items-center justify-center">
-                1
-              </div>
+              {unreadCount > 0 && (
+                <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-blue-500 text-white text-[10px] font-black flex items-center justify-center">
+                  {unreadCount}
+                </div>
+              )}
             </button>
-
             <ModalNotfications
               open={showNotif}
               onClose={() => setShowNotif(false)}
@@ -126,47 +132,34 @@ function SystemSettings() {
           </div>
         </div>
       </div>
-      {/* ================= PAGE ================= */}
+
       <div className="w-full">
-        {/* ================= GRID ================= */}
         <div className="grid grid-cols-2 gap-8">
-          {/* ================= LEFT ================= */}
           <div className="space-y-8">
-            {/* IDENTITAS */}
             <div className="bg-white rounded-[38px] border border-[#E7ECF3] p-8 shadow-sm">
               <h2 className="text-[30px] font-black text-[#071437] uppercase leading-none">
                 Identitas Platform
               </h2>
-
               <p className="text-[#94A3B8] font-black uppercase tracking-wide mt-3 text-sm">
                 Logo dan aset visual utama BelanjaIn
               </p>
-
-              {/* PREVIEW */}
               <div className="mt-8 bg-[#F8FAFC] border border-[#EEF2F7] rounded-[28px] p-6 flex items-center gap-5">
-                {/* LOGO */}
                 <div className="w-[82px] h-[82px] rounded-[24px] bg-white border border-[#EEF2F7] flex items-center justify-center shadow-sm">
                   <ShoppingCart size={44} className="text-[#FF9800]" />
                 </div>
-
-                {/* INFO */}
                 <div>
                   <p className="text-[#2563FF] text-sm font-black uppercase tracking-wide">
                     Preview Logo
                   </p>
-
                   <p className="text-[#64748B] text-sm mt-2 font-semibold break-all">
                     URL: https://cdn-icons-png.flaticon.com/512/3643/3643914.png
                   </p>
                 </div>
               </div>
-
-              {/* INPUT */}
               <div className="mt-8">
                 <label className="text-[#94A3B8] text-sm font-black uppercase tracking-wide">
                   URL Logo BelanjaIn
                 </label>
-
                 <input
                   type="text"
                   defaultValue="https://cdn-icons-png.flaticon.com/512/3643/3643914.png"
@@ -175,35 +168,27 @@ function SystemSettings() {
               </div>
             </div>
 
-            {/* KONTAK */}
             <div className="bg-white rounded-[38px] border border-[#E7ECF3] p-8 shadow-sm">
               <h2 className="text-[30px] font-black text-[#071437] uppercase leading-none">
                 Kontak & Perusahaan
               </h2>
-
               <p className="text-[#94A3B8] font-black uppercase tracking-wide mt-3 text-sm">
                 Informasi resmi layanan pelanggan
               </p>
-
-              {/* PHONE */}
               <div className="mt-8">
                 <label className="text-[#94A3B8] text-sm font-black uppercase tracking-wide">
                   Nomor Telepon Layanan
                 </label>
-
                 <input
                   type="text"
                   defaultValue="+62 812-3456-7890"
                   className="w-full mt-4 h-[68px] rounded-[22px] border border-[#DCE3EA] bg-[#F8FAFC] px-6 outline-none text-[#071437] font-semibold focus:border-[#2563FF]"
                 />
               </div>
-
-              {/* ADDRESS */}
               <div className="mt-8">
                 <label className="text-[#94A3B8] text-sm font-black uppercase tracking-wide">
                   Alamat Kantor Pusat
                 </label>
-
                 <textarea
                   rows={3}
                   defaultValue="Gedung BelanjaIn Lt. 5, Jl. Juanda Raya No. 45, Jakarta Pusat"
@@ -213,61 +198,48 @@ function SystemSettings() {
             </div>
           </div>
 
-          {/* ================= RIGHT ================= */}
           <div>
             <div className="bg-white rounded-[38px] border border-[#E7ECF3] p-8 shadow-sm h-full flex flex-col">
-              {/* TITLE */}
               <div>
                 <h2 className="text-[30px] font-black text-[#071437] uppercase leading-none">
                   Tentang & Syarat Pengguna
                 </h2>
-
                 <p className="text-[#94A3B8] font-black uppercase tracking-wide mt-3 text-sm">
                   Teks legal yang ditayangkan di platform
                 </p>
               </div>
-
-              {/* DESC */}
               <div className="mt-8">
                 <label className="text-[#94A3B8] text-sm font-black uppercase tracking-wide">
                   Deskripsi Platform (Tentang Kami)
                 </label>
-
                 <textarea
                   rows={5}
                   defaultValue="BelanjaIn adalah platform e-commerce multi-vendor terpercaya yang menghubungkan penjual lokal dengan pembeli nasional."
                   className="w-full mt-4 rounded-[24px] border border-[#DCE3EA] bg-[#F8FAFC] px-6 py-5 outline-none text-[#071437] font-semibold resize-none leading-relaxed focus:border-[#2563FF]"
                 />
               </div>
-
-              {/* POLICY */}
               <div className="mt-8">
                 <label className="text-[#94A3B8] text-sm font-black uppercase tracking-wide">
                   Syarat & Kebijakan Privasi
                 </label>
-
                 <textarea
                   rows={7}
                   defaultValue="Syarat dan Ketentuan penggunaan platform BelanjaIn. Segala data transaksi terekam secara aman."
                   className="w-full mt-4 rounded-[24px] border border-[#DCE3EA] bg-[#F8FAFC] px-6 py-5 outline-none text-[#071437] font-semibold resize-none leading-relaxed focus:border-[#2563FF]"
                 />
               </div>
-
-              {/* BUTTON */}
               <div className="mt-auto pt-10 flex justify-end">
                 <button
                   onClick={handleSave}
                   className="h-[70px] px-10 rounded-[24px] bg-[#2563FF] text-white font-black text-[16px] tracking-wide flex items-center gap-4 shadow-2xl hover:scale-[1.02] transition-all duration-300"
                 >
-                  <ShieldCheck size={22} />
-                  SIMPAN PENGATURAN
+                  <ShieldCheck size={22} /> SIMPAN PENGATURAN
                 </button>
               </div>
             </div>
           </div>
         </div>
       </div>
-      {/* FAQ SECTION */}
 
       <div className="mt-8">
         <div className="bg-white rounded-[38px] border border-[#E7ECF3] p-8 shadow-sm">
@@ -276,7 +248,6 @@ function SystemSettings() {
               <h2 className="text-[28px] font-black text-[#071437]">
                 PUSAT BANTUAN TERINTEGRASI (CS & FAQ)
               </h2>
-
               <p className="text-[#94A3B8] text-sm font-black uppercase tracking-wider mt-2">
                 Konfigurasi FAQ dan bantuan pelanggan
               </p>
@@ -284,12 +255,10 @@ function SystemSettings() {
           </div>
 
           <div className="grid grid-cols-12 gap-10">
-            {/* KIRI */}
             <div className="col-span-4">
               <h3 className="font-black text-[#071437] mb-5">
                 SALURAN KONTAK DUKUNGAN
               </h3>
-
               <div className="space-y-5">
                 <div className="rounded-[24px] border border-[#E2E8F0] bg-[#F8FAFC] p-5 shadow-sm">
                   <p className="text-xs font-black uppercase tracking-[2px] text-slate-500 mb-3">
@@ -299,7 +268,6 @@ function SystemSettings() {
                     support@belanjain.com
                   </p>
                 </div>
-
                 <div className="rounded-[24px] border border-[#E2E8F0] bg-[#F8FAFC] p-5 shadow-sm">
                   <p className="text-xs font-black uppercase tracking-[2px] text-slate-500 mb-3">
                     WHATSAPP BUSINESS / HOTLINE
@@ -308,7 +276,6 @@ function SystemSettings() {
                     +62 821-2233-4455
                   </p>
                 </div>
-
                 <div className="rounded-[24px] border border-[#E2E8F0] bg-white p-5 shadow-sm">
                   <p className="text-xs font-black uppercase tracking-[2px] text-slate-500 mb-3">
                     INTEGRASI PENGGUNA
@@ -331,7 +298,6 @@ function SystemSettings() {
               </div>
             </div>
 
-            {/* KANAN */}
             <div className="col-span-8">
               <div className="flex items-start justify-between gap-4 mb-6">
                 <div>
@@ -342,12 +308,11 @@ function SystemSettings() {
                     Kelola tutorial yang diterbitkan untuk pembeli & penjual.
                   </p>
                 </div>
-
                 <button
                   onClick={() => navigate("/admin/chat-seller")}
                   className="h-[58px] px-6 rounded-[18px] bg-[#EEF4FF] text-[#2563FF] font-black hover:bg-[#e0ecff] transition"
                 >
-                  BUKA SESI CHAT PELAYANAN ({defaultChats.length})
+                  BUKA SESI CHAT PELAYANAN ({CHAT_COUNT})
                 </button>
               </div>
 
@@ -392,7 +357,6 @@ function SystemSettings() {
                     <option value="PEMBELI">Pembeli</option>
                   </select>
                 </div>
-
                 <textarea
                   value={newArticleDescription}
                   onChange={(e) => setNewArticleDescription(e.target.value)}
@@ -400,7 +364,6 @@ function SystemSettings() {
                   rows={4}
                   className="mt-4 w-full rounded-[20px] border border-[#E2E8F0] bg-[#F8FAFC] px-5 py-4 text-sm text-[#071437] outline-none resize-none"
                 />
-
                 <div className="mt-5 flex justify-end">
                   <button
                     onClick={handleAddArticle}

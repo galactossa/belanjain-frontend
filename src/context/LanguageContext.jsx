@@ -1,7 +1,14 @@
 import { createContext, useContext } from "react";
 import useLocalStorageState from "../untils/useLocalStorageState";
 import { texts } from "../components/customer/profile/pengaturanTexts";
-import { languages } from "../data/language";
+
+// Languages didefinisikan langsung di sini (tidak import dari data/)
+const languages = [
+  { id: "id", name: "Bahasa Indonesia" },
+  { id: "en-uk", name: "English (UK)" },
+  { id: "en-us", name: "English (US)" },
+  { id: "zh", name: "中文 (简体)" },
+];
 
 const LanguageContext = createContext();
 

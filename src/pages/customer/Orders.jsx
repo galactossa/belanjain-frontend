@@ -1,18 +1,12 @@
+// ================= src/pages/customer/Orders.jsx =================
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Search,
-  Package,
-  MessageSquare,
-  ChevronRight,
-  Clock,
-} from "lucide-react";
+import { Search, Package, ChevronRight, Clock } from "lucide-react";
+import api from "../../api/api";
 import OrderDetailModal from "../../components/customer/OrderDetailModal";
 import TrackingModal from "../../components/customer/TrackingModal";
 import ReviewModal from "../../components/customer/ReviewModal";
 import ComplaintModal from "../../components/customer/ComplaintModal";
-import { orders as ordersData } from "../../data/orders";
-import { products } from "../../data/products";
 
 function Orders() {
   const navigate = useNavigate();
@@ -24,238 +18,140 @@ function Orders() {
   const [showTracking, setShowTracking] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [showComplaint, setShowComplaint] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const currentUser = JSON.parse(localStorage.getItem("currentUser")) || {};
 
-  const handleBuyAgain = (order) => {
-    const currentUser = JSON.parse(localStorage.getItem("currentUser")) || {};
-    const cartKey = currentUser?.id ? `cart_${currentUser.id}` : "cart";
-    const currentCart = JSON.parse(localStorage.getItem(cartKey)) || [];
-
-    const updatedCart = [...currentCart];
-
-    order.products.forEach((product) => {
-      const existing = updatedCart.find((item) => item.id === product.id);
-      if (existing) {
-        existing.qty = (existing.qty || 1) + (product.qty || 1);
-      } else {
-        updatedCart.push({
-          ...product,
-          qty: product.qty || 1,
-        });
-      }
-    });
-
-    localStorage.setItem(cartKey, JSON.stringify(updatedCart));
-    navigate("/customer?showCart=true");
-  };
-
-  const handleComplaintSubmit = (payload) => {
-    // update orders state and persist to localStorage for current user
-    setOrders((prev) => {
-      const next = prev.map((o) => {
-        if (o.id === payload.orderId) {
-          const updated = {
-            ...o,
-            previousStatus: o.status || "",
-            status: "KOMPLAIN",
-            complaint: payload,
-            history: [
-              ...(o.history || []),
-              {
-                title: "Laporan Komplain Dikirim",
-                desc: payload.details || payload.reason,
-                date: payload.date,
-              },
-            ],
-          };
-          return updated;
-        }
-        return o;
-      });
-
-      // persist to localStorage for current user
-      try {
-        const currentUser =
-          JSON.parse(localStorage.getItem("currentUser")) || {};
-        if (currentUser?.id) {
-          const key = `orders_${currentUser.id}`;
-          localStorage.setItem(key, JSON.stringify(next));
-        }
-      } catch (e) {
-        console.error(e);
-      }
-
-      return next;
-    });
-
-    setShowComplaint(false);
-  };
-
-  const handleCancelComplaint = (orderId) => {
-    setOrders((prev) => {
-      const next = prev.map((o) => {
-        if (o.id === orderId) {
-          const restored = {
-            ...o,
-            status: o.previousStatus || "SELESAI",
-            previousStatus: undefined,
-            complaint: undefined,
-            history: [
-              ...(o.history || []),
-              {
-                title: "Komplain Dibatalkan",
-                desc: "Pengguna membatalkan laporan komplain.",
-                date: new Date().toISOString(),
-              },
-            ],
-          };
-          return restored;
-        }
-        return o;
-      });
-
-      try {
-        const currentUser =
-          JSON.parse(localStorage.getItem("currentUser")) || {};
-        if (currentUser?.id) {
-          const key = `orders_${currentUser.id}`;
-          localStorage.setItem(key, JSON.stringify(next));
-        }
-      } catch (e) {
-        console.error(e);
-      }
-
-      return next;
-    });
-  };
+  console.log("🔍 Orders page loaded, currentUser:", currentUser);
 
   useEffect(() => {
-    const currentUser = JSON.parse(localStorage.getItem("currentUser")) || {};
-    if (!currentUser?.id) return;
+    const fetchOrders = async () => {
+      if (!currentUser?.id_pengguna) {
+        console.log("⚠️ No user id found, skipping fetch");
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      try {
+        console.log("🔍 Fetching orders for user:", currentUser.id_pengguna);
+        const response = await api.get(
+          `/pesanan/pengguna/${currentUser.id_pengguna}`,
+        );
+        console.log("✅ Orders response:", response.data);
 
-    const orderKey = `orders_${currentUser.id}`;
-    const saved = JSON.parse(localStorage.getItem(orderKey)) || [];
-
-    const staticOrders = ordersData
-      .filter((order) => {
-        const isSameUserId = String(order.userId) === String(currentUser.id);
-        const isSameCustomer =
-          currentUser.name && order.customer === currentUser.name;
-        return isSameUserId || isSameCustomer;
-      })
-      .map((order) => {
-        const product =
-          products.find((item) => item.id === order.productId) || {};
-        return {
+        const formattedOrders = (response.data.data || []).map((order) => ({
           ...order,
-          userId: order.userId || currentUser.id,
-          userName: order.userName || currentUser.name,
-          shippingName: currentUser.name,
-          shippingAddress: order.address,
-          products: [
-            {
-              id: product.id || order.productId,
-              name: product.name || "Produk tidak ditemukan",
-              image: product.image || "",
-              price: product.price || order.total,
-              qty: 1,
-              sellerId: product.sellerId || order.sellerId || null,
-              category: product.category || order.category || "",
-              sellerName: product.store || "Toko",
-            },
-          ],
-        };
-      });
+          id: order.id_pesanan,
+          customer: currentUser.name || "User",
+          userId: currentUser.id_pengguna,
+          total: order.harga_akhir || 0,
+          status: order.status || "Menunggu",
+          date:
+            order.created_at?.split("T")[0] ||
+            new Date().toISOString().split("T")[0],
+          address: order.alamat || "-",
+          products:
+            order.items?.map((item) => ({
+              id: item.id_produk,
+              name: item.nama_produk || "Produk",
+              image: item.url_gambar || "https://via.placeholder.com/100",
+              price: item.harga || 0,
+              qty: item.jumlah || 1,
+              sellerId: item.seller_id || null,
+            })) || [],
+          shippingName: order.nama_penerima || currentUser.name,
+          shippingAddress: order.alamat || "-",
+          paymentMethod: order.metode_pembayaran || "-",
+          paymentStatus: order.status_pembayaran || "belum_bayar",
+          resi: order.nomor_resi || null,
+        }));
 
-    const savedOrderIds = new Set(saved.map((order) => order.id));
-    const mergedOrders = [
-      ...saved,
-      ...staticOrders.filter((order) => !savedOrderIds.has(order.id)),
-    ];
-
-    setOrders(mergedOrders.reverse());
-  }, []);
+        console.log("✅ Formatted orders:", formattedOrders);
+        setOrders(formattedOrders);
+      } catch (error) {
+        console.error("❌ Error fetching orders:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchOrders();
+  }, [currentUser?.id_pengguna]);
 
   const tabs = [
     "Semua",
-    "Menunggu Pembayaran",
+    "Menunggu",
     "Diproses",
     "Dikirim",
     "Selesai",
+    "Dibatalkan",
     "Komplain",
   ];
 
   const filteredOrders = useMemo(() => {
     let data = [...orders];
-
     if (activeTab !== "Semua") {
-      data = data.filter((o) => {
-        const status = (o.status || "").toLowerCase().trim();
-
-        const tab = activeTab.toLowerCase().trim();
-
-        return status === tab;
-      });
+      data = data.filter((o) =>
+        (o.status || "").toLowerCase().includes(activeTab.toLowerCase()),
+      );
     }
     if (search.trim()) {
       data = data.filter((order) =>
-        order.products.some((p) =>
-          p.name.toLowerCase().includes(search.toLowerCase()),
+        order.products?.some((p) =>
+          p.name?.toLowerCase().includes(search.toLowerCase()),
         ),
       );
     }
-
     return data;
   }, [orders, search, activeTab]);
 
   const statusColor = (status) => {
-    switch (status?.toLowerCase()) {
-      case "menunggu pembayaran":
-        return `
-    bg-amber-50
-    text-amber-600
-    border
-    border-amber-200
-  `;
-
-      case "diproses":
-        return `
-    bg-blue-50
-    text-blue-600
-    border
-    border-blue-200
-  `;
-
-      case "dikirim":
-        return "bg-purple-100 text-purple-600";
-
-      case "selesai":
-        return "bg-green-100 text-green-600";
-
-      case "komplain":
-        return "bg-red-100 text-red-600";
-
-      default:
-        return "bg-slate-100 text-slate-500";
-    }
+    const s = status?.toLowerCase() || "";
+    if (s.includes("menunggu"))
+      return "bg-amber-50 text-amber-600 border border-amber-200";
+    if (s.includes("diproses"))
+      return "bg-blue-50 text-blue-600 border border-blue-200";
+    if (s.includes("dikirim")) return "bg-purple-100 text-purple-600";
+    if (s.includes("selesai")) return "bg-green-100 text-green-600";
+    if (s.includes("dibatalkan")) return "bg-red-100 text-red-600";
+    if (s.includes("komplain")) return "bg-pink-100 text-pink-600";
+    return "bg-slate-100 text-slate-500";
   };
 
-  const getSellerIdFromItem = (item) => {
-    if (item?.sellerId) return item.sellerId;
-    const category = (item?.category || "").toLowerCase();
-    if (category.includes("elektronik")) return 5;
-    if (category.includes("fashion")) return 3;
-    if (category.includes("rumah") || category.includes("tangga")) return 4;
-    const sellerName = (item?.sellerName || "").toLowerCase();
-    if (sellerName.includes("tech galaxy")) return 5;
-    if (sellerName.includes("urban wear")) return 3;
-    if (sellerName.includes("home living")) return 4;
-    return null;
+  const handleBuyAgain = (order) => {
+    const cartKey = currentUser?.id_pengguna
+      ? `cart_${currentUser.id_pengguna}`
+      : "cart";
+    const currentCart = JSON.parse(localStorage.getItem(cartKey)) || [];
+    order.products?.forEach((product) => {
+      const existing = currentCart.find((item) => item.id === product.id);
+      if (existing) {
+        existing.qty = (existing.qty || 1) + (product.qty || 1);
+      } else {
+        currentCart.push({ ...product, qty: product.qty || 1 });
+      }
+    });
+    localStorage.setItem(cartKey, JSON.stringify(currentCart));
+    navigate("/customer?showCart=true");
   };
+
+  const handleComplaintSubmit = (payload) => {
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === payload.orderId ? { ...o, status: "Komplain" } : o,
+      ),
+    );
+    setShowComplaint(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#f5f7fb]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-[#f5f7fb] min-h-screen">
-      {/* HEADER */}
-
       <div className="bg-white px-6 py-4 border-b">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -265,40 +161,29 @@ function Orders() {
             >
               <ChevronRight size={16} className="rotate-180" />
             </button>
-
             <h1 className="font-black text-lg uppercase tracking-[1px]">
               Daftar Transaksi
             </h1>
+            <span className="text-sm text-slate-400 ml-2">
+              ({orders.length} pesanan)
+            </span>
           </div>
-
           <div className="w-[280px] relative">
             <Search
               className="absolute left-3 top-2.5 text-slate-400"
               size={16}
             />
-
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Cari transaksi..."
-              className="
-              w-full
-              h-9
-              rounded-lg
-              bg-slate-100
-              pl-10
-              outline-none
-              font-semibold
-              text-sm
-              "
+              className="w-full h-9 rounded-lg bg-slate-100 pl-10 outline-none font-semibold text-sm"
             />
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-6">
-        {/* FILTER */}
-
         <div className="flex gap-3 flex-wrap mb-6">
           {tabs.map((tab) => (
             <button
@@ -315,35 +200,31 @@ function Orders() {
           ))}
         </div>
 
-        {/* EMPTY */}
-
-        {filteredOrders.length === 0 && (
+        {filteredOrders.length === 0 ? (
           <div className="bg-white rounded-2xl p-12 text-center shadow-sm">
             <Package size={64} className="mx-auto text-slate-300 mb-6" />
-
             <h1 className="text-2xl lg:text-3xl font-black">
               Tidak ada transaksi
             </h1>
+            <p className="text-slate-500 mt-2">
+              {orders.length === 0
+                ? "Belum ada pesanan yang dibuat"
+                : "Tidak ada pesanan dengan filter ini"}
+            </p>
+            <button
+              onClick={() => navigate("/customer")}
+              className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700"
+            >
+              Mulai Belanja
+            </button>
           </div>
-        )}
-
-        <div className="flex flex-col gap-8">
-          {filteredOrders.map((order, index) => {
-            const isSimpleCard =
-              order.status?.toLowerCase().includes("menunggu") ||
-              order.status?.toLowerCase().includes("diproses");
-
-            return (
+        ) : (
+          <div className="flex flex-col gap-8">
+            {filteredOrders.map((order) => (
               <div
-                key={index}
-                className={
-                  isSimpleCard
-                    ? "bg-white rounded-3xl border border-slate-200 overflow-hidden"
-                    : "bg-white rounded-2xl overflow-hidden border shadow-sm"
-                }
+                key={order.id}
+                className="bg-white rounded-3xl border border-slate-200 overflow-hidden"
               >
-                {/* TOP */}
-
                 <div className="p-8">
                   <div className="flex justify-between items-start">
                     <div>
@@ -355,14 +236,12 @@ function Orders() {
                           <p className="text-[11px] tracking-widest text-slate-400 font-bold uppercase">
                             BELANJA
                           </p>
-
                           <h2 className="font-black text-base text-slate-900">
-                            {new Date(order.date).toISOString().split("T")[0]}
+                            {order.date}
                           </h2>
                         </div>
                       </div>
                     </div>
-
                     <div className="flex items-center gap-3">
                       <div
                         className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider ${statusColor(order.status)}`}
@@ -370,348 +249,173 @@ function Orders() {
                         <Clock size={12} />
                         {order.status}
                       </div>
-
-                      <p className="text-slate-400 text-sm">#ORD-{order.id}</p>
+                      <p className="text-slate-400 text-sm">#{order.id}</p>
                     </div>
                   </div>
 
                   <div className="mt-6">
-                    <div>
-                      <div className="grid lg:grid-cols-[1fr_220px] bg-slate-50 rounded-2xl overflow-hidden border">
-                        <div className="p-4">
-                          {order.products.map((item) => (
-                            <div
-                              key={item.id}
-                              className="flex items-center gap-4"
-                            >
-                              <img
-                                src={item.image}
-                                alt={item.name}
-                                className="w-16 h-16 rounded-xl object-cover"
-                              />
-
-                              <div className="flex-1 min-w-0">
-                                <h3 className="font-extrabold text-base truncate">
-                                  {item.name}
-                                </h3>
-
-                                <p className="text-slate-500 text-sm">
-                                  barang x Rp{" "}
-                                  {Number(item.price).toLocaleString("id-ID")}
-                                </p>
-                              </div>
-
-                              <button
-                                onClick={() => {
-                                  const sellerId = getSellerIdFromItem(item);
-                                  if (sellerId) {
-                                    navigate(`/customer/chat/${sellerId}`);
-                                  } else {
-                                    navigate("/customer/chat");
-                                  }
-                                }}
-                                className="
-              hidden lg:flex
-              items-center
-              gap-2
-              h-10
-              px-5
-              rounded-full
-              bg-blue-50
-              border
-              border-blue-200
-              text-blue-600
-              font-extrabold
-              text-[11px]
-              tracking-wide
-              uppercase
-              hover:bg-blue-100
-              transition
-            "
-                              >
-                                <MessageSquare size={13} />
-                                CHAT SELLER
-                              </button>
+                    <div className="grid lg:grid-cols-[1fr_220px] bg-slate-50 rounded-2xl overflow-hidden border">
+                      <div className="p-4 space-y-3">
+                        {order.products?.map((item) => (
+                          <div
+                            key={item.id}
+                            className="flex items-center gap-4"
+                          >
+                            <img
+                              src={item.image}
+                              alt={item.name}
+                              className="w-16 h-16 rounded-xl object-cover"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-extrabold text-base truncate">
+                                {item.name}
+                              </h3>
+                              <p className="text-slate-500 text-sm">
+                                x {item.qty}
+                              </p>
                             </div>
-                          ))}
-                        </div>
-
-                        <div className="border-l bg-white px-6 flex flex-col justify-center">
-                          <p className="text-sm text-slate-500">
-                            Total Belanja
-                          </p>
-
-                          <h3 className="text-base font-black text-slate-900 mt-1">
-                            Rp {Number(order.total).toLocaleString("id-ID")}
-                          </h3>
-                        </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="border-l bg-white px-6 flex flex-col justify-center">
+                        <p className="text-sm text-slate-500">Total Belanja</p>
+                        <h3 className="text-base font-black text-slate-900 mt-1">
+                          Rp {Number(order.total).toLocaleString("id-ID")}
+                        </h3>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* FOOTER */}
-
                 <div className="border-t bg-slate-50 px-6 py-5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-6">
-  <button
-    onClick={() => {
-      setSelectedOrder(order);
-      setShowModal(true);
-    }}
-    className="flex items-center gap-2 text-blue-600"
-  >
-    <span className="font-extrabold text-sm tracking-[2px]">
-      LIHAT DETAIL TRANSAKSI
-    </span>
-    <ChevronRight size={16} />
-  </button>
+                  <div className="flex items-center justify-between flex-wrap gap-3">
+                    <div className="flex items-center gap-4 flex-wrap">
+                      <button
+                        onClick={() => {
+                          setSelectedOrder(order);
+                          setShowModal(true);
+                        }}
+                        className="flex items-center gap-2 text-blue-600"
+                      >
+                        <span className="font-extrabold text-sm tracking-[2px]">
+                          LIHAT DETAIL
+                        </span>
+                        <ChevronRight size={16} />
+                      </button>
 
-  {(order.status || "").toLowerCase().includes("selesai") && (
-    <button
-      onClick={() => {
-        setSelectedOrder(order);
-        setShowReview(true);
-      }}
-      className="
-        text-blue-600
-        font-extrabold
-        text-sm
-        tracking-[2px]
-        uppercase
-        flex
-        items-center
-        gap-1
-        hover:text-blue-700
-      "
-    >
-      BERI ULASAN
-      <span className="text-yellow-500">⭐</span>
-    </button>
-  )}
-</div>
+                      {/* 🔥 TOMBOL BATALKAN - HANYA UNTUK STATUS MENUNGGU */}
+                      {(order.status || "").toLowerCase() === "menunggu" && (
+                        <button
+                          onClick={async () => {
+                            if (
+                              window.confirm(
+                                `Yakin ingin membatalkan pesanan #${order.id}?`,
+                              )
+                            ) {
+                              try {
+                                await api.put(`/pesanan/${order.id}/cancel`);
+                                alert("✅ Pesanan berhasil dibatalkan");
+                                // Refresh orders
+                                const response = await api.get(
+                                  `/pesanan/pengguna/${currentUser.id_pengguna}`,
+                                );
+                                const formattedOrders = (
+                                  response.data.data || []
+                                ).map((o) => ({
+                                  ...o,
+                                  id: o.id_pesanan,
+                                  customer: currentUser.name || "User",
+                                  userId: currentUser.id_pengguna,
+                                  total: o.harga_akhir || 0,
+                                  status: o.status || "Menunggu",
+                                  date:
+                                    o.created_at?.split("T")[0] ||
+                                    new Date().toISOString().split("T")[0],
+                                  address: o.alamat || "-",
+                                  products:
+                                    o.items?.map((item) => ({
+                                      id: item.id_produk,
+                                      name: item.nama_produk || "Produk",
+                                      image:
+                                        item.url_gambar ||
+                                        "https://via.placeholder.com/100",
+                                      price: item.harga || 0,
+                                      qty: item.jumlah || 1,
+                                      sellerId: item.seller_id || null,
+                                    })) || [],
+                                  shippingName:
+                                    o.nama_penerima || currentUser.name,
+                                  shippingAddress: o.alamat || "-",
+                                  paymentMethod: o.metode_pembayaran || "-",
+                                  paymentStatus:
+                                    o.status_pembayaran || "belum_bayar",
+                                  resi: o.nomor_resi || null,
+                                }));
+                                setOrders(formattedOrders);
+                              } catch (error) {
+                                console.error(
+                                  "❌ Error canceling order:",
+                                  error,
+                                );
+                                alert(
+                                  error.response?.data?.message ||
+                                    "Gagal membatalkan pesanan",
+                                );
+                              }
+                            }
+                          }}
+                          className="h-11 px-6 rounded-xl bg-red-50 text-red-600 font-extrabold text-xs tracking-wider uppercase hover:bg-red-100"
+                        >
+                          BATALKAN
+                        </button>
+                      )}
 
-                    <div className="flex items-center gap-3">
-                      {(() => {
-                        const st = (order.status || "").toLowerCase();
-
-                        // MENUNGGU PEMBAYARAN: only Lihat Detail (left) and Beli Lagi
-                        if (st.includes("menunggu")) {
-                          return (
-                            <>
-                              <button
-                                onClick={() => handleBuyAgain(order)}
-                                className="
-                                h-11
-                                px-6
-                                rounded-xl
-                                bg-white
-                                border
-                                border-slate-300
-                                text-slate-700
-                                font-extrabold
-                                text-xs
-                                tracking-wider
-                                uppercase
-                                hover:bg-slate-50
-                                transition
-                              "
-                              >
-                                BELI LAGI
-                              </button>
-                            </>
-                          );
-                        }
-
-                        // DIPROSES: same as menunggu (lihat detail + beli lagi)
-                        if (st.includes("diproses")) {
-                          return (
-                            <button
-                              onClick={() => handleBuyAgain(order)}
-                              className="
-                              h-11
-                              px-6
-                              rounded-xl
-                              bg-white
-                              border
-                              border-slate-300
-                              text-slate-700
-                              font-extrabold
-                              text-xs
-                              tracking-wider
-                              uppercase
-                              hover:bg-slate-50
-                              transition
-                            "
-                            >
-                              BELI LAGI
-                            </button>
-                          );
-                        }
-
-                        // DIKIRIM: show Lacak, Beli Lagi
-                        if (st.includes("dikirim")) {
-                          return (
-                            <>
-                              <button
-                                onClick={() => {
-                                  setSelectedOrder(order);
-                                  setShowTracking(true);
-                                }}
-                                className="
-                                h-11
-                                px-6
-                                rounded-xl
-                                bg-blue-600
-                                text-white
-                                font-extrabold
-                                text-xs
-                                tracking-wider
-                                uppercase
-                                shadow-md
-                                hover:bg-blue-700
-                                transition
-                                "
-                              >
-                                LACAK PESANAN
-                              </button>
-                              <button
-                                onClick={() => handleBuyAgain(order)}
-                                className="
-                                h-11
-                                px-6
-                                rounded-xl
-                                bg-white
-                                border
-                                border-slate-300
-                                text-slate-700
-                                font-extrabold
-                                text-xs
-                                tracking-wider
-                                uppercase
-                                hover:bg-slate-50
-                                transition
-                              "
-                              >
-                                BELI LAGI
-                              </button>
-                            </>
-                          );
-                        }
-
-                        // KOMPLAIN: show detail, beri ulasan, komplain, beli lagi, lacak
-                        if (st.includes("komplain")) {
-                          return (
-                            <>
-                              <button
-                                onClick={() => handleCancelComplaint(order.id)}
-                                className="px-4 py-2 rounded-md border font-bold"
-                              >
-                                BATALKAN KOMPLAIN
-                              </button>
-                              <button
-                                onClick={() => handleBuyAgain(order)}
-                                className="
-                                h-11
-                                px-6
-                                rounded-xl
-                                bg-white
-                                border
-                                border-slate-300
-                                text-slate-700
-                                font-extrabold
-                                text-xs
-                                tracking-wider
-                                uppercase
-                                hover:bg-slate-50
-                                transition
-                              "
-                              >
-                                BELI LAGI
-                              </button>
-                            </>
-                          );
-                        }
-
-                        // default: keep previous buttons (komplain, beli lagi, lacak)
-                        return (
-                          <>
-                            <button
-                              onClick={() => {
-                                setSelectedOrder(order);
-                                setShowComplaint(true);
-                              }}
-                              className="
-                            h-11
-                            px-6
-                            rounded-xl
-                            bg-red-50
-                            border
-                            border-red-200
-                            text-red-600
-                            font-extrabold
-                            text-xs
-                            tracking-wider
-                            uppercase
-                            hover:bg-red-100
-                            transition
-                            "
-                            >
-                              KOMPLAIN
-                            </button>
-                            <button
-                              onClick={() => handleBuyAgain(order)}
-                              className="
-                              h-11
-                              px-6
-                              rounded-xl
-                              bg-white
-                              border
-                              border-slate-300
-                              text-slate-700
-                              font-extrabold
-                              text-xs
-                              tracking-wider
-                              uppercase
-                              hover:bg-slate-50
-                              transition
-                            "
-                            >
-                              BELI LAGI
-                            </button>
-                            <button
-                              onClick={() => {
-                                setSelectedOrder(order);
-                                setShowTracking(true);
-                              }}
-                              className="
-                            h-11
-                            px-6
-                            rounded-xl
-                            bg-blue-600
-                            text-white
-                            font-extrabold
-                            text-xs
-                            tracking-wider
-                            uppercase
-                            shadow-md
-                            hover:bg-blue-700
-                            transition
-                            "
-                            >
-                              LACAK PESANAN
-                            </button>
-                          </>
-                        );
-                      })()}
+                      {/* KOMPLAIN - HANYA UNTUK PESANAN SELESAI */}
+                      {(order.status || "")
+                        .toLowerCase()
+                        .includes("selesai") && (
+                        <button
+                          onClick={() => {
+                            setSelectedOrder(order);
+                            setShowComplaint(true);
+                          }}
+                          className="h-11 px-6 rounded-xl bg-pink-50 text-pink-600 font-extrabold text-xs tracking-wider uppercase hover:bg-pink-100"
+                        >
+                          KOMPLAIN
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      {(order.status || "")
+                        .toLowerCase()
+                        .includes("dikirim") && (
+                        <button
+                          onClick={() => {
+                            setSelectedOrder(order);
+                            setShowTracking(true);
+                          }}
+                          className="h-11 px-6 rounded-xl bg-blue-600 text-white font-extrabold text-xs tracking-wider uppercase shadow-md hover:bg-blue-700"
+                        >
+                          LACAK
+                        </button>
+                      )}
+                      {!(order.status || "")
+                        .toLowerCase()
+                        .includes("dibatalkan") && (
+                        <button
+                          onClick={() => handleBuyAgain(order)}
+                          className="h-11 px-6 rounded-xl bg-white border border-slate-300 text-slate-700 font-extrabold text-xs tracking-wider uppercase hover:bg-slate-50"
+                        >
+                          BELI LAGI
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <OrderDetailModal
@@ -744,7 +448,7 @@ function Orders() {
         show={showReview}
         onClose={() => setShowReview(false)}
         order={selectedOrder}
-        onSubmit={(data) => console.log("review", data)}
+        onSubmit={() => {}}
       />
       <ComplaintModal
         show={showComplaint}

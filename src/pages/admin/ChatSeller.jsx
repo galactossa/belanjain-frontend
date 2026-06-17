@@ -1,180 +1,263 @@
-import { Search, Bell, Zap, X, Trash2 } from "lucide-react";
-
+import {
+  Search,
+  Bell,
+  Zap,
+  X,
+  Trash2,
+  Send,
+  MoreVertical,
+  ArrowLeft,
+  Paperclip,
+  Image as ImageIcon,
+  Smile,
+  User,
+} from "lucide-react";
 import { useState, useEffect, useRef } from "react";
-
 import { useNavigate } from "react-router-dom";
-
 import AdminLayout from "../../layouts/AdminLayout";
 import ModalNotifications from "../../components/admin/ModalNotfications";
-import { notifications as defaultNotifications } from "../../data/notifications";
-import { chats as defaultChats } from "../../data/chat";
-import { sellers } from "../../data/sellers";
-import { users } from "../../data/users";
+import api from "../../api/api";
+import EmojiPicker from "emoji-picker-react";
 
 function ChatSeller() {
   const navigate = useNavigate();
-
-  /* ================= SEARCH ================= */
   const [search, setSearch] = useState("");
-
-  /* ================= NOTIFICATION ================= */
   const [showNotif, setShowNotif] = useState(false);
-
   const notifRef = useRef();
+  const [notifications, setNotifications] = useState([]);
+  const unreadCount = notifications.filter((notif) => !notif.read).length;
+  const currentUser = JSON.parse(localStorage.getItem("currentUser")) || {};
+  const [showEmoji, setShowEmoji] = useState(false);
 
-  const [notifications, setNotifications] = useState(() =>
-    defaultNotifications
-      .filter((item) => item.role === "admin")
-      .map((notif) => ({
-        ...notif,
-        time: notif.time || "Baru saja",
-        read: false,
-        message: notif.message || notif.title,
-      })),
-  );
-
-  /* ================= CHAT ================= */
-  const [chats, setChats] = useState(() =>
-    defaultChats
-      .filter((chat) => chat.type === "report")
-      .map((chat) => {
-        let name = "Unknown";
-        let avatar = "?";
-
-        if (chat.customerId) {
-          const customer = users.find((item) => item.id === chat.customerId);
-          name = customer?.name || `Customer ${chat.customerId}`;
-          avatar = customer?.name?.[0] || "C";
-        } else if (chat.sellerId) {
-          const seller = sellers.find((item) => item.id === chat.sellerId);
-          name = seller?.name || `Seller ${chat.sellerId}`;
-          avatar = seller?.name?.[0] || "S";
-        }
-
-        const lastMessage = chat.messages[chat.messages.length - 1];
-
-        return {
-          ...chat,
-          name: name,
-          message: lastMessage?.text || "",
-          date: lastMessage?.time || "",
-          status: lastMessage?.adminId ? "SUDAH DIBACA" : "BELUM DIBACA",
-          avatar: avatar,
-          report: "Report",
-        };
-      }),
-  );
-
-  /* ================= ACTIVE CHAT ================= */
-  const [activeChat, setActiveChat] = useState(chats[0]);
-
-  /* ================= INPUT ================= */
+  const [chats, setChats] = useState([]);
+  const [activeChat, setActiveChat] = useState(null);
   const [inputMessage, setInputMessage] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  /* ================= FILTER ================= */
+  // Fetch chats from API
+  useEffect(() => {
+    const fetchChats = async () => {
+      if (!currentUser?.id_pengguna) {
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      try {
+        // Ambil daftar chat rooms dari API
+        const response = await api.get(
+          `/chat/rooms/${currentUser.id_pengguna}`,
+        );
+        const rooms = response.data.data || [];
+        console.log("📡 Chat rooms:", rooms);
+
+        // Format untuk ditampilkan
+        const formattedChats = rooms.map((room) => ({
+          id: `CHAT-${room.other_user_id}`,
+          other_user_id: room.other_user_id,
+          name: room.other_user_name || "User",
+          message: room.last_message || "Mulai percakapan",
+          date: room.last_message_time
+            ? new Date(room.last_message_time).toLocaleTimeString("id-ID", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : "Baru saja",
+          status: room.unread_count > 0 ? "BELUM DIBACA" : "SUDAH DIBACA",
+          avatar: room.other_user_name?.charAt(0)?.toUpperCase() || "U",
+          messages: [],
+          unread_count: room.unread_count || 0,
+        }));
+
+        setChats(formattedChats);
+
+        // Set active chat ke yang pertama jika ada
+        if (formattedChats.length > 0) {
+          setActiveChat(formattedChats[0]);
+          // Load messages for first chat
+          fetchMessages(formattedChats[0].other_user_id);
+        }
+      } catch (error) {
+        console.error("Error fetching chats:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchChats();
+  }, [currentUser?.id_pengguna]);
+
+  // Fetch messages for a specific chat
+  const fetchMessages = async (otherUserId) => {
+    if (!currentUser?.id_pengguna || !otherUserId) return;
+    try {
+      const response = await api.get(
+        `/chat/history/${currentUser.id_pengguna}/${otherUserId}`,
+      );
+      const messages = response.data.data.data || [];
+      console.log("📡 Messages:", messages);
+
+      // Update chats with messages
+      setChats((prev) =>
+        prev.map((chat) => {
+          if (chat.other_user_id === otherUserId) {
+            return {
+              ...chat,
+              messages: messages.map((msg) => ({
+                senderId: msg.sender_id,
+                text: msg.message,
+                time: msg.created_at
+                  ? new Date(msg.created_at).toLocaleTimeString("id-ID", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })
+                  : "Baru saja",
+                isAdmin: msg.sender_id === currentUser.id_pengguna,
+              })),
+            };
+          }
+          return chat;
+        }),
+      );
+
+      // Update active chat messages
+      setActiveChat((prev) => {
+        if (prev?.other_user_id === otherUserId) {
+          return {
+            ...prev,
+            messages: messages.map((msg) => ({
+              senderId: msg.sender_id,
+              text: msg.message,
+              time: msg.created_at
+                ? new Date(msg.created_at).toLocaleTimeString("id-ID", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : "Baru saja",
+              isAdmin: msg.sender_id === currentUser.id_pengguna,
+            })),
+          };
+        }
+        return prev;
+      });
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+    }
+  };
+
+  // Fetch notifications
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      if (!currentUser?.id_pengguna) return;
+      try {
+        const response = await api.get(
+          `/notifikasi/pengguna/${currentUser.id_pengguna}`,
+        );
+        const data = (response.data.data || []).map((n) => ({
+          ...n,
+          read: n.sudah_dibaca || false,
+          time: n.created_at
+            ? new Date(n.created_at).toLocaleString()
+            : "Baru saja",
+          message: n.pesan || n.judul,
+        }));
+        setNotifications(data);
+      } catch (error) {
+        console.error("Error fetching notifications:", error);
+      }
+    };
+    fetchNotifications();
+  }, [currentUser?.id_pengguna]);
+
   const filteredChats = chats.filter((item) =>
     item.name.toLowerCase().includes(search.toLowerCase()),
   );
 
-  /* ================= SEND CHAT ================= */
   const handleSendMessage = () => {
-    if (!inputMessage.trim()) return;
+    if (!inputMessage.trim() || !activeChat || !currentUser) return;
 
     const newMessage = {
-      sender: "ADMIN",
+      senderId: currentUser.id_pengguna,
       text: inputMessage,
-      time: "Baru saja",
+      time: "Sekarang",
+      isAdmin: true,
     };
 
-    const updatedChats = chats.map((chat) =>
-      chat.id === activeChat.id
-        ? {
+    // Update active chat
+    setActiveChat((prev) => ({
+      ...prev,
+      messages: [...(prev?.messages || []), newMessage],
+    }));
+
+    // Update chats list
+    setChats((prev) =>
+      prev.map((chat) => {
+        if (chat.id === activeChat.id) {
+          return {
             ...chat,
-            messages: [...chat.messages, newMessage],
-          }
-        : chat,
+            messages: [...(chat.messages || []), newMessage],
+            message: inputMessage,
+            date: "Sekarang",
+          };
+        }
+        return chat;
+      }),
     );
 
-    setChats(updatedChats);
-
-    const updatedActive = updatedChats.find(
-      (chat) => chat.id === activeChat.id,
-    );
-
-    setActiveChat(updatedActive);
+    // Kirim ke Socket.io
+    const socket = window.socket;
+    if (socket && socket.connected) {
+      socket.emit("send-message", {
+        sender_id: currentUser.id_pengguna,
+        receiver_id: activeChat.other_user_id,
+        message: inputMessage,
+        sender_name: currentUser.name || "Admin",
+        sender_role: "admin",
+      });
+    }
 
     setInputMessage("");
   };
 
-  /* ================= CLOSE NOTIF ================= */
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      handleSendMessage();
+    }
+  };
+
   useEffect(() => {
     function handleClickOutside(event) {
       if (notifRef.current && !notifRef.current.contains(event.target)) {
         setShowNotif(false);
       }
     }
-
     document.addEventListener("mousedown", handleClickOutside);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  /* ================= NOTIF ================= */
-  const unreadCount = notifications.filter((notif) => !notif.read).length;
-
-  const markAsRead = (id) => {
-    setNotifications(
-      notifications.map((notif) =>
-        notif.id === id
-          ? {
-              ...notif,
-              read: true,
-            }
-          : notif,
-      ),
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+        </div>
+      </AdminLayout>
     );
-  };
+  }
 
-  const deleteNotif = (id) => {
-    setNotifications(notifications.filter((notif) => notif.id !== id));
-  };
-
-  /* ================= CLOSE SESSION ================= */
-  const handleCloseSession = () => {
-    const updatedChats = chats.filter((item) => item.id !== activeChat.id);
-
-    setChats(updatedChats);
-
-    if (updatedChats.length > 0) {
-      setActiveChat(updatedChats[0]);
-    } else {
-      setActiveChat(null);
-    }
-  };
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-[#F8FAFC]">
-        {/* ================= TOPBAR ================= */}
+      <div className="min-h-screen bg-[#F8FAFC] p-6">
         <div className="flex items-center justify-between mb-7">
-          {/* LEFT */}
           <div>
             <h1 className="text-[42px] font-black text-[#071437] leading-none">
               Chat Seller
             </h1>
-
             <p className="text-[#64748B] text-lg font-semibold mt-3">
               Komunikasi langsung dengan seller platform BelanjaIn.
             </p>
           </div>
-
-          {/* RIGHT */}
           <div className="flex items-center gap-3">
-            {/* SEARCH */}
             <div className="bg-white border border-slate-200 shadow-sm h-11 w-[280px] rounded-2xl px-3 flex items-center gap-2">
               <Search size={16} className="text-slate-400" />
-
               <input
                 type="text"
                 value={search}
@@ -183,22 +266,18 @@ function ChatSeller() {
                 className="w-full h-full bg-transparent outline-none px-2 text-slate-700 text-sm"
               />
             </div>
-
-            {/* NOTIFICATION */}
             <div className="relative" ref={notifRef}>
               <button
                 onClick={() => setShowNotif(!showNotif)}
                 className="relative w-11 h-11 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center hover:bg-slate-100 duration-300"
               >
                 <Bell size={16} className="text-slate-600" />
-
                 {unreadCount > 0 && (
                   <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-blue-500 text-white text-[10px] font-black flex items-center justify-center">
                     {unreadCount}
                   </div>
                 )}
               </button>
-
               {showNotif && (
                 <ModalNotifications
                   open={showNotif}
@@ -211,33 +290,26 @@ function ChatSeller() {
           </div>
         </div>
 
-        {/* ================= CHAT CONTAINER ================= */}
         <div className="h-[calc(100vh-220px)] bg-white rounded-[42px] border border-[#E7ECF3] overflow-hidden shadow-sm flex">
-          {/* ================= SIDEBAR ================= */}
+          {/* SIDEBAR CHAT LIST */}
           <div className="w-[430px] border-r border-[#EEF2F7] bg-[#FCFCFD] flex flex-col">
-            {/* TOP */}
             <div className="px-8 pt-8 pb-7 border-b border-[#EEF2F7]">
               <h2 className="text-[34px] font-black text-[#071437]">
                 SESI CHAT
               </h2>
-
-              {/* STATS */}
               <div className="grid grid-cols-3 gap-4 mt-7">
                 <div className="h-[90px] rounded-[24px] bg-[#F1F5F9] flex flex-col items-center justify-center">
                   <p className="text-xs font-black text-[#94A3B8] uppercase">
-                    Masuk
+                    Total
                   </p>
-
                   <h3 className="text-[32px] font-black text-[#071437]">
                     {chats.length}
                   </h3>
                 </div>
-
                 <div className="h-[90px] rounded-[24px] bg-[#FDECEC] flex flex-col items-center justify-center">
                   <p className="text-xs font-black text-red-500 uppercase">
                     Belum
                   </p>
-
                   <h3 className="text-[32px] font-black text-red-500">
                     {
                       chats.filter((item) => item.status === "BELUM DIBACA")
@@ -245,12 +317,10 @@ function ChatSeller() {
                     }
                   </h3>
                 </div>
-
                 <div className="h-[90px] rounded-[24px] bg-[#EAF8EE] flex flex-col items-center justify-center">
                   <p className="text-xs font-black text-green-500 uppercase">
                     Sudah
                   </p>
-
                   <h3 className="text-[32px] font-black text-green-500">
                     {
                       chats.filter((item) => item.status === "SUDAH DIBACA")
@@ -261,12 +331,14 @@ function ChatSeller() {
               </div>
             </div>
 
-            {/* CHAT LIST */}
             <div className="flex-1 overflow-y-auto px-5 py-6 space-y-5">
               {filteredChats.map((item) => (
                 <div
                   key={item.id}
-                  onClick={() => setActiveChat(item)}
+                  onClick={() => {
+                    setActiveChat(item);
+                    fetchMessages(item.other_user_id);
+                  }}
                   className={`rounded-[32px] border p-6 cursor-pointer transition-all ${
                     activeChat?.id === item.id
                       ? "bg-white border-[#E7ECF3] shadow-lg"
@@ -274,28 +346,28 @@ function ChatSeller() {
                   }`}
                 >
                   <div className="flex gap-5">
-                    {/* AVATAR */}
                     <div className="w-[68px] h-[68px] rounded-[24px] bg-[#2563FF] text-white flex items-center justify-center text-2xl font-black">
                       {item.avatar}
                     </div>
-
-                    {/* CONTENT */}
                     <div className="flex-1">
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <h3 className="text-[#071437] text-[18px] font-black uppercase">
                             {item.name}
                           </h3>
-
                           <p className="text-[#64748B] text-[15px] mt-2 font-semibold">
                             {item.message}
                           </p>
                         </div>
-
                         <p className="text-xs text-[#94A3B8] font-black">
                           {item.date}
                         </p>
                       </div>
+                      {item.unread_count > 0 && (
+                        <span className="inline-block mt-2 px-3 py-1 rounded-full bg-red-500 text-white text-[10px] font-bold">
+                          {item.unread_count} baru
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -303,24 +375,16 @@ function ChatSeller() {
             </div>
           </div>
 
-          {/* ================= RIGHT ================= */}
+          {/* CHAT PANEL */}
           <div className="flex-1 flex flex-col">
             {!activeChat ? (
               <div className="flex-1 flex flex-col items-center justify-center">
                 <h2 className="text-[34px] font-black text-[#071437]">
                   PILIH DISKUSI
                 </h2>
-
                 <p className="text-[#94A3B8] text-center font-semibold mt-5">
                   Pilih user di sidebar untuk memulai percakapan.
                 </p>
-
-                <button
-                  onClick={() => navigate("/admin/reports")}
-                  className="mt-10 h-16 px-10 rounded-2xl bg-[#2563FF] text-white font-black tracking-wide shadow-xl"
-                >
-                  LIHAT LIST LAPORAN
-                </button>
               </div>
             ) : (
               <>
@@ -330,54 +394,56 @@ function ChatSeller() {
                     <div className="w-[76px] h-[76px] rounded-[28px] bg-[#2563FF] text-white flex items-center justify-center text-[34px] font-black">
                       {activeChat.avatar}
                     </div>
-
                     <div>
                       <h2 className="text-[32px] font-black text-[#071437] uppercase">
                         {activeChat.name}
                       </h2>
-
                       <p className="text-[#2563FF] text-[15px] font-black uppercase mt-2">
-                        Laporan: {activeChat.report}
+                        {activeChat.status === "BELUM DIBACA"
+                          ? "Baru"
+                          : "Dibaca"}
                       </p>
                     </div>
                   </div>
-
                   <button
-                    onClick={handleCloseSession}
+                    onClick={() => {
+                      setActiveChat(null);
+                    }}
                     className="h-[58px] px-8 rounded-[20px] border border-[#E5E7EB] text-[#94A3B8] font-black hover:bg-slate-50"
                   >
                     TUTUP SESI
                   </button>
                 </div>
 
-                {/* BODY */}
+                {/* MESSAGES */}
                 <div className="flex-1 overflow-y-auto px-10 py-10 space-y-10">
-                  {activeChat.messages.map((msg, index) => (
-                    <div
-                      key={index}
-                      className={`flex ${
-                        msg.sender === "ADMIN" ? "justify-end" : "justify-start"
-                      }`}
-                    >
+                  {activeChat.messages && activeChat.messages.length > 0 ? (
+                    activeChat.messages.map((msg, index) => (
                       <div
-                        className={`max-w-[800px] px-8 py-7 rounded-[34px] shadow-sm ${
-                          msg.sender === "ADMIN"
-                            ? "bg-[#2563FF] text-white rounded-br-md"
-                            : "bg-white border border-[#EEF2F7] text-[#071437] rounded-tl-md"
-                        }`}
+                        key={index}
+                        className={`flex ${msg.isAdmin ? "justify-end" : "justify-start"}`}
                       >
-                        <p className="text-[20px] font-semibold leading-relaxed">
-                          {msg.text}
-                        </p>
-
-                        <p className="text-xs mt-4 opacity-70 font-black">
-                          {msg.time}
-                          {" • "}
-                          {msg.sender}
-                        </p>
+                        <div
+                          className={`max-w-[800px] px-8 py-7 rounded-[34px] shadow-sm ${
+                            msg.isAdmin
+                              ? "bg-[#2563FF] text-white rounded-br-md"
+                              : "bg-white border border-[#EEF2F7] text-[#071437] rounded-tl-md"
+                          }`}
+                        >
+                          <p className="text-[20px] font-semibold leading-relaxed">
+                            {msg.text}
+                          </p>
+                          <p className="text-xs mt-4 opacity-70 font-black">
+                            {msg.time} • {msg.isAdmin ? "Admin" : "User"}
+                          </p>
+                        </div>
                       </div>
+                    ))
+                  ) : (
+                    <div className="text-center text-slate-400 py-10">
+                      Belum ada pesan. Mulai percakapan!
                     </div>
-                  ))}
+                  )}
                 </div>
 
                 {/* INPUT */}
@@ -387,11 +453,27 @@ function ChatSeller() {
                       type="text"
                       value={inputMessage}
                       onChange={(e) => setInputMessage(e.target.value)}
+                      onKeyDown={handleKeyDown}
                       placeholder="Ketik pesan..."
                       className="w-full bg-transparent outline-none text-[#071437]"
                     />
+                    <div className="relative">
+                      <Smile
+                        size={18}
+                        className="text-slate-400 cursor-pointer ml-2"
+                        onClick={() => setShowEmoji(!showEmoji)}
+                      />
+                      {showEmoji && (
+                        <div className="absolute bottom-12 right-0 z-50">
+                          <EmojiPicker
+                            onEmojiClick={(emojiData) =>
+                              setInputMessage((prev) => prev + emojiData.emoji)
+                            }
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
-
                   <button
                     onClick={handleSendMessage}
                     className="w-[70px] h-[70px] rounded-[24px] bg-[#2563FF] text-white flex items-center justify-center shadow-xl"

@@ -17,6 +17,7 @@ import {
 
 import { useState } from "react";
 import logo from "../assets/logo.jpeg";
+import api from "../api/api";
 
 function Register({ setAuthModal }) {
   // ================= ROLE =================
@@ -64,7 +65,7 @@ function Register({ setAuthModal }) {
   };
 
   // ================= REGISTER =================
-  const handleRegister = (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
 
     const { nama, alamat, phone, email, toko, password } = formData;
@@ -82,25 +83,40 @@ function Register({ setAuthModal }) {
     setRegisterError("");
     setLoadingRegister(true);
 
-    localStorage.setItem(
-      "user",
-      JSON.stringify({
-        ...formData,
-        role,
-        category: selectedCategory,
-      }),
-    );
+    try {
+      // 1. Register user
+      const registerData = {
+        nama,
+        email,
+        password,
+        telepon: phone,
+      };
 
-    setSuccess(true);
+      const userResponse = await api.post("/pengguna/register", registerData);
+      const newUser = userResponse.data.data;
 
-    setTimeout(() => {
+      // 2. Jika role penjual, buat toko
+      if (role === "penjual") {
+        await api.post("/toko", {
+          id_pengguna: newUser.id_pengguna,
+          nama_toko: toko,
+          deskripsi: selectedCategory,
+          alamat: alamat,
+        });
+      }
+
+      setSuccess(true);
+
+      setTimeout(() => {
+        setLoadingRegister(false);
+        setSuccess(false);
+        setAuthModal("login");
+      }, 2000);
+    } catch (error) {
       setLoadingRegister(false);
-      setSuccess(false);
-
-      setAuthModal("login");
-    }, 2000);
+      setRegisterError(error.response?.data?.message || "Registrasi gagal");
+    }
   };
-
   // ================= GOOGLE =================
   const handleGoogleRegister = () => {
     setSuccess(true);

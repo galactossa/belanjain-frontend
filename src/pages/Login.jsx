@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { users } from "../data/users";
 import { useNavigate } from "react-router-dom";
+import api from "../api/api";
 import {
   ShoppingBag,
   Store,
@@ -16,24 +16,16 @@ function Login({ setAuthModal }) {
   const navigate = useNavigate();
 
   const [role, setRole] = useState("pembeli");
-
   const [showPassword, setShowPassword] = useState(false);
-
   const [loginSuccess, setLoginSuccess] = useState(false);
-
   const [googleSuccess, setGoogleSuccess] = useState(false);
-
   const [loadingLogin, setLoadingLogin] = useState(false);
-
   const [loginError, setLoginError] = useState("");
-
   const [email, setEmail] = useState("");
-
   const [password, setPassword] = useState("");
 
   // ================= LOGIN =================
-  // ================= LOGIN =================
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setLoginError("");
 
     if (!email || !password) {
@@ -41,49 +33,51 @@ function Login({ setAuthModal }) {
       return;
     }
 
-    const user = users.find(
-      (u) =>
-        u.email.toLowerCase() === email.toLowerCase() &&
-        u.password === password,
-    );
-
-    if (!user) {
-      setLoginError("Email atau password salah");
-      return;
-    }
-
     setLoadingLogin(true);
 
-    // simpan user login
-    localStorage.setItem("currentUser", JSON.stringify(user));
+    try {
+      const response = await api.post("/pengguna/login", {
+        email,
+        password,
+      });
 
-    setLoginSuccess(true);
+      const { token, pengguna } = response.data.data;
 
-    setTimeout(() => {
+      // Simpan token & user
+      localStorage.setItem("token", token);
+      localStorage.setItem("currentUser", JSON.stringify(pengguna));
+
+      setLoginSuccess(true);
+
+      // Trigger event untuk navbar
+      window.dispatchEvent(new Event("storage"));
+
+      setTimeout(() => {
+        setLoadingLogin(false);
+        setLoginSuccess(false);
+        setAuthModal(null);
+
+        // Redirect berdasarkan role
+        if (pengguna.role === "admin") {
+          navigate("/admin");
+        } else if (pengguna.role === "penjual") {
+          navigate("/seller");
+        } else {
+          navigate("/customer");
+        }
+      }, 1500);
+    } catch (error) {
       setLoadingLogin(false);
-      setLoginSuccess(false);
-      setAuthModal(null);
-
-      // redirect berdasarkan role
-      if (user.role === "customer") {
-        navigate("/customer");
-      } else if (user.role === "seller") {
-        navigate("/seller");
-      } else if (user.role === "admin") {
-        navigate("/admin");
-      }
-    }, 1500);
+      setLoginError(error.response?.data?.message || "Login gagal");
+    }
   };
+
   // ================= GOOGLE LOGIN =================
   const handleGoogleLogin = () => {
-    setGoogleSuccess(true);
-
-    setTimeout(() => {
-      setGoogleSuccess(false);
-
-      // CLOSE MODAL
-      setAuthModal(null);
-    }, 2000);
+    // Redirect ke backend Google OAuth
+    window.location.href = `${
+      import.meta.env.VITE_API_URL || "http://localhost:3000/api"
+    }/auth/google`;
   };
 
   return (
@@ -136,7 +130,6 @@ py-5
         </div>
       )}
 
-      
       {/* ================= LOGIN CARD ================= */}
       <div
         className="
@@ -169,9 +162,7 @@ flex-col
 justify-center
 "
         >
-          {/* CONTENT */}
           <div className="flex flex-col">
-            {/* LOGO */}
             <div className="flex items-center gap-3">
               <img src={logo} alt="BelanjIn Logo" className="h-12 w-auto" />
               <h1 className="text-2xl font-black text-white">
@@ -180,7 +171,6 @@ justify-center
               </h1>
             </div>
 
-            {/* TITLE */}
             <div className="mt-14">
               <h2
                 className="
@@ -213,6 +203,7 @@ max-w-[320px]
             </div>
           </div>
         </div>
+
         {/* ================= RIGHT ================= */}
         <div
           className="
@@ -225,7 +216,6 @@ max-w-[320px]
           justify-center
         "
         >
-          {/* CLOSE */}
           <button
             onClick={() => setAuthModal(null)}
             className="
@@ -246,7 +236,6 @@ max-w-[320px]
             <X size={18} />
           </button>
 
-          {/* TITLE */}
           <h1
             className="
             text-[40px]
@@ -260,7 +249,6 @@ max-w-[320px]
 
           <p className="mt-2 text-sm text-slate-500">Masuk sebagai {role}</p>
 
-          {/* ================= SWITCH ================= */}
           <div
             className="
             mt-7
@@ -320,10 +308,9 @@ max-w-[320px]
             </button>
           </div>
 
-          {/* ================= EMAIL ================= */}
           <div className="mt-8">
             <label className="text-sm font-bold text-slate-700">
-              {role === "penjual" ? "Nama Toko" : "Email / Username"}
+              {role === "penjual" ? "Masukkan email" : "Email / Username"}
             </label>
 
             <div
@@ -345,7 +332,7 @@ max-w-[320px]
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder={
                   role === "penjual"
-                    ? "Masukkan nama toko"
+                    ? "Masukkan email"
                     : "Masukkan email atau username"
                 }
                 className="
@@ -358,7 +345,6 @@ max-w-[320px]
             </div>
           </div>
 
-          {/* ================= PASSWORD ================= */}
           <div className="mt-5">
             <div className="flex items-center justify-between">
               <label className="text-sm font-bold text-slate-700">
@@ -419,7 +405,6 @@ max-w-[320px]
             </div>
           </div>
 
-          {/* ================= LOGIN BUTTON ================= */}
           <button
             onClick={handleLogin}
             disabled={loadingLogin}
@@ -451,16 +436,12 @@ max-w-[320px]
             </p>
           )}
 
-          {/* ================= DIVIDER ================= */}
           <div className="flex items-center gap-4 mt-8">
             <div className="flex-1 h-[1px] bg-slate-200" />
-
             <span className="text-xs text-slate-400">ATAU</span>
-
             <div className="flex-1 h-[1px] bg-slate-200" />
           </div>
 
-          {/* ================= GOOGLE ================= */}
           <button
             onClick={handleGoogleLogin}
             className="
@@ -489,7 +470,6 @@ max-w-[320px]
             </span>
           </button>
 
-          {/* ================= REGISTER ================= */}
           <p className="mt-8 text-center text-sm text-slate-500">
             Belum punya akun?
             <button

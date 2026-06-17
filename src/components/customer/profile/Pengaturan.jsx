@@ -126,6 +126,7 @@ function Pengaturan() {
         setPrivacySettings={setPrivacySettings}
         language={language}
         setLanguage={setLanguage}
+        languages={languages}
       />
     </>
   );

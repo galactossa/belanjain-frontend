@@ -1,3 +1,4 @@
+// ================= src/components/home/ProductCard.jsx =================
 import {
   ShoppingCart,
   Heart,
@@ -8,6 +9,7 @@ import {
 } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
+import api from "../../api/api";
 
 function ProductCard({
   item,
@@ -21,26 +23,32 @@ function ProductCard({
 }) {
   const navigate = useNavigate();
 
-  // Validate image URL
+  const fallbackImage = "https://via.placeholder.com/300x200?text=No+Image";
+
   const isValidImageUrl = (url) => {
     return url && typeof url === "string" && url.trim().length > 0;
   };
 
+  const getImageUrl = () => {
+    const url = item.url_gambar || item.image;
+    if (isValidImageUrl(url)) {
+      return url;
+    }
+    return fallbackImage;
+  };
+
   const currentUser = JSON.parse(localStorage.getItem("currentUser"));
-
-  const wishlistKey = currentUser ? `wishlist_${currentUser.id}` : "wishlist";
-
-  const cartKey = currentUser ? `cart_${currentUser.id}` : "cart";
 
   /* =========================
      FORMAT PRICE
   ========================= */
   const formatPrice = (price) => {
+    const validPrice = Number(price || 0);
     return new Intl.NumberFormat("id-ID", {
       style: "currency",
       currency: "IDR",
       maximumFractionDigits: 0,
-    }).format(price);
+    }).format(validPrice);
   };
 
   /* =========================
@@ -49,8 +57,8 @@ function ProductCard({
   const handleDetail = () => {
     navigate(
       isCustomer
-        ? `/customer/product-detail/${item.id}`
-        : `/product-detail/${item.id}`,
+        ? `/customer/product-detail/${item.id_produk || item.id}`
+        : `/product-detail/${item.id_produk || item.id}`,
     );
   };
 
@@ -58,96 +66,74 @@ function ProductCard({
      WISHLIST
   ========================= */
   const handleWishlist = () => {
-    /* JIKA SUDAH LOGIN */
-    if (isCustomer) {
-      const oldWishlist = JSON.parse(localStorage.getItem(wishlistKey)) || [];
+    if (!currentUser) {
+      if (setAuthModal) {
+        setAuthModal("login");
+        return;
+      }
+      navigate("/login");
+      return;
+    }
 
-      const isExist = oldWishlist.find(
-        (wishlistItem) => wishlistItem.id === item.id,
-      );
-
-      if (!isExist) {
-        const updatedWishlist = [...oldWishlist, item];
-
-        localStorage.setItem("wishlist", JSON.stringify(updatedWishlist));
-
+    // Kirim ke API
+    api
+      .post("/wishlist", {
+        id_pengguna: currentUser.id_pengguna,
+        id_produk: item.id_produk || item.id,
+      })
+      .then(() => {
         if (setWishlistItems) {
-          setWishlistItems(updatedWishlist);
+          api
+            .get(`/wishlist/pengguna/${currentUser.id_pengguna}`)
+            .then((res) => setWishlistItems(res.data.data || []));
         }
-      }
-
-      if (setShowWishlist) {
-        setShowWishlist(true);
-      }
-
-      return;
-    }
-
-    /* BELUM LOGIN */
-    if (setAuthModal) {
-      setAuthModal("login");
-      return;
-    }
-
-    navigate("/login");
+        if (setShowWishlist) {
+          setShowWishlist(true);
+        }
+      })
+      .catch((err) => {
+        console.error("Error adding to wishlist:", err);
+        if (err.response?.status === 400) {
+          if (setShowWishlist) {
+            setShowWishlist(true);
+          }
+        }
+      });
   };
 
   /* =========================
      CART
   ========================= */
   const handleCart = () => {
-    /* JIKA SUDAH LOGIN */
-    if (isCustomer) {
-      const oldCart = JSON.parse(localStorage.getItem(cartKey)) || [];
-      const isExist = oldCart.find((cartItem) => cartItem.id === item.id);
-
-      let updatedCart = [];
-
-      /* JIKA SUDAH ADA */
-      if (isExist) {
-        updatedCart = oldCart.map((cartItem) => {
-          if (cartItem.id === item.id) {
-            return {
-              ...cartItem,
-              qty: (cartItem.qty || 1) + 1,
-            };
-          }
-
-          return cartItem;
-        });
-      } else {
-        updatedCart = [
-          ...oldCart,
-          {
-            ...item,
-            qty: 1,
-          },
-        ];
+    if (!currentUser) {
+      if (setAuthModal) {
+        setAuthModal("login");
+        return;
       }
-
-      /* SAVE LOCAL */
-      localStorage.setItem(cartKey, JSON.stringify(updatedCart));
-
-      /* UPDATE STATE */
-      if (setCartItems) {
-        setCartItems(updatedCart);
-      }
-
-      /* OPEN DRAWER */
-      if (setShowCart) {
-        setShowCart(true);
-      }
-
+      navigate("/login");
       return;
     }
 
-    /* BELUM LOGIN */
-    if (setAuthModal) {
-      setAuthModal("login");
-      return;
-    }
-
-    navigate("/login");
+    api
+      .post("/keranjang", {
+        id_pengguna: currentUser.id_pengguna,
+        id_produk: item.id_produk || item.id,
+        jumlah: 1,
+      })
+      .then(() => {
+        if (setCartItems) {
+          api
+            .get(`/keranjang/pengguna/${currentUser.id_pengguna}`)
+            .then((res) => setCartItems(res.data.data.items || []));
+        }
+        if (setShowCart) {
+          setShowCart(true);
+        }
+      })
+      .catch((err) => {
+        console.error("Error adding to cart:", err);
+        alert(err.response?.data?.message || "Gagal menambahkan ke keranjang");
+      });
   };
 
   return (
@@ -181,28 +167,27 @@ function ProductCard({
           ${viewMode === "grid" ? "w-full" : "w-full md:w-[180px]"}
         `}
       >
-        {/* IMAGE */}
-        {isValidImageUrl(item.image) && (
-          <img
-            src={item.image}
-            alt={item.name}
-            onClick={handleDetail}
-            className={`
-              object-cover
-              cursor-pointer
-              transition-transform
-              duration-500
-              group-hover:scale-105
-              ${
-                viewMode === "grid"
-                  ? "w-full h-[170px]"
-                  : "w-full md:w-[180px] h-[220px] md:h-[180px] rounded-2xl"
-              }
-            `}
-          />
-        )}
+        <img
+          src={getImageUrl()}
+          alt={item.nama_produk || item.name || "Product"}
+          onClick={handleDetail}
+          onError={(e) => {
+            e.target.src = fallbackImage;
+          }}
+          className={`
+            object-cover
+            cursor-pointer
+            transition-transform
+            duration-500
+            group-hover:scale-105
+            ${
+              viewMode === "grid"
+                ? "w-full h-[170px]"
+                : "w-full md:w-[180px] h-[220px] md:h-[180px] rounded-2xl"
+            }
+          `}
+        />
 
-        {/* OVERLAY */}
         <div
           className="
             absolute
@@ -213,9 +198,7 @@ function ProductCard({
           "
         />
 
-        {/* BADGES */}
         <div className="absolute top-3 left-3 right-3 flex items-start justify-between gap-2 z-10">
-          {/* LEFT */}
           <div className="flex gap-2 flex-wrap">
             {item.mode === "PREMIUM" && (
               <span
@@ -272,7 +255,6 @@ function ProductCard({
             )}
           </div>
 
-          {/* RIGHT */}
           <span
             className="
               px-3
@@ -294,7 +276,6 @@ function ProductCard({
           </span>
         </div>
 
-        {/* ACTION BUTTON */}
         <div
           className="
             absolute
@@ -309,7 +290,6 @@ function ProductCard({
             z-10
           "
         >
-          {/* DETAIL */}
           <button
             onClick={handleDetail}
             className="
@@ -328,7 +308,6 @@ function ProductCard({
             <Eye size={22} className="text-slate-700" />
           </button>
 
-          {/* WISHLIST */}
           <button
             onClick={handleWishlist}
             className="
@@ -359,7 +338,6 @@ function ProductCard({
 
       {/* CONTENT */}
       <div className="p-3 flex flex-col flex-1 w-full min-w-0">
-        {/* CATEGORY */}
         <div className="flex items-center gap-2 flex-wrap min-w-0">
           <span
             className="
@@ -371,7 +349,7 @@ function ProductCard({
               whitespace-nowrap
             "
           >
-            {item.category}
+            {item.nama_kategori || item.category || "Produk"}
           </span>
 
           <span className="text-slate-300">•</span>
@@ -391,12 +369,11 @@ function ProductCard({
                 truncate
               "
             >
-              {item.store}
+              {item.nama_toko || item.store || "Toko"}
             </span>
           </div>
         </div>
 
-        {/* TITLE */}
         <h3
           onClick={handleDetail}
           className={`
@@ -412,16 +389,15 @@ function ProductCard({
             ${viewMode === "grid" ? "text-[13px] min-h-[48px]" : "text-[14px]"}
           `}
         >
-          {item.name}
+          {item.nama_produk || item.name || "Produk"}
         </h3>
 
-        {/* RATING */}
         <div className="flex items-center gap-1 mt-4">
           {[1, 2, 3, 4, 5].map((star) => (
             <span
               key={star}
               className={`text-[15px] ${
-                star <= Math.round(item.rating)
+                star <= Math.round(item.rata_rating || item.rating || 0)
                   ? "text-yellow-400"
                   : "text-slate-300"
               }`}
@@ -431,11 +407,10 @@ function ProductCard({
           ))}
 
           <span className="text-sm font-bold text-slate-700 ml-1">
-            {item.rating}
+            {item.rata_rating || item.rating || 0}
           </span>
         </div>
 
-        {/* INFO */}
         <div className="flex flex-wrap items-center justify-between mt-5 gap-3">
           <div
             className="
@@ -453,7 +428,7 @@ function ProductCard({
             "
           >
             <ShieldCheck size={13} />
-            {item.trust} TRUST
+            {item.trust || 90} TRUST
           </div>
 
           <div
@@ -470,11 +445,10 @@ function ProductCard({
           >
             <MapPin size={13} className="shrink-0" />
 
-            <span className="truncate">{item.city}</span>
+            <span className="truncate">{item.city || "Indonesia"}</span>
           </div>
         </div>
 
-        {/* PRICE */}
         <div
           className="
             mt-auto
@@ -485,7 +459,6 @@ function ProductCard({
             gap-3
           "
         >
-          {/* PRICE */}
           <div className="flex-1 min-w-0">
             <h4
               className={`
@@ -497,11 +470,10 @@ function ProductCard({
                 ${viewMode === "grid" ? "text-[18px]" : "text-[24px]"}
               `}
             >
-              {formatPrice(item.price)}
+              {formatPrice(item.harga || item.price || 0)}
             </h4>
           </div>
 
-          {/* CART */}
           <button
             onClick={handleCart}
             className="

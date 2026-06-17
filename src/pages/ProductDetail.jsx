@@ -7,15 +7,11 @@ import {
   Share2,
   ThumbsUp,
 } from "lucide-react";
-
-import { sellers } from "../data/sellers";
 import { useParams, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import api from "../api/api";
 import Navbar from "../components/home/Navbar";
 import Footer from "../components/home/Footer";
-import { products } from "../data/products";
-import { reviews } from "../data/reviews";
-import { useState, useEffect } from "react";
-import StoreDetail from "./StoreDetail";
 import Login from "./Login";
 import Register from "./Register";
 import ForgotPassword from "./ForgotPassword";
@@ -25,21 +21,11 @@ function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const localProducts = [];
-
-  Object.keys(localStorage).forEach((key) => {
-    if (key.startsWith("sellerProducts_")) {
-      const sellerProducts = JSON.parse(localStorage.getItem(key)) || [];
-
-      localProducts.push(...sellerProducts);
-    }
-  });
-
-  const allProducts = [...products, ...localProducts];
-
-  const product = allProducts.find((p) => String(p.id) === String(id));
-  const seller = sellers.find((s) => s.id === product?.sellerId);
-
+  const [product, setProduct] = useState(null);
+  const [seller, setSeller] = useState(null);
+  const [productReviews, setProductReviews] = useState([]);
+  const [recommendedProducts, setRecommendedProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState("deskripsi");
   const [authModal, setAuthModal] = useState(null);
@@ -50,14 +36,13 @@ function ProductDetail() {
     minutes: 17,
     seconds: 35,
   });
+
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         let { hours, minutes, seconds } = prev;
-
-        if (seconds > 0) {
-          seconds--;
-        } else if (minutes > 0) {
+        if (seconds > 0) seconds--;
+        else if (minutes > 0) {
           minutes--;
           seconds = 59;
         } else if (hours > 0) {
@@ -65,48 +50,72 @@ function ProductDetail() {
           minutes = 59;
           seconds = 59;
         }
-
-        return {
-          hours,
-          minutes,
-          seconds,
-        };
+        return { hours, minutes, seconds };
       });
     }, 1000);
-
     return () => clearInterval(timer);
   }, []);
-  const produkTokoSama = allProducts.filter(
-    (p) => p.store === product?.store && p.id !== product?.id,
-  );
+
+  // Fetch product
+  useEffect(() => {
+    const fetchProduct = async () => {
+      setLoading(true);
+      try {
+        const response = await api.get(`/produk/${id}`);
+        const prod = response.data.data;
+        setProduct(prod);
+
+        // Fetch seller
+        if (prod.id_toko) {
+          const sellerRes = await api.get(`/toko/${prod.id_toko}`);
+          setSeller(sellerRes.data.data);
+        }
+
+        // Fetch reviews
+        const reviewRes = await api.get(`/ulasan/produk/${id}`);
+        setProductReviews(reviewRes.data.data.ulasan || []);
+
+        // Fetch recommended products
+        const recRes = await api.get("/produk");
+        setRecommendedProducts((recRes.data.data.data || []).slice(0, 5));
+      } catch (error) {
+        console.error("Error fetching product:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProduct();
+  }, [id]);
 
   // Review calculation
-  const productReviews = reviews.filter(
-    (review) => review.productId === product?.id,
-  );
   const totalReviewCount = productReviews.length;
   const averageRating =
     totalReviewCount > 0
-      ? (
-          productReviews.reduce((sum, r) => sum + r.rating, 0) /
-          totalReviewCount
-        ).toFixed(1)
+      ? productReviews.reduce((sum, r) => sum + (r.rating || 0), 0) /
+        totalReviewCount
       : 0;
 
   const ratingSummary = [5, 4, 3, 2, 1].map((star) => ({
     star,
-    count: productReviews.filter((r) => Math.round(r.rating) === star).length,
+    count: productReviews.filter((r) => Math.round(r.rating || 0) === star)
+      .length,
   }));
 
-  if (!product) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        Produk Tidak Ditemukan
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
-  // ================= AUTH SAFE FUNCTION =================
+  if (!product) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <h1 className="text-2xl font-black">Produk Tidak Ditemukan</h1>
+      </div>
+    );
+  }
 
   const handleCart = () => {
     setAuthModal("login");
@@ -132,8 +141,8 @@ function ProductDetail() {
     const url = window.location.href;
     if (navigator.share) {
       await navigator.share({
-        title: product.name,
-        text: product.name,
+        title: product.nama_produk,
+        text: product.nama_produk,
         url,
       });
     } else {
@@ -169,20 +178,20 @@ function ProductDetail() {
           <span>/</span>
           <span>Pencarian</span>
           <span>/</span>
-          <span className="text-slate-700">{product.name}</span>
+          <span className="text-slate-700">{product.nama_produk}</span>
         </div>
 
         {/* GRID */}
         <div className="grid lg:grid-cols-[320px_minmax(0,1fr)_360px] gap-10 items-start">
-          {/* ================= LEFT IMAGE ================= */}
+          {/* LEFT IMAGE */}
           <div className="sticky top-28">
             <div className="border rounded-2xl p-3 shadow-sm">
               <img
-                src={product.image}
+                src={product.url_gambar || "https://via.placeholder.com/400"}
                 className="w-full h-[380px] object-cover rounded-xl"
+                alt={product.nama_produk}
               />
             </div>
-
             <div className="flex gap-2 mt-3">
               {[1, 2, 3].map((i) => (
                 <div
@@ -190,61 +199,56 @@ function ProductDetail() {
                   className="w-16 h-16 border rounded-lg overflow-hidden"
                 >
                   <img
-                    src={product.image}
+                    src={
+                      product.url_gambar || "https://via.placeholder.com/100"
+                    }
                     className="w-full h-full object-cover"
+                    alt=""
                   />
                 </div>
               ))}
             </div>
           </div>
 
-          {/* ================= CENTER INFO ================= */}
+          {/* CENTER INFO */}
           <div>
-            <h1 className="text-2xl font-black leading-snug">{product.name}</h1>
+            <h1 className="text-2xl font-black leading-snug">
+              {product.nama_produk}
+            </h1>
 
             <div className="flex items-center gap-3 text-sm text-slate-500 mt-2">
-              <span>Terjual {product.sold}</span>
-
+              <span>Terjual {product.total_terjual || 0}</span>
               <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-              <span className="font-bold text-black">{product.rating}</span>
-
+              <span className="font-bold text-black">
+                {product.rata_rating || 0}
+              </span>
               <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">
-                Trust {product.trust}%
+                Trust {Math.round(((product.rata_rating || 0) / 5) * 100)}%
               </span>
             </div>
 
-            <h2
-              className="
- text-2xl
- font-black
- text-black
- leading-none
- mt-6
- "
-            >
-              Rp {product.price.toLocaleString("id-ID")}
+            <h2 className="text-2xl font-black text-black leading-none mt-6">
+              Rp {Number(product.harga).toLocaleString("id-ID")}
             </h2>
 
             {/* STORE */}
             <div className="flex items-center justify-between border rounded-xl p-3 mt-6 shadow-sm">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-indigo-600 text-white rounded-full flex items-center justify-center font-bold">
-                  {product.store.charAt(0)}
+                  {seller?.nama_toko?.charAt(0) || "T"}
                 </div>
-
                 <div>
                   <button
                     onClick={() =>
-                      navigate(`/store/${seller?.id || product?.sellerId}`)
+                      navigate(`/store/${seller?.id_toko || product.id_toko}`)
                     }
                     className="font-bold hover:text-indigo-600"
                   >
-                    {product.store}
+                    {seller?.nama_toko || "Toko"}
                   </button>
                   <p className="text-xs text-slate-500">Official Store</p>
                 </div>
               </div>
-
               <button
                 onClick={handleFollow}
                 className="px-5 py-2 rounded-xl font-bold text-sm bg-indigo-600 text-white hover:bg-indigo-700"
@@ -269,7 +273,7 @@ function ProductDetail() {
                     ? "Deskripsi Produk"
                     : tab === "info"
                       ? "Info"
-                      : `Ulasan (${totalReviewCount.toLocaleString("id-ID")})`}
+                      : `Ulasan (${totalReviewCount})`}
                 </button>
               ))}
             </div>
@@ -279,34 +283,27 @@ function ProductDetail() {
               {activeTab === "deskripsi" && (
                 <div className="space-y-2">
                   <p>
-                    <b>Kategori:</b> {product.category}
+                    <b>Kategori:</b> {product.nama_kategori || "-"}
                   </p>
                   <p>
-                    <b>Stok:</b> {product.stock}
+                    <b>Stok:</b> {product.stok || 0}
                   </p>
-                  <p>
-                    <b>Lokasi:</b> {product.city}
+                  <p className="mt-3">
+                    {product.deskripsi || "Tidak ada deskripsi"}
                   </p>
-                  <p className="mt-3">{product.description}</p>
                 </div>
               )}
 
               {activeTab === "info" && (
                 <div className="space-y-3">
                   <div>
-                    <b>Berat/Satuan:</b> {product.beratSatuan}
+                    <b>Berat/Satuan:</b> -
                   </div>
                   <div>
-                    <b>Min. Pembelian:</b> {product.minBeli}
+                    <b>Min. Pembelian:</b> 1 Buah
                   </div>
                   <div>
-                    <b>Kondisi:</b> {product.kondisi}
-                  </div>
-                  <div>
-                    <b>Asuransi:</b> {product.asuransi}
-                  </div>
-                  <div>
-                    <b>Pemesanan Min:</b> {product.pemesananMin}
+                    <b>Kondisi:</b> Baru
                   </div>
                 </div>
               )}
@@ -315,7 +312,6 @@ function ProductDetail() {
                 <div>
                   {totalReviewCount > 0 ? (
                     <div className="space-y-6">
-                      {/* Rating Summary */}
                       <div>
                         <div className="flex items-center gap-4 mb-4">
                           <div className="flex items-center gap-2">
@@ -324,7 +320,7 @@ function ProductDetail() {
                               className="fill-yellow-400 text-yellow-400"
                             />
                             <span className="text-3xl font-black">
-                              {averageRating}
+                              {averageRating.toFixed(1)}
                             </span>
                           </div>
                           <p className="text-slate-500">
@@ -353,57 +349,48 @@ function ProductDetail() {
                         </div>
                       </div>
 
-                      {/* Reviews List - Show 3 */}
                       <div className="space-y-4">
                         {productReviews.slice(0, 3).map((review) => (
                           <div
-                            key={review.id}
+                            key={review.id_ulasan}
                             className="border rounded-xl p-4"
                           >
                             <div className="flex justify-between items-start">
                               <div className="flex-1">
                                 <div className="flex items-center gap-2">
                                   <h4 className="font-semibold text-sm">
-                                    {review.reviewerName}
+                                    {review.pembeli_nama || "User"}
                                   </h4>
-                                  {review.verified && (
-                                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
-                                      ✓
-                                    </span>
-                                  )}
+                                  <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+                                    ✓
+                                  </span>
                                 </div>
                                 <div className="flex gap-1 mt-1">
                                   {[...Array(5)].map((_, i) => (
                                     <Star
                                       key={i}
                                       size={12}
-                                      className={`${
-                                        i < Math.round(review.rating)
+                                      className={
+                                        i < Math.round(review.rating || 0)
                                           ? "fill-yellow-400 text-yellow-400"
                                           : "text-slate-300"
-                                      }`}
+                                      }
                                     />
                                   ))}
                                 </div>
                                 <p className="text-slate-600 mt-2 text-xs">
-                                  {review.comment}
+                                  {review.komentar || "-"}
                                 </p>
                                 <p className="text-slate-400 text-xs mt-2">
-                                  {review.date}
+                                  {review.date || "-"}
                                 </p>
                               </div>
                             </div>
-                            {review.helpful > 0 && (
-                              <div className="mt-2 text-xs text-slate-500">
-                                {review.helpful} orang merasa membantu
-                              </div>
-                            )}
                           </div>
                         ))}
                       </div>
 
-                      {/* See All Reviews Button */}
-                      {totalReviewCount > 0 && (
+                      {totalReviewCount > 3 && (
                         <button
                           type="button"
                           onClick={() => setShowReviewModal(true)}
@@ -421,7 +408,7 @@ function ProductDetail() {
             </div>
           </div>
 
-          {/* ================= RIGHT SIDEBAR ================= */}
+          {/* RIGHT SIDEBAR */}
           <div className="sticky top-28">
             <div className="bg-white border rounded-[24px] p-6 shadow-lg">
               <div className="bg-blue-600 text-white rounded-t-2xl px-5 py-4 -mx-6 -mt-6 mb-5">
@@ -429,7 +416,6 @@ function ProductDetail() {
                   <div>
                     <p className="font-black text-sm">✨ Flash Sale</p>
                   </div>
-
                   <div className="flex items-center gap-1 text-xs">
                     <span className="font-semibold">Berakhir Dalam</span>
                     <div className="bg-white text-blue-600 px-1.5 py-0.5 rounded font-bold text-xs">
@@ -457,11 +443,9 @@ function ProductDetail() {
                   >
                     -
                   </button>
-
                   <div className="w-12 h-10 flex items-center justify-center font-bold">
                     {quantity}
                   </div>
-
                   <button
                     onClick={() => setQuantity(quantity + 1)}
                     className="w-12 h-10 border-l text-blue-600"
@@ -469,108 +453,78 @@ function ProductDetail() {
                     +
                   </button>
                 </div>
-
                 <span className="font-semibold text-slate-600">
-                  Stok Flash Sale : {product.stock}
+                  Stok: {product.stok || 0}
                 </span>
               </div>
+
               <div className="border-t mt-5 pt-4">
                 <div className="text-right">
                   <p className="text-slate-400 line-through font-semibold">
                     Rp{" "}
-                    {(product.price * quantity * 1.2).toLocaleString("id-ID")}
+                    {(Number(product.harga) * quantity * 1.2).toLocaleString(
+                      "id-ID",
+                    )}
                   </p>
                 </div>
-
                 <div className="flex justify-between items-center mt-2">
                   <p className="text-slate-500 font-medium">Subtotal</p>
-
                   <h2 className="text-3xl font-black">
-                    Rp {(product.price * quantity).toLocaleString("id-ID")}
+                    Rp{" "}
+                    {(Number(product.harga) * quantity).toLocaleString("id-ID")}
                   </h2>
                 </div>
               </div>
 
               <button
                 onClick={handleCart}
-                className="
-  w-full
-  h-14
-  bg-blue-600
-  text-white
-  rounded-2xl
-  font-bold
-  mt-5
-  hover:bg-blue-700
-  "
+                className="w-full h-14 bg-blue-600 text-white rounded-2xl font-bold mt-5 hover:bg-blue-700"
               >
-                <ShoppingCart className="inline w-4 h-4 mr-2" />
-                Keranjang
+                <ShoppingCart className="inline w-4 h-4 mr-2" /> Keranjang
               </button>
-
               <button
                 onClick={handleBuyNow}
-                className="
-  w-full
-  h-14
-  border-2
-  border-blue-600
-  text-blue-600
-  rounded-2xl
-  font-bold
-  mt-3
-  hover:bg-blue-50
-  "
+                className="w-full h-14 border-2 border-blue-600 text-blue-600 rounded-2xl font-bold mt-3 hover:bg-blue-50"
               >
                 Beli Langsung
               </button>
 
-              {/* ACTIONS */}
               <div className="grid grid-cols-4 gap-3 mt-5 text-xs text-center text-slate-600">
                 <button
                   onClick={handleChat}
                   className="flex items-center justify-center gap-1"
                 >
-                  <MessageCircle size={18} />
-                  Chat
+                  <MessageCircle size={18} /> Chat
                 </button>
-
                 <button
                   onClick={handleWishlist}
                   className="flex items-center justify-center gap-1"
                 >
-                  <Heart size={18} />
-                  Wishlist
+                  <Heart size={18} /> Wishlist
                 </button>
-
                 <button
                   onClick={handleReport}
                   className="flex items-center justify-center gap-1"
                 >
-                  <Flag size={18} />
-                  Report
+                  <Flag size={18} /> Report
                 </button>
-
                 <button
                   onClick={handleShare}
                   className="flex items-center justify-center gap-1"
                 >
-                  <Share2 size={18} />
-                  Share
+                  <Share2 size={18} /> Share
                 </button>
               </div>
             </div>
           </div>
         </div>
 
-        {/* ================= REKOMENDASI ================= */}
-        {/* ================= REKOMENDASI ================= */}
+        {/* REKOMENDASI */}
         <div className="mt-16">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-black uppercase">
               Rekomendasi Untukmu
             </h2>
-
             <button
               onClick={() => navigate("/")}
               className="text-blue-600 font-bold hover:underline"
@@ -580,66 +534,41 @@ function ProductDetail() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5">
-            {allProducts.slice(0, 5).map((item) => (
+            {recommendedProducts.map((item) => (
               <div
-                key={item.id}
-                onClick={() => navigate(`/product-detail/${item.id}`)}
-                className="
-        bg-white
-        border
-        rounded-3xl
-        overflow-hidden
-        cursor-pointer
-        hover:shadow-xl
-        transition
-        "
+                key={item.id_produk}
+                onClick={() => navigate(`/product-detail/${item.id_produk}`)}
+                className="bg-white border rounded-3xl overflow-hidden cursor-pointer hover:shadow-xl transition"
               >
                 <div className="relative">
                   <img
-                    src={item.image}
-                    alt={item.name}
+                    src={item.url_gambar || "https://via.placeholder.com/300"}
+                    alt={item.nama_produk}
                     className="w-full h-64 object-cover"
                   />
-
-                  <span
-                    className="
-            absolute
-            top-3
-            left-3
-            bg-blue-600
-            text-white
-            text-xs
-            font-bold
-            px-3
-            py-1
-            rounded-full
-            "
-                  >
+                  <span className="absolute top-3 left-3 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full">
                     BARU
                   </span>
                 </div>
-
                 <div className="p-4">
                   <h3 className="font-black text-sm line-clamp-2 min-h-[42px]">
-                    {item.name}
+                    {item.nama_produk}
                   </h3>
-
                   <p className="text-2xl font-black mt-2">
-                    Rp {item.price.toLocaleString("id-ID")}
+                    Rp {Number(item.harga).toLocaleString("id-ID")}
                   </p>
-
                   <div className="flex items-center gap-2 mt-2 text-sm text-slate-500">
                     <div className="flex items-center gap-1">
                       <Star
                         size={14}
                         className="fill-yellow-400 text-yellow-400"
                       />
-                      <span className="font-semibold">{item.rating}</span>
+                      <span className="font-semibold">
+                        {item.rata_rating || 0}
+                      </span>
                     </div>
-
                     <span>•</span>
-
-                    <span>Terjual {item.sold}</span>
+                    <span>Terjual {item.total_terjual || 0}</span>
                   </div>
                 </div>
               </div>
@@ -648,7 +577,7 @@ function ProductDetail() {
         </div>
       </main>
 
-      {/* ================= AUTH MODAL (TIDAK DIUBAH) ================= */}
+      {/* AUTH MODAL */}
       {authModal && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50">
           {authModal === "login" && <Login setAuthModal={setAuthModal} />}

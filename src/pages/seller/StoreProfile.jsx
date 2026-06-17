@@ -1,79 +1,16 @@
+// src/pages/seller/StoreProfile.jsx
+
 import { useState, useEffect, useMemo } from "react";
 import { Camera, Trash2, Save, Bell, Search } from "lucide-react";
-
 import SellerLayout from "../../layouts/SellerLayout";
-import { products } from "../../data/products";
 import ModalNotifications from "../../components/seller/ModalNotifications";
-import { notifications as defaultNotifications } from "../../data/notifications";
+import api from "../../api/api";
 
 function StoreProfile() {
   const [showNotif, setShowNotif] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
-  const [savedProfile, setSavedProfile] = useState(null);
-  const [language, setLanguage] = useState(
-    localStorage.getItem("language") || "en",
-  );
-
-  // Load data once on mount
-  useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("currentUser")) || {};
-    setCurrentUser(user);
-
-    const profile = JSON.parse(localStorage.getItem("storeProfile")) || {};
-    setSavedProfile(profile);
-  }, []);
-
-  const sellerNotifications = useMemo(() => {
-    if (!currentUser?.id) return defaultNotifications;
-    return (
-      JSON.parse(
-        localStorage.getItem(`sellerNotifications_${currentUser.id}`),
-      ) ??
-      defaultNotifications.filter((notif) => notif.sellerId === currentUser.id)
-    );
-  }, [currentUser?.id]);
-
-  const sellerCategory = useMemo(() => {
-    if (!currentUser?.id) return "Umum";
-    return (
-      products.find((product) => product.sellerId === currentUser.id)
-        ?.category || "Umum"
-    );
-  }, [currentUser?.id]);
-
-  const initialStoreData = useMemo(() => {
-    if (!currentUser || !savedProfile) return null;
-    return {
-      storeName:
-        savedProfile.storeName ||
-        currentUser.storeName ||
-        currentUser.name ||
-        "Toko Hamid Jaya",
-      category:
-        savedProfile.category ||
-        currentUser.category ||
-        sellerCategory ||
-        "Elektronik",
-      description:
-        savedProfile.description ||
-        currentUser.description ||
-        "Penyedia produk e-commerce lokal berkualitas tinggi terpilih.",
-      policy:
-        savedProfile.policy ||
-        "Garansi resmi 1 tahun. Pelayanan prima, packing aman, pengiriman jam 15:00 WIB.",
-      address:
-        savedProfile.address ||
-        currentUser.address ||
-        "Jl. Sudirman No.123, Jakarta Pusat",
-      owner:
-        savedProfile.owner ||
-        currentUser.ownerName ||
-        currentUser.name ||
-        "Toko Hamid Jaya",
-      email: savedProfile.email || currentUser.email || "seller@example.com",
-    };
-  }, [currentUser, savedProfile, sellerCategory]);
-
+  const [store, setStore] = useState(null);
   const [banner, setBanner] = useState("");
   const [logo, setLogo] = useState("");
   const [storeData, setStoreData] = useState({
@@ -86,115 +23,190 @@ function StoreProfile() {
     email: "",
   });
 
-  // Initialize store data and media
+  // ================= 🔥 PERBAIKAN: Ambil userId dengan benar =================
+  const getUser = () => {
+    const user = JSON.parse(localStorage.getItem("currentUser")) || {};
+    setCurrentUser(user);
+    return user;
+  };
+
   useEffect(() => {
-    if (!initialStoreData) return;
-    setStoreData(initialStoreData);
-    setBanner(savedProfile?.banner || currentUser?.banner || "");
-    setLogo(savedProfile?.logo || currentUser?.avatar || "");
-  }, [initialStoreData, currentUser, savedProfile]);
+    const fetchStore = async () => {
+      const user = getUser();
 
-  const handleBannerUpload = (e) => {
+      // 🔥 Cek userId
+      const userId = user?.id_pengguna || user?.id;
+
+      if (!userId) {
+        console.error("❌ User ID not found");
+        setLoading(false);
+        return;
+      }
+
+      console.log("🔍 Fetching store for user ID:", userId);
+
+      try {
+        // 🔥 Ambil data toko berdasarkan user ID
+        const response = await api.get(`/toko/user/${userId}`);
+        console.log("✅ Store data:", response.data);
+
+        const storeData = response.data.data;
+        setStore(storeData);
+        setBanner(storeData.banner_toko || "");
+        setLogo(storeData.logo_toko || "");
+
+        // 🔥 Update currentUser dengan id_toko
+        const updatedUser = {
+          ...user,
+          id_toko: storeData.id_toko,
+        };
+        localStorage.setItem("currentUser", JSON.stringify(updatedUser));
+        setCurrentUser(updatedUser);
+
+        setStoreData({
+          storeName: storeData.nama_toko || "",
+          category: storeData.kategori || "",
+          description: storeData.deskripsi || "",
+          policy: storeData.kebijakan || "",
+          address: storeData.alamat || "",
+          owner: user.nama || "",
+          email: user.email || "",
+        });
+      } catch (error) {
+        console.error("❌ Error fetching store:", error);
+        if (error.response?.status === 404) {
+          alert("Anda belum memiliki toko. Silakan buka toko terlebih dahulu.");
+        } else {
+          alert(error.response?.data?.message || "Gagal mengambil data toko");
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStore();
+  }, []);
+
+  const handleBannerUpload = async (e) => {
     const file = e.target.files[0];
-
     if (!file) return;
 
-    const reader = new FileReader();
+    const formData = new FormData();
+    formData.append("banner", file);
 
-    reader.onload = (event) => {
-      setBanner(event.target.result);
-    };
-
-    reader.readAsDataURL(file);
+    try {
+      const response = await api.post(
+        `/toko/${store.id_toko}/upload-banner`,
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        },
+      );
+      setBanner(response.data.data.banner_toko);
+      alert("✅ Banner berhasil diupload!");
+    } catch (error) {
+      console.error("Error uploading banner:", error);
+      alert(error.response?.data?.message || "Gagal upload banner");
+    }
   };
 
-  const handleLogoUpload = (e) => {
+  const handleLogoUpload = async (e) => {
     const file = e.target.files[0];
-
     if (!file) return;
 
-    const reader = new FileReader();
+    const formData = new FormData();
+    formData.append("logo", file);
 
-    reader.onload = (event) => {
-      setLogo(event.target.result);
-    };
-
-    reader.readAsDataURL(file);
+    try {
+      const response = await api.post(
+        `/toko/${store.id_toko}/upload-logo`,
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        },
+      );
+      setLogo(response.data.data.logo_toko);
+      alert("✅ Logo berhasil diupload!");
+    } catch (error) {
+      console.error("Error uploading logo:", error);
+      alert(error.response?.data?.message || "Gagal upload logo");
+    }
   };
 
-  const saveProfile = () => {
-    if (!currentUser) return;
-
-    const nextProfile = {
-      ...storeData,
-      banner,
-      logo,
-    };
-
-    localStorage.setItem("storeProfile", JSON.stringify(nextProfile));
-
-    if (currentUser?.role === "seller") {
-      const updatedUser = {
-        ...currentUser,
-        storeName: nextProfile.storeName,
-        ownerName: nextProfile.owner,
-        email: nextProfile.email,
-        address: nextProfile.address,
-        banner: nextProfile.banner,
-        avatar: nextProfile.logo,
-        description: nextProfile.description,
-      };
-      localStorage.setItem("currentUser", JSON.stringify(updatedUser));
+  // ================= 🔥 PERBAIKAN: Save Profile =================
+  const saveProfile = async () => {
+    if (!store?.id_toko) {
+      alert("Toko tidak ditemukan. Silakan buka toko terlebih dahulu.");
+      return;
     }
 
-    alert("Profil berhasil disimpan");
+    try {
+      // 🔥 Hanya kirim field yang diterima backend
+      const payload = {
+        nama_toko: storeData.storeName,
+        deskripsi: storeData.description,
+        // 🔥 Backend tidak menerima alamat, category, policy, owner, email
+      };
+
+      console.log("📡 Sending update payload:", payload);
+
+      const response = await api.put(`/toko/${store.id_toko}`, payload);
+      console.log("✅ Store updated:", response.data);
+
+      alert("✅ Profil toko berhasil disimpan!");
+
+      // Refresh data
+      const refreshResponse = await api.get(
+        `/toko/user/${currentUser.id_pengguna || currentUser.id}`,
+      );
+      const freshData = refreshResponse.data.data;
+      setStore(freshData);
+      setBanner(freshData.banner_toko || "");
+      setLogo(freshData.logo_toko || "");
+      setStoreData({
+        storeName: freshData.nama_toko || "",
+        category: freshData.kategori || "",
+        description: freshData.deskripsi || "",
+        policy: freshData.kebijakan || "",
+        address: freshData.alamat || "",
+        owner: currentUser?.nama || "",
+        email: currentUser?.email || "",
+      });
+    } catch (error) {
+      console.error("❌ Error saving profile:", error);
+      alert(error.response?.data?.message || "Gagal simpan profil");
+    }
   };
+
+  if (loading) {
+    return (
+      <SellerLayout>
+        <div className="flex items-center justify-center h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+        </div>
+      </SellerLayout>
+    );
+  }
 
   return (
     <SellerLayout>
       <div className="min-h-screen bg-[#f5f7fb] p-6">
-        {/* HEADER */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6 gap-4">
           <div>
             <h1 className="text-[25px] font-black uppercase text-slate-900 leading-none">
               Profil Toko
             </h1>
             <p className="text-xs uppercase tracking-[1.5px] font-black text-slate-400 mt-1.5">
-              Kelola informasi toko dan profil seller anda
+              Kelola informasi toko anda
             </p>
           </div>
-
-          <div className="flex items-center gap-3">
-            <div className="w-full sm:w-[280px] h-11 rounded-2xl bg-white border border-slate-200 px-4 flex items-center gap-3 shadow-sm">
-              <Search size={16} className="text-slate-400" />
-              <input
-                type="text"
-                placeholder="Cari pesanan atau produk..."
-                className="w-full bg-transparent outline-none text-sm text-slate-700"
-              />
-            </div>
-
-            <div className="relative">
-              <button
-                onClick={() => setShowNotif(!showNotif)}
-                className="w-11 h-11 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shadow-sm relative"
-              >
-                <Bell size={18} className="text-slate-500" />
-                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-black flex items-center justify-center">
-                  {sellerNotifications.length}
-                </span>
-              </button>
-              {showNotif && (
-                <ModalNotifications
-                  notifications={sellerNotifications}
-                  onReadAll={() => setShowNotif(false)}
-                />
-              )}
-            </div>
-          </div>
+          <button
+            onClick={saveProfile}
+            className="h-11 px-6 rounded-2xl bg-blue-600 text-white font-black text-sm shadow-xl hover:bg-blue-700"
+          >
+            SIMPAN PERUBAHAN
+          </button>
         </div>
 
-        {/* COVER */}
         <div className="max-w-6xl mx-auto bg-white rounded-[35px] overflow-hidden border border-slate-200 shadow-sm">
           <div className="relative h-[300px] group">
             <img
@@ -205,43 +217,8 @@ function StoreProfile() {
               alt=""
               className="w-full h-full object-cover"
             />
-
-            <div
-              className="
-              absolute
-              inset-0
-              bg-black/30
-              opacity-0
-              group-hover:opacity-100
-              transition-all
-              duration-300
-            "
-            />
-
-            {/* BUTTON BANNER */}
-            <div
-              className="
-              absolute
-              bottom-5
-              right-5
-              flex
-              gap-3
-              z-20
-            "
-            >
-              <label
-                className="
-                h-11
-                px-5
-                rounded-xl
-                bg-white
-                flex
-                items-center
-                font-bold
-                cursor-pointer
-                shadow
-              "
-              >
+            <div className="absolute bottom-5 right-5 flex gap-3 z-20">
+              <label className="h-11 px-5 rounded-xl bg-white flex items-center font-bold cursor-pointer shadow">
                 Ganti Banner
                 <input
                   hidden
@@ -250,85 +227,29 @@ function StoreProfile() {
                   onChange={handleBannerUpload}
                 />
               </label>
-
               {banner && (
                 <button
                   onClick={() => setBanner("")}
-                  className="
-                    h-11
-                    px-5
-                    rounded-xl
-                    bg-red-500
-                    text-white
-                    font-bold
-                    flex
-                    items-center
-                    gap-2
-                  "
+                  className="h-11 px-5 rounded-xl bg-red-500 text-white font-bold flex items-center gap-2"
                 >
-                  <Trash2 size={16} />
-                  Hapus
+                  <Trash2 size={16} /> Hapus
                 </button>
               )}
             </div>
           </div>
 
-          {/* PROFILE */}
           <div className="px-8 pb-8 relative">
-            <div
-              className="
-              relative
-              w-fit
-              -mt-16
-              group
-            "
-            >
+            <div className="relative w-fit -mt-16 group">
               <img
                 src={logo || "https://ui-avatars.com/api/?name=Toko"}
                 alt=""
-                className="
-                  w-32
-                  h-32
-                  rounded-3xl
-                  object-cover
-                  border-[5px]
-                  border-white
-                  bg-white
-                  shadow-lg
-                "
+                className="w-32 h-32 rounded-3xl object-cover border-[5px] border-white bg-white shadow-lg"
               />
-
-              {/* HOVER CAMERA */}
-              <label
-                className="
-                absolute
-                inset-0
-                rounded-3xl
-                bg-black/60
-                opacity-0
-                group-hover:opacity-100
-                transition-all
-                duration-300
-                cursor-pointer
-                flex
-                items-center
-                justify-center
-              "
-              >
+              <label className="absolute inset-0 rounded-3xl bg-black/60 opacity-0 group-hover:opacity-100 duration-300 cursor-pointer flex items-center justify-center">
                 <div className="flex flex-col items-center text-white">
                   <Camera size={26} />
-
-                  <span
-                    className="
-                    text-xs
-                    font-bold
-                    mt-1
-                  "
-                  >
-                    Ubah Foto
-                  </span>
+                  <span className="text-xs font-bold mt-1">Ubah Foto</span>
                 </div>
-
                 <input
                   hidden
                   type="file"
@@ -336,283 +257,96 @@ function StoreProfile() {
                   onChange={handleLogoUpload}
                 />
               </label>
-
-              {logo && (
-                <button
-                  onClick={() => setLogo("")}
-                  className="
-                    absolute
-                    -top-2
-                    -right-2
-                    w-8
-                    h-8
-                    rounded-full
-                    bg-red-500
-                    text-white
-                    font-bold
-                    shadow
-                  "
-                >
-                  ×
-                </button>
-              )}
             </div>
-
             <div className="mt-4">
-              <h1
-                className="
-                text-3xl
-                font-black
-                text-slate-900
-              "
-              >
+              <h1 className="text-3xl font-black text-slate-900">
                 {storeData.storeName}
               </h1>
-
-              <p
-                className="
-                text-blue-600
-                font-bold
-                uppercase
-                mt-1
-              "
-              >
-                {storeData.category}
+              <p className="text-blue-600 font-bold uppercase mt-1">
+                {storeData.category || "Toko"}
               </p>
             </div>
           </div>
         </div>
 
-        {/* CONTENT */}
-        <div
-          className="
-          max-w-6xl
-          mx-auto
-          grid
-          lg:grid-cols-3
-          gap-6
-          mt-8
-        "
-        >
-          {/* LEFT */}
-          <div
-            className="
-            lg:col-span-2
-            bg-white
-            p-7
-            rounded-[35px]
-            border
-            border-slate-200
-            shadow-sm
-          "
-          >
-            <h2
-              className="
-              text-[22px]
-              font-black
-            "
-            >
-              Detail Profil Toko
-            </h2>
-
-            <p
-              className="
-              mt-2
-              text-[11px]
-              uppercase
-              tracking-[3px]
-              font-bold
-              text-slate-400
-            "
-            >
-              Kelola informasi publik dan data branding toko anda
-            </p>
-
+        <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-6 mt-8">
+          <div className="bg-white p-7 rounded-[35px] border border-slate-200 shadow-sm">
+            <h2 className="text-[22px] font-black">Detail Profil Toko</h2>
             <div className="space-y-6 mt-8">
               <div>
                 <label className="block mb-2 text-[11px] font-black uppercase tracking-[2px] text-slate-500">
                   Nama Toko *
                 </label>
-
                 <input
                   type="text"
-                  value={storeData.storeName ?? ""}
+                  value={storeData.storeName}
                   onChange={(e) =>
-                    setStoreData({
-                      ...storeData,
-                      storeName: e.target.value,
-                    })
+                    setStoreData({ ...storeData, storeName: e.target.value })
                   }
                   className="w-full h-14 rounded-2xl border border-slate-200 px-5"
                 />
               </div>
-
               <div>
                 <label className="block mb-2 text-[11px] font-black uppercase tracking-[2px] text-slate-500">
-                  Kategori Utama *
+                  Deskripsi Toko
                 </label>
-
-                <input
-                  type="text"
-                  value={storeData.category ?? ""}
-                  onChange={(e) =>
-                    setStoreData({
-                      ...storeData,
-                      category: e.target.value,
-                    })
-                  }
-                  className="w-full h-14 rounded-2xl border border-slate-200 px-5"
-                />
-              </div>
-
-              <div>
-                <label className="block mb-2 text-[11px] font-black uppercase tracking-[2px] text-slate-500">
-                  Deskripsi Ringkas Toko
-                </label>
-
                 <textarea
                   rows={4}
-                  value={storeData.description ?? ""}
+                  value={storeData.description}
                   onChange={(e) =>
-                    setStoreData({
-                      ...storeData,
-                      description: e.target.value,
-                    })
+                    setStoreData({ ...storeData, description: e.target.value })
                   }
                   className="w-full rounded-2xl border border-slate-200 p-5"
                 />
               </div>
-
-              <div>
-                <label className="block mb-2 text-[11px] font-black uppercase tracking-[2px] text-slate-500">
-                  Kebijakan Toko
-                </label>
-
-                <textarea
-                  rows={3}
-                  value={storeData.policy ?? ""}
-                  onChange={(e) =>
-                    setStoreData({
-                      ...storeData,
-                      policy: e.target.value,
-                    })
-                  }
-                  className="w-full rounded-2xl border border-slate-200 p-5"
-                />
-              </div>
-
               <div>
                 <label className="block mb-2 text-[11px] font-black uppercase tracking-[2px] text-slate-500">
                   Alamat Asal Pengiriman *
                 </label>
-
                 <input
                   type="text"
-                  value={storeData.address ?? ""}
+                  value={storeData.address}
                   onChange={(e) =>
-                    setStoreData({
-                      ...storeData,
-                      address: e.target.value,
-                    })
+                    setStoreData({ ...storeData, address: e.target.value })
                   }
                   className="w-full h-14 rounded-2xl border border-slate-200 px-5"
                 />
+                <p className="text-xs text-slate-400 mt-2">
+                  ⚠️ Alamat belum tersimpan di database. Akan ditambahkan nanti.
+                </p>
               </div>
-
-              <button
-                onClick={saveProfile}
-                className="
-                  w-full
-                  h-14
-                  rounded-2xl
-                  bg-blue-600
-                  text-white
-                  font-black
-                  tracking-wider
-                  shadow-lg
-                "
-              >
-                SIMPAN PROFIL TOKO & BRANDING
-              </button>
             </div>
           </div>
 
-          {/* RIGHT */}
-          <div
-            className="
-            bg-white
-            p-7
-            rounded-[35px]
-            border
-            border-slate-200
-            shadow-sm
-            h-fit
-          "
-          >
+          <div className="bg-white p-7 rounded-[35px] border border-slate-200 shadow-sm">
             <h2 className="text-[22px] font-black">Kepemilikan Pribadi</h2>
-
-            <p
-              className="
-              mt-2
-              text-[11px]
-              uppercase
-              tracking-[3px]
-              font-bold
-              text-slate-400
-            "
-            >
-              Ubah nama dan email pemilik akun merchant
-            </p>
-
             <div className="space-y-6 mt-8">
               <div>
                 <label className="block mb-2 text-[11px] font-black uppercase tracking-[2px] text-slate-500">
                   Nama Pemilik *
                 </label>
-
                 <input
                   type="text"
-                  value={storeData.owner ?? ""}
+                  value={storeData.owner}
                   onChange={(e) =>
-                    setStoreData({
-                      ...storeData,
-                      owner: e.target.value,
-                    })
+                    setStoreData({ ...storeData, owner: e.target.value })
                   }
                   className="w-full h-14 rounded-2xl border border-slate-200 px-5"
                 />
               </div>
-
               <div>
                 <label className="block mb-2 text-[11px] font-black uppercase tracking-[2px] text-slate-500">
                   Email Pemilik *
                 </label>
-
                 <input
                   type="email"
-                  value={storeData.email ?? ""}
+                  value={storeData.email}
                   onChange={(e) =>
-                    setStoreData({
-                      ...storeData,
-                      email: e.target.value,
-                    })
+                    setStoreData({ ...storeData, email: e.target.value })
                   }
                   className="w-full h-14 rounded-2xl border border-slate-200 px-5"
                 />
               </div>
-
-              <button
-                onClick={saveProfile}
-                className="
-                  w-full
-                  h-14
-                  rounded-2xl
-                  bg-slate-100
-                  font-black
-                "
-              >
-                SIMPAN PROFIL PRIBADI
-              </button>
             </div>
           </div>
         </div>

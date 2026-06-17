@@ -1,22 +1,12 @@
+// ================= src/components/home/SidebarFilter.jsx =================
 import { BadgeDollarSign, ShieldCheck, Star, RotateCcw } from "lucide-react";
 
 function SidebarFilter({ filters, setFilters }) {
-  /* =========================
-     BRANDS
-  ========================= */
   const brands = ["Apple", "Samsung", "Sony", "Logitech", "Nike", "Adidas"];
-
-  /* =========================
-     RATINGS
-  ========================= */
   const ratings = [5, 4, 3, 2, 1];
 
-  /* =========================
-     HANDLE BRAND
-  ========================= */
   const handleBrandChange = (brand) => {
     const alreadySelected = filters.brands.includes(brand);
-
     if (alreadySelected) {
       setFilters({
         ...filters,
@@ -28,14 +18,11 @@ function SidebarFilter({ filters, setFilters }) {
         brands: [...filters.brands, brand],
       });
     }
+    console.log("🔍 Brands filter updated:", filters.brands);
   };
 
-  /* =========================
-     HANDLE RATING
-  ========================= */
   const handleRatingChange = (rating) => {
     const alreadySelected = filters.ratings.includes(rating);
-
     if (alreadySelected) {
       setFilters({
         ...filters,
@@ -47,11 +34,9 @@ function SidebarFilter({ filters, setFilters }) {
         ratings: [...filters.ratings, rating],
       });
     }
+    console.log("🔍 Ratings filter updated:", filters.ratings);
   };
 
-  /* =========================
-     RESET FILTER
-  ========================= */
   const handleReset = () => {
     setFilters({
       minPrice: 0,
@@ -59,235 +44,99 @@ function SidebarFilter({ filters, setFilters }) {
       brands: [],
       ratings: [],
     });
+    console.log("🔍 Filters reset");
   };
 
   return (
     <div className="space-y-6">
-      {/* ================= PRICE ================= */}
-      <div
-        className="
-        bg-white
-        rounded-[30px]
-        p-6
-        shadow-sm
-        border
-        border-slate-200
-      "
-      >
-        {/* TITLE */}
+      {/* PRICE */}
+      <div className="bg-white rounded-[30px] p-6 shadow-sm border border-slate-200">
         <div className="flex items-center gap-2 mb-6">
           <BadgeDollarSign size={16} className="text-blue-600" />
-
-          <h2
-            className="
-            font-black
-            uppercase
-            tracking-[1px]
-            text-[15px]
-          "
-          >
+          <h2 className="font-black uppercase tracking-[1px] text-[15px]">
             Harga
           </h2>
         </div>
-
-        {/* INPUTS */}
         <div className="space-y-5">
-          {/* MIN */}
           <div>
-            <p
-              className="
-              text-[10px]
-              uppercase
-              tracking-[2px]
-              text-slate-400
-              font-black
-              mb-2
-            "
-            >
+            <p className="text-[10px] uppercase tracking-[2px] text-slate-400 font-black mb-2">
               Minimum
             </p>
-
             <input
               type="text"
               value={filters.minPrice.toLocaleString("id-ID")}
               onChange={(e) => {
                 const numValue = Number(e.target.value.replace(/\D/g, ""));
-                setFilters({
-                  ...filters,
-                  minPrice: numValue || 0,
-                });
+                setFilters({ ...filters, minPrice: numValue || 0 });
               }}
               placeholder="Rp 0"
-              className="
-              w-full
-              h-12
-              rounded-2xl
-              bg-slate-100
-              border
-              border-slate-200
-              px-4
-              outline-none
-              text-sm
-              font-bold
-              focus:border-blue-500
-            "
+              className="w-full h-12 rounded-2xl bg-slate-100 border border-slate-200 px-4 outline-none text-sm font-bold focus:border-blue-500"
             />
           </div>
-
-          {/* MAX */}
           <div>
-            <p
-              className="
-              text-[10px]
-              uppercase
-              tracking-[2px]
-              text-slate-400
-              font-black
-              mb-2
-            "
-            >
+            <p className="text-[10px] uppercase tracking-[2px] text-slate-400 font-black mb-2">
               Maksimum
             </p>
-
             <input
               type="text"
               value={filters.maxPrice.toLocaleString("id-ID")}
               onChange={(e) => {
                 const numValue = Number(e.target.value.replace(/\D/g, ""));
-                setFilters({
-                  ...filters,
-                  maxPrice: numValue || 0,
-                });
+                setFilters({ ...filters, maxPrice: numValue || 0 });
               }}
               placeholder="Rp 5.000.000"
-              className="
-              w-full
-              h-12
-              rounded-2xl
-              bg-slate-100
-              border
-              border-slate-200
-              px-4
-              outline-none
-              text-sm
-              font-bold
-              focus:border-blue-500
-            "
+              className="w-full h-12 rounded-2xl bg-slate-100 border border-slate-200 px-4 outline-none text-sm font-bold focus:border-blue-500"
             />
           </div>
         </div>
       </div>
 
-      {/* ================= BRAND ================= */}
-      <div
-        className="
-        bg-white
-        rounded-[30px]
-        p-6
-        shadow-sm
-        border
-        border-slate-200
-      "
-      >
-        {/* TITLE */}
+      {/* BRAND */}
+      <div className="bg-white rounded-[30px] p-6 shadow-sm border border-slate-200">
         <div className="flex items-center gap-2 mb-6">
           <ShieldCheck size={16} className="text-blue-600" />
-
-          <h2
-            className="
-            font-black
-            uppercase
-            tracking-[1px]
-            text-[15px]
-          "
-          >
+          <h2 className="font-black uppercase tracking-[1px] text-[15px]">
             Merek Populer
           </h2>
         </div>
-
-        {/* LIST */}
         <div className="space-y-4">
           {brands.map((brand) => (
             <label
               key={brand}
-              className="
-              flex
-              items-center
-              gap-3
-              cursor-pointer
-              text-slate-700
-              font-semibold
-              text-sm
-            "
+              className="flex items-center gap-3 cursor-pointer text-slate-700 font-semibold text-sm"
             >
               <input
                 type="checkbox"
                 checked={filters.brands.includes(brand)}
                 onChange={() => handleBrandChange(brand)}
-                className="
-                w-4
-                h-4
-                accent-blue-600
-              "
+                className="w-4 h-4 accent-blue-600"
               />
-
               {brand}
             </label>
           ))}
         </div>
       </div>
 
-      {/* ================= RATING ================= */}
-      <div
-        className="
-        bg-white
-        rounded-[30px]
-        p-6
-        shadow-sm
-        border
-        border-slate-200
-      "
-      >
-        {/* TITLE */}
+      {/* RATING */}
+      <div className="bg-white rounded-[30px] p-6 shadow-sm border border-slate-200">
         <div className="flex items-center gap-2 mb-6">
           <Star size={16} className="text-blue-600" />
-
-          <h2
-            className="
-            font-black
-            uppercase
-            tracking-[1px]
-            text-[15px]
-          "
-          >
+          <h2 className="font-black uppercase tracking-[1px] text-[15px]">
             Rating
           </h2>
         </div>
-
-        {/* LIST */}
         <div className="space-y-4">
           {ratings.map((rating) => (
             <label
               key={rating}
-              className="
-              flex
-              items-center
-              gap-3
-              cursor-pointer
-            "
+              className="flex items-center gap-3 cursor-pointer"
             >
               <input
                 type="checkbox"
                 checked={filters.ratings.includes(rating)}
                 onChange={() => handleRatingChange(rating)}
-                className="
-                w-4
-                h-4
-                accent-yellow-500
-              "
+                className="w-4 h-4 accent-yellow-500"
               />
-
-              {/* STARS */}
               <div className="flex items-center gap-[2px]">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <Star
@@ -300,16 +149,7 @@ function SidebarFilter({ filters, setFilters }) {
                   />
                 ))}
               </div>
-
-              <span
-                className="
-                text-[10px]
-                font-black
-                uppercase
-                tracking-[1px]
-                text-slate-400
-              "
-              >
+              <span className="text-[10px] font-black uppercase tracking-[1px] text-slate-400">
                 Ke Atas
               </span>
             </label>
@@ -317,29 +157,12 @@ function SidebarFilter({ filters, setFilters }) {
         </div>
       </div>
 
-      {/* ================= RESET ================= */}
+      {/* RESET */}
       <button
         onClick={handleReset}
-        className="
-        w-full
-        h-14
-        rounded-2xl
-        bg-slate-100
-        hover:bg-red-500
-        hover:text-white
-        duration-300
-        font-black
-        uppercase
-        tracking-[1px]
-        text-sm
-        flex
-        items-center
-        justify-center
-        gap-2
-      "
+        className="w-full h-14 rounded-2xl bg-slate-100 hover:bg-red-500 hover:text-white duration-300 font-black uppercase tracking-[1px] text-sm flex items-center justify-center gap-2"
       >
-        <RotateCcw size={16} />
-        Reset Filter
+        <RotateCcw size={16} /> Reset Filter
       </button>
     </div>
   );

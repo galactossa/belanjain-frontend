@@ -1,41 +1,99 @@
-/* ================= IMPORT ================= */
-import { Search, Bell, ChevronDown, Download, Trash2 } from "lucide-react";
-
+import { Search, Bell, ChevronDown, Download, Trash2, Eye } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
-
 import AdminLayout from "../../layouts/AdminLayout";
 import ModalNotfications from "../../components/admin/ModalNotfications";
-import { orders } from "../../data/orders";
-import { notifications as defaultNotifications } from "../../data/notifications";
+import api from "../../api/api";
 
 function Transactions() {
-  /* ================= TRANSACTIONS ================= */
-  const [transactions] = useState(orders);
-
-  /* ================= SEARCH ================= */
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-
-  const [filteredTransactions, setFilteredTransactions] =
-    useState(transactions);
-
-  /* ================= NOTIFICATION ================= */
+  const [filteredTransactions, setFilteredTransactions] = useState([]);
   const [showNotif, setShowNotif] = useState(false);
   const [showDownloadMenu, setShowDownloadMenu] = useState(false);
-
   const notifRef = useRef();
   const downloadRef = useRef();
+  const [notifications, setNotifications] = useState([]);
+  const unreadCount = notifications.filter((notif) => !notif.read).length;
 
-  const [notifications, setNotifications] = useState(() =>
-    defaultNotifications
-      .filter((item) => item.role === "admin")
-      .map((item) => ({
-        ...item,
-        time: "Baru saja",
-        read: false,
-      })),
-  );
+  // Fetch notifications
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const response = await api.get("/notifikasi");
+        const data = (response.data.data || []).map((n) => ({
+          ...n,
+          read: n.sudah_dibaca || false,
+          time: n.created_at
+            ? new Date(n.created_at).toLocaleString()
+            : "Baru saja",
+          message: n.pesan || n.judul,
+        }));
+        setNotifications(data);
+      } catch (error) {
+        console.warn("⚠️ Notifikasi belum tersedia:", error.message);
+        setNotifications([]);
+      }
+    };
+    fetchNotifications();
+  }, []);
 
-  /* ================= CLOSE NOTIF ================= */
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        // 1. Coba ambil transaksi
+        let transData = [];
+        try {
+          const response = await api.get("/transaksi");
+          console.log("📊 Transactions response:", response.data);
+          transData = response.data.data.data || [];
+        } catch (transError) {
+          console.warn("⚠️ Transaksi API error:", transError.message);
+        }
+
+        // 2. Jika kosong, ambil dari pesanan yang sudah selesai
+        if (transData.length === 0) {
+          console.log("📊 No transactions, fetching completed orders...");
+          const ordersResponse = await api.get("/pesanan");
+          console.log("📊 Orders response:", ordersResponse.data);
+
+          const allOrders = ordersResponse.data.data || [];
+
+          const completedOrders = allOrders.filter(
+            (o) =>
+              o.status_pembayaran === "sukses" ||
+              o.status === "diproses" ||
+              o.status === "selesai",
+          );
+
+          console.log("📊 Completed orders:", completedOrders.length);
+
+          transData = completedOrders.map((o) => ({
+            id_transaksi: o.id_pesanan || o.id_pesanan,
+            id_pesanan: o.id_pesanan,
+            metode_pembayaran: o.metode_pembayaran || "Transfer",
+            jumlah_dibayar: o.harga_akhir || o.total_harga || 0,
+            status_pembayaran: o.status_pembayaran || "sukses",
+            pembeli_nama: o.nama_penerima || "-",
+            pembeli_email: o.email || "-",
+            created_at: o.created_at,
+            updated_at: o.updated_at,
+          }));
+        }
+
+        setTransactions(transData);
+        setFilteredTransactions(transData);
+      } catch (error) {
+        console.error("❌ Error fetching data:", error);
+        console.error("❌ Error response:", error.response?.data);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
   useEffect(() => {
     function handleClickOutside(event) {
       if (notifRef.current && !notifRef.current.contains(event.target)) {
@@ -45,152 +103,108 @@ function Transactions() {
         setShowDownloadMenu(false);
       }
     }
-
     document.addEventListener("mousedown", handleClickOutside);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  /* ================= SEARCH FILTER ================= */
   useEffect(() => {
     const result = transactions.filter(
       (item) =>
-        item.customer.toLowerCase().includes(search.toLowerCase()) ||
-        item.id.toLowerCase().includes(search.toLowerCase()),
+        (item.id_pesanan?.toString() || "")
+          .toLowerCase()
+          .includes(search.toLowerCase()) ||
+        (item.pembeli_nama || "")
+          .toLowerCase()
+          .includes(search.toLowerCase()) ||
+        (item.pembeli_email || "").toLowerCase().includes(search.toLowerCase()),
     );
-
     setFilteredTransactions(result);
   }, [search, transactions]);
-
-  /* ================= NOTIF FUNCTION ================= */
-  const unreadCount = notifications.filter((notif) => !notif.read).length;
-
-  const markAsRead = (id) => {
-    setNotifications(
-      notifications.map((notif) =>
-        notif.id === id
-          ? {
-              ...notif,
-              read: true,
-            }
-          : notif,
-      ),
-    );
-  };
-
-  const deleteNotif = (id) => {
-    setNotifications(notifications.filter((notif) => notif.id !== id));
-  };
-
-  const markAllRead = () => {
-    setNotifications(
-      notifications.map((notif) => ({
-        ...notif,
-        read: true,
-      })),
-    );
-  };
 
   const formatCurrency = (value) =>
     new Intl.NumberFormat("id-ID", {
       style: "currency",
       currency: "IDR",
       maximumFractionDigits: 0,
-    }).format(value);
+    }).format(value || 0);
 
   const getStatusColor = (status) => {
-    if (status.includes("MENUNGGU")) return "bg-amber-100 text-amber-700";
-    if (status.includes("DIPROSES") || status.includes("DIKIRIM"))
-      return "bg-sky-100 text-sky-700";
-    if (status.includes("SELESAI")) return "bg-emerald-100 text-emerald-700";
+    const s = status?.toLowerCase() || "";
+    if (s.includes("menunggu")) return "bg-amber-100 text-amber-700";
+    if (s.includes("sukses") || s.includes("lunas"))
+      return "bg-emerald-100 text-emerald-700";
+    if (s.includes("gagal") || s.includes("batal"))
+      return "bg-red-100 text-red-700";
     return "bg-slate-100 text-slate-700";
   };
 
-  const getStatusLabel = (status) => {
-    if (status.includes("MENUNGGU")) return "MENUNGGU";
-    return status;
+  const getStatusBadge = (status) => {
+    const s = status?.toLowerCase() || "";
+    if (s.includes("sukses") || s.includes("lunas")) return "✅ LUNAS";
+    if (s.includes("menunggu")) return "⏳ MENUNGGU";
+    if (s.includes("gagal") || s.includes("batal")) return "❌ GAGAL";
+    return "🔄 PROSES";
   };
 
-  /* ================= DOWNLOAD EXCEL ================= */
   const downloadExcel = () => {
-    const content =
-      "ID,Pelanggan,Total,Tanggal,Status\n" +
-      transactions
-        .map(
-          (item) =>
-            `${item.id},${item.customer},${item.total},${item.date},${item.status}`,
-        )
-        .join("\n");
-
-    const blob = new Blob([content], {
-      type: "text/csv",
-    });
-
-    const link = document.createElement("a");
-
-    link.href = URL.createObjectURL(blob);
-
-    link.download = "laporan-transaksi.csv";
-
-    link.click();
-  };
-
-  /* ================= DOWNLOAD PDF ================= */
-  const downloadPDF = () => {
-    const content = transactions
+    const headers = "ID Pesanan,Pelanggan,Email,Total,Tanggal,Status\n";
+    const rows = filteredTransactions
       .map(
         (item) =>
-          `ID: ${item.id}
-Pelanggan: ${item.customer}
-Total: ${item.total}
-Tanggal: ${item.date}
-Status: ${item.status}
-
-`,
+          `${item.id_pesanan},${item.pembeli_nama || "-"},${item.pembeli_email || "-"},${item.jumlah_dibayar || 0},${formatDate(item.created_at)},${item.status_pembayaran || "Menunggu"}`,
       )
-      .join("");
-
-    const blob = new Blob([content], {
-      type: "application/pdf",
-    });
-
+      .join("\n");
+    const blob = new Blob([headers + rows], { type: "text/csv" });
     const link = document.createElement("a");
-
     link.href = URL.createObjectURL(blob);
-
-    link.download = "laporan-transaksi.pdf";
-
+    link.download = "laporan-transaksi.csv";
     link.click();
   };
+
+  const formatDate = (date) => {
+    if (!date) return "-";
+    const d = new Date(date);
+    return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+  };
+
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
       <div className="min-h-screen bg-[#f6f8fc] p-8">
-        <div className="flex flex-col gap-8 xl:flex-row xl:items-center xl:justify-between">
+        {/* HEADER */}
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-[28px] leading-tight font-black text-slate-900">
+            <h1 className="text-[28px] font-black text-slate-900 leading-tight">
               Seluruh Transaksi
             </h1>
-            <p className="text-slate-500 mt-2 text-sm max-w-xl">
-              Riwayat transaksi pembelian dan pengiriman di platform BelanjaIn.
+            <p className="text-slate-500 mt-1 text-sm">
+              Riwayat semua transaksi pembelian di platform BelanjaIn
             </p>
+            {transactions.length === 0 && (
+              <p className="text-yellow-600 text-sm mt-2 font-semibold">
+                ⚠️ Belum ada transaksi selesai
+              </p>
+            )}
           </div>
-
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <div className="relative" ref={downloadRef}>
               <button
                 onClick={() => setShowDownloadMenu((prev) => !prev)}
                 className="h-[44px] px-4 rounded-[16px] bg-[#eef6ff] border border-blue-200 text-blue-700 font-semibold text-[13px] flex items-center gap-2 shadow-sm"
               >
-                <Download size={16} />
-                Download
-                <ChevronDown size={14} />
+                <Download size={16} /> Download <ChevronDown size={14} />
               </button>
-
               {showDownloadMenu && (
-                <div className="absolute right-0 mt-2 w-36 rounded-[18px] border border-slate-200 bg-white shadow-lg py-2">
+                <div className="absolute right-0 mt-2 w-36 rounded-[18px] border border-slate-200 bg-white shadow-lg py-2 z-50">
                   <button
                     onClick={() => {
                       downloadExcel();
@@ -198,32 +212,21 @@ Status: ${item.status}
                     }}
                     className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
                   >
-                    Excel
-                  </button>
-                  <button
-                    onClick={() => {
-                      downloadPDF();
-                      setShowDownloadMenu(false);
-                    }}
-                    className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
-                  >
-                    PDF
+                    📊 Excel / CSV
                   </button>
                 </div>
               )}
             </div>
-
-            <div className="bg-white border border-slate-200 shadow-sm h-11 w-[240px] rounded-2xl px-3 flex items-center gap-2">
+            <div className="bg-white border border-slate-200 shadow-sm h-11 w-[260px] rounded-2xl px-3 flex items-center gap-2">
               <Search size={16} className="text-slate-400" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="cari transaksi..."
+                placeholder="Cari ID, pelanggan, atau email..."
                 className="bg-transparent outline-none w-full h-full px-2 text-slate-700 text-sm"
               />
             </div>
-
             <div className="relative" ref={notifRef}>
               <button
                 onClick={() => setShowNotif(!showNotif)}
@@ -236,7 +239,6 @@ Status: ${item.status}
                   </div>
                 )}
               </button>
-
               {showNotif && (
                 <ModalNotfications
                   open={showNotif}
@@ -249,89 +251,118 @@ Status: ${item.status}
           </div>
         </div>
 
-        {/* ================= TABLE ================= */}
-        <div className="mt-8 bg-white border border-[#E7ECF3] rounded-[42px] overflow-hidden shadow-sm">
-          {/* TOP */}
-          <div className="px-10 py-8 border-b border-[#EEF2F7]">
-            <p className="text-[#94A3B8] text-sm font-black tracking-[2px] uppercase">
-              Total {filteredTransactions.length} Log Transaksi Terbaru
+        {/* TABEL */}
+        <div className="bg-white rounded-[40px] border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+            <p className="text-xs font-semibold tracking-[3px] text-slate-400 uppercase">
+              Total {filteredTransactions.length} Transaksi
+            </p>
+            <p className="text-xs text-slate-400">
+              Terakhir diperbarui: {new Date().toLocaleDateString("id-ID")}
             </p>
           </div>
 
-          {/* TABLE HEADER */}
-          <div className="grid grid-cols-[1fr_2fr_1.1fr_1fr_0.8fr] px-8 py-6 border-b border-[#EEF2F7] bg-[#FCFDFE]">
-            <p className="text-[#64748B] text-[12px] font-black tracking-[0.22em] uppercase">
-              ID Transaksi
-            </p>
-
-            <p className="text-[#64748B] text-[12px] font-black tracking-[0.22em] uppercase">
-              Pelanggan/Pembeli
-            </p>
-
-            <p className="text-[#64748B] text-[12px] font-black tracking-[0.22em] uppercase">
-              Total Bayar
-            </p>
-
-            <p className="text-[#64748B] text-[12px] font-black tracking-[0.22em] uppercase">
-              Tanggal Order
-            </p>
-
-            <p className="text-[#64748B] text-[12px] font-black tracking-[0.22em] uppercase text-center">
-              Status
-            </p>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[900px]">
+              <thead>
+                <tr className="text-left text-[11px] font-semibold tracking-[0.2em] text-slate-500 uppercase border-b border-slate-100 bg-slate-50">
+                  <th className="px-6 py-4 whitespace-nowrap">ID Pesanan</th>
+                  <th className="px-6 py-4 whitespace-nowrap">Pelanggan</th>
+                  <th className="px-6 py-4 whitespace-nowrap">Total</th>
+                  <th className="px-6 py-4 whitespace-nowrap">Metode</th>
+                  <th className="px-6 py-4 whitespace-nowrap">Tanggal</th>
+                  <th className="px-6 py-4 whitespace-nowrap text-center">
+                    Status
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredTransactions.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan="6"
+                      className="py-16 text-center text-slate-400"
+                    >
+                      <div className="text-6xl mb-4">💳</div>
+                      <h3 className="text-xl font-black">
+                        Belum Ada Transaksi
+                      </h3>
+                      <p className="mt-2 text-sm">
+                        Belum ada pembayaran yang berhasil
+                      </p>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredTransactions.map((item, index) => (
+                    <tr
+                      key={item.id_transaksi || item.id_pesanan || index}
+                      className="border-b border-slate-100 hover:bg-slate-50 duration-300 transition-colors"
+                    >
+                      <td className="px-6 py-4">
+                        <span className="text-blue-600 font-black text-sm">
+                          #{item.id_pesanan}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div>
+                          <p className="font-semibold text-slate-800 text-sm">
+                            {item.pembeli_nama || "-"}
+                          </p>
+                          <p className="text-xs text-slate-400 truncate max-w-[160px]">
+                            {item.pembeli_email || "-"}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="font-black text-slate-900">
+                          {formatCurrency(item.jumlah_dibayar)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-full">
+                          {item.metode_pembayaran || "Transfer"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-sm text-slate-500 whitespace-nowrap">
+                          {formatDate(item.created_at)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex justify-center">
+                          <span
+                            className={`px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-[0.5px] ${getStatusColor(item.status_pembayaran)}`}
+                          >
+                            {getStatusBadge(item.status_pembayaran)}
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
 
-          {/* EMPTY */}
-          {filteredTransactions.length === 0 && (
-            <div className="py-16 text-center text-slate-400 font-black text-xl">
-              Transaksi tidak ditemukan
+          {/* FOOTER */}
+          {filteredTransactions.length > 0 && (
+            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50">
+              <p className="text-xs text-slate-400">
+                Menampilkan {filteredTransactions.length} transaksi
+              </p>
+              <p className="text-xs text-slate-400">
+                Total pendapatan:{" "}
+                <span className="font-black text-slate-700">
+                  {formatCurrency(
+                    filteredTransactions.reduce(
+                      (sum, item) => sum + (item.jumlah_dibayar || 0),
+                      0,
+                    ),
+                  )}
+                </span>
+              </p>
             </div>
           )}
-
-          {/* TABLE BODY */}
-          {filteredTransactions.map((item) => (
-            <div
-              key={item.id}
-              className="grid grid-cols-[1fr_2fr_1.1fr_1fr_0.8fr] items-center gap-4 px-8 py-6 border-b border-[#EEF2F7] hover:bg-slate-50 duration-300"
-            >
-              {/* ID */}
-              <div>
-                <p className="text-[#2563FF] font-black text-base tracking-tight">
-                  {item.id}
-                </p>
-              </div>
-
-              {/* CUSTOMER */}
-              <div>
-                <h3 className="text-[#0F172A] text-sm font-black uppercase tracking-tight">
-                  {item.customer}
-                </h3>
-              </div>
-
-              {/* TOTAL */}
-              <div>
-                <p className="text-[#0F172A] text-sm font-black">
-                  {formatCurrency(item.total)}
-                </p>
-              </div>
-
-              {/* DATE */}
-              <div>
-                <p className="text-[#64748B] text-sm font-semibold">
-                  {item.date}
-                </p>
-              </div>
-
-              {/* STATUS */}
-              <div className="flex justify-center">
-                <span
-                  className={`inline-flex items-center justify-center px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-[0.22em] ${getStatusColor(item.status)}`}
-                >
-                  {getStatusLabel(item.status)}
-                </span>
-              </div>
-            </div>
-          ))}
         </div>
       </div>
     </AdminLayout>

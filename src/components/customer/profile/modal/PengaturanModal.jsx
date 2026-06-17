@@ -13,12 +13,11 @@ import {
   CircleHelp,
 } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
-
 import { MdOutlineAlternateEmail } from "react-icons/md";
 import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { languages } from "../../../../data/language";
 import { useState } from "react";
+
 const Switch = ({ checked, onChange }) => (
   <button
     onClick={onChange}
@@ -58,10 +57,14 @@ function PengaturanModal({
   setPrivacySettings,
   language,
   setLanguage,
+  languages = [],
 }) {
   const navigate = useNavigate();
   const [openFaq, setOpenFaq] = useState(null);
   const [openPolicy, setOpenPolicy] = useState(null);
+
+  // ================= BLOCKED USERS STATE =================
+  const [blockedUsers, setBlockedUsers] = useState([]);
 
   if (!activeModal) {
     return null;
@@ -169,19 +172,12 @@ function PengaturanModal({
 
             <button
               onClick={() => setActiveModal(null)}
-              className="
-                w-12
-                h-12
-                rounded-2xl
-                bg-slate-100
-                flex
-                items-center
-                justify-center
-              "
+              className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center"
             >
               <X className="text-slate-500" />
             </button>
           </div>
+
           {activeModal === "chat" && (
             <div className="space-y-5">
               <div className="bg-slate-100 rounded-3xl p-5 flex items-center justify-between">
@@ -266,22 +262,13 @@ function PengaturanModal({
 
               <button
                 onClick={() => setActiveModal(null)}
-                className="
-                  w-full
-                  h-14
-                  rounded-2xl
-                  bg-blue-600
-                  text-white
-                  font-black
-                  tracking-wide
-                  hover:bg-blue-700
-                  duration-300
-                "
+                className="w-full h-14 rounded-2xl bg-blue-600 text-white font-black tracking-wide hover:bg-blue-700 duration-300"
               >
                 {currentText.saveChat}
               </button>
             </div>
           )}
+
           {activeModal === "notif" && (
             <div className="space-y-5">
               <div className="bg-slate-100 rounded-3xl p-5 flex items-center justify-between">
@@ -366,22 +353,13 @@ function PengaturanModal({
 
               <button
                 onClick={() => setActiveModal(null)}
-                className="
-                  w-full
-                  h-14
-                  rounded-2xl
-                  bg-slate-950
-                  text-white
-                  font-black
-                  tracking-wider
-                  hover:bg-black
-                  duration-300
-                "
+                className="w-full h-14 rounded-2xl bg-slate-950 text-white font-black tracking-wider hover:bg-black duration-300"
               >
                 {currentText.savePreferences}
               </button>
             </div>
           )}
+
           {activeModal === "privacy" && (
             <div className="space-y-5">
               <div className="bg-slate-100 rounded-3xl p-5 flex items-center justify-between">
@@ -466,98 +444,54 @@ function PengaturanModal({
 
               <button
                 onClick={() => setActiveModal(null)}
-                className="
-                  w-full
-                  h-14
-                  rounded-2xl
-                  bg-blue-600
-                  text-white
-                  font-black
-                  text-lg
-                  tracking-wide
-                  hover:bg-blue-700
-                  duration-300
-                "
+                className="w-full h-14 rounded-2xl bg-blue-600 text-white font-black text-lg tracking-wide hover:bg-blue-700 duration-300"
               >
                 {currentText.savePrivacy}
               </button>
             </div>
           )}
+
           {activeModal === "blocked" && (
             <div className="space-y-4">
-              {[
-                { avatar: "T", name: "Toko Murah Rejeki" },
-                { avatar: "U", name: "User_Hacker99" },
-                { avatar: "S", name: "Spam_Seller_01" },
-              ].map((user, index) => (
-                <div
-                  key={index}
-                  className="
-                    bg-white
-                    border
-                    border-slate-200
-                    rounded-3xl
-                    p-4
-                    flex
-                    items-center
-                    justify-between
-                    shadow-sm
-                  "
-                >
-                  <div className="flex items-center gap-4">
-                    <div
-                      className="
-                      w-12
-                      h-12
-                      rounded-2xl
-                      bg-slate-100
-                      flex
-                      items-center
-                      justify-center
-                      font-black
-                      text-slate-500
-                      text-lg
-                    "
-                    >
-                      {user.avatar}
-                    </div>
-
-                    <h4 className="font-black text-[15px] text-slate-800">
-                      {user.name}
-                    </h4>
+              {blockedUsers.length === 0 ? (
+                <div className="text-center py-12 text-slate-400">
+                  <div className="w-16 h-16 mx-auto rounded-full bg-slate-100 flex items-center justify-center mb-4">
+                    <UserX size={30} className="text-slate-300" />
                   </div>
-
-                  <button
-                    className="
-                    px-5
-                    h-10
-                    rounded-xl
-                    bg-red-50
-                    text-red-600
-                    font-black
-                    hover:bg-red-100
-                    duration-200
-                  "
-                  >
-                    {currentText.unblockButton}
-                  </button>
+                  <p className="font-semibold">
+                    Tidak ada pengguna yang diblokir
+                  </p>
+                  <p className="text-sm mt-1">Anda belum memblokir siapa pun</p>
                 </div>
-              ))}
+              ) : (
+                blockedUsers.map((user, index) => (
+                  <div
+                    key={index}
+                    className="bg-white border border-slate-200 rounded-3xl p-4 flex items-center justify-between shadow-sm"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center font-black text-slate-500 text-lg">
+                        {user.avatar || user.name?.charAt(0) || "U"}
+                      </div>
+                      <h4 className="font-black text-[15px] text-slate-800">
+                        {user.name || "User"}
+                      </h4>
+                    </div>
+                    <button className="px-5 h-10 rounded-xl bg-red-50 text-red-600 font-black hover:bg-red-100 duration-200">
+                      {currentText.unblockButton}
+                    </button>
+                  </div>
+                ))
+              )}
 
-              <p
-                className="
-                text-center
-                text-[13px]
-                font-black
-                tracking-wider
-                text-slate-400
-                pt-2
-              "
-              >
-                {currentText.blockedFooter}
-              </p>
+              {blockedUsers.length > 0 && (
+                <p className="text-center text-[13px] font-black tracking-wider text-slate-400 pt-2">
+                  {currentText.blockedFooter}
+                </p>
+              )}
             </div>
           )}
+
           {activeModal === "language" && (
             <div className="space-y-4">
               {languages.map((lang) => (
@@ -603,19 +537,17 @@ function PengaturanModal({
               ))}
             </div>
           )}
+
           {activeModal === "help" && (
             <div className="space-y-5">
-              {/* Banner */}
               <div className="bg-[#F3F6FF] border border-slate-200 rounded-3xl p-5 flex gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center">
                   <CircleHelp size={22} className="text-blue-600" />
                 </div>
-
                 <div>
                   <h4 className="font-black text-[#0B1739] text-sm">
                     BUTUH BANTUAN CEPAT?
                   </h4>
-
                   <p className="text-xs text-slate-500 mt-1 leading-6">
                     Pusat Bantuan Terintegrasi CS BelanjaIn siap melayani Anda
                     24 jam sehari.
@@ -623,31 +555,21 @@ function PengaturanModal({
                 </div>
               </div>
 
-              {/* Contact */}
               <div className="grid grid-cols-2 gap-4">
                 <a
                   href="https://wa.me/"
                   target="_blank"
                   rel="noreferrer"
-                  className="
-          bg-white
-          border
-          rounded-3xl
-          p-5
-          hover:bg-slate-50
-          transition
-        "
+                  className="bg-white border rounded-3xl p-5 hover:bg-slate-50 transition"
                 >
                   <div className="flex gap-3 items-center">
                     <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center">
-                      <FaWhatsapp size={20} className="text-green-600" />
+                      <FaWhatsApp size={20} className="text-green-600" />
                     </div>
-
                     <div>
                       <p className="text-[10px] font-black tracking-wider text-slate-400">
                         WHATSAPP SUPPORT
                       </p>
-
                       <p className="text-sm font-bold text-slate-700">
                         Hubungi CS
                       </p>
@@ -657,14 +579,7 @@ function PengaturanModal({
 
                 <a
                   href="mailto:support@belanjain.com"
-                  className="
-          bg-white
-          border
-          rounded-3xl
-          p-5
-          hover:bg-slate-50
-          transition
-        "
+                  className="bg-white border rounded-3xl p-5 hover:bg-slate-50 transition"
                 >
                   <div className="flex gap-3 items-center">
                     <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
@@ -673,12 +588,10 @@ function PengaturanModal({
                         className="text-blue-600"
                       />
                     </div>
-
                     <div>
                       <p className="text-[10px] font-black tracking-wider text-slate-400">
                         EMAIL DUKUNGAN
                       </p>
-
                       <p className="text-sm font-bold text-slate-700">
                         Kirim Email
                       </p>
@@ -687,63 +600,40 @@ function PengaturanModal({
                 </a>
               </div>
 
-              {/* FAQ Header */}
               <div className="flex items-center justify-between">
                 <h3 className="font-black text-[#0B1739] tracking-wide">
                   ARTIKEL BANTUAN & FAQ
                 </h3>
-
                 <span className="px-3 py-1 bg-blue-50 text-blue-600 text-xs font-bold rounded-full">
                   3 FAQ
                 </span>
               </div>
 
-              {/* FAQ 1 */}
               <div className="border rounded-3xl overflow-hidden">
                 <button
                   onClick={() => setOpenFaq(openFaq === 1 ? null : 1)}
-                  className="
-          w-full
-          p-5
-          flex
-          items-center
-          justify-between
-          bg-slate-50
-        "
+                  className="w-full p-5 flex items-center justify-between bg-slate-50"
                 >
                   <div className="flex items-center gap-3">
                     <span className="px-3 py-1 rounded-lg bg-orange-100 text-orange-600 text-[10px] font-black">
                       PENJUAL
                     </span>
-
                     <h4 className="font-black text-sm text-left">
                       CARA MENDAFTAR AKUN PENJUAL BARU
                     </h4>
                   </div>
-
                   <ChevronRight
                     size={18}
-                    className={`duration-300 ${
-                      openFaq === 1 ? "rotate-90" : ""
-                    }`}
+                    className={`duration-300 ${openFaq === 1 ? "rotate-90" : ""}`}
                   />
                 </button>
 
                 <AnimatePresence>
                   {openFaq === 1 && (
                     <motion.div
-                      initial={{
-                        height: 0,
-                        opacity: 0,
-                      }}
-                      animate={{
-                        height: "auto",
-                        opacity: 1,
-                      }}
-                      exit={{
-                        height: 0,
-                        opacity: 0,
-                      }}
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
                       className="overflow-hidden"
                     >
                       <div className="p-5 text-sm text-slate-600 leading-7">
@@ -756,52 +646,31 @@ function PengaturanModal({
                 </AnimatePresence>
               </div>
 
-              {/* FAQ 2 */}
               <div className="border rounded-3xl overflow-hidden">
                 <button
                   onClick={() => setOpenFaq(openFaq === 2 ? null : 2)}
-                  className="
-          w-full
-          p-5
-          flex
-          items-center
-          justify-between
-          bg-slate-50
-        "
+                  className="w-full p-5 flex items-center justify-between bg-slate-50"
                 >
                   <div className="flex items-center gap-3">
                     <span className="px-3 py-1 rounded-lg bg-blue-100 text-blue-600 text-[10px] font-black">
                       PEMBELI
                     </span>
-
                     <h4 className="font-black text-sm text-left">
                       METODE PEMBAYARAN RESMI DI BELANJAIN
                     </h4>
                   </div>
-
                   <ChevronRight
                     size={18}
-                    className={`duration-300 ${
-                      openFaq === 2 ? "rotate-90" : ""
-                    }`}
+                    className={`duration-300 ${openFaq === 2 ? "rotate-90" : ""}`}
                   />
                 </button>
 
                 <AnimatePresence>
                   {openFaq === 2 && (
                     <motion.div
-                      initial={{
-                        height: 0,
-                        opacity: 0,
-                      }}
-                      animate={{
-                        height: "auto",
-                        opacity: 1,
-                      }}
-                      exit={{
-                        height: 0,
-                        opacity: 0,
-                      }}
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
                       className="overflow-hidden"
                     >
                       <div className="p-5 text-sm text-slate-600 leading-7">
@@ -814,52 +683,31 @@ function PengaturanModal({
                 </AnimatePresence>
               </div>
 
-              {/* FAQ 3 */}
               <div className="border rounded-3xl overflow-hidden">
                 <button
                   onClick={() => setOpenFaq(openFaq === 3 ? null : 3)}
-                  className="
-          w-full
-          p-5
-          flex
-          items-center
-          justify-between
-          bg-slate-50
-        "
+                  className="w-full p-5 flex items-center justify-between bg-slate-50"
                 >
                   <div className="flex items-center gap-3">
                     <span className="px-3 py-1 rounded-lg bg-orange-100 text-orange-600 text-[10px] font-black">
                       PENJUAL
                     </span>
-
                     <h4 className="font-black text-sm text-left">
                       SISTEM PENCAIRAN SALDO PENGHASILAN
                     </h4>
                   </div>
-
                   <ChevronRight
                     size={18}
-                    className={`duration-300 ${
-                      openFaq === 3 ? "rotate-90" : ""
-                    }`}
+                    className={`duration-300 ${openFaq === 3 ? "rotate-90" : ""}`}
                   />
                 </button>
 
                 <AnimatePresence>
                   {openFaq === 3 && (
                     <motion.div
-                      initial={{
-                        height: 0,
-                        opacity: 0,
-                      }}
-                      animate={{
-                        height: "auto",
-                        opacity: 1,
-                      }}
-                      exit={{
-                        height: 0,
-                        opacity: 0,
-                      }}
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
                       className="overflow-hidden"
                     >
                       <div className="p-5 text-sm text-slate-600 leading-7">
@@ -872,24 +720,15 @@ function PengaturanModal({
                 </AnimatePresence>
               </div>
 
-              {/* Button */}
               <button
                 onClick={() => setActiveModal(null)}
-                className="
-        w-full
-        h-14
-        rounded-2xl
-        bg-[#07142E]
-        text-white
-        font-black
-        tracking-[3px]
-        hover:opacity-90
-      "
+                className="w-full h-14 rounded-2xl bg-[#07142E] text-white font-black tracking-[3px] hover:opacity-90"
               >
                 KEMBALI
               </button>
             </div>
           )}
+
           {activeModal === "rules" && (
             <div className="flex flex-col h-full">
               <div className="space-y-8 py-4 border-t border-gray-200">
@@ -919,7 +758,6 @@ function PengaturanModal({
                     <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-600 font-bold text-sm flex items-center justify-center shrink-0">
                       {item.no}
                     </div>
-
                     <div>
                       <h4 className="text-[15px] font-bold text-[#0B1739]">
                         {item.title}
@@ -940,31 +778,20 @@ function PengaturanModal({
               </button>
             </div>
           )}
+
           {activeModal === "policy" && (
             <div className="space-y-4">
-              {/* Syarat & Ketentuan */}
               <div className="border border-slate-200 rounded-3xl overflow-hidden">
                 <button
                   onClick={() => setOpenPolicy(openPolicy === 1 ? null : 1)}
-                  className="
-          w-full
-          h-16
-          px-6
-          bg-slate-50
-          flex
-          items-center
-          justify-between
-        "
+                  className="w-full h-16 px-6 bg-slate-50 flex items-center justify-between"
                 >
                   <h4 className="font-black text-[16px] text-[#1E293B]">
                     Syarat & Ketentuan
                   </h4>
-
                   <ChevronRight
                     size={20}
-                    className={`text-slate-400 duration-300 ${
-                      openPolicy === 1 ? "rotate-90" : ""
-                    }`}
+                    className={`text-slate-400 duration-300 ${openPolicy === 1 ? "rotate-90" : ""}`}
                   />
                 </button>
 
@@ -987,29 +814,17 @@ function PengaturanModal({
                 </AnimatePresence>
               </div>
 
-              {/* Kebijakan Privasi */}
               <div className="border border-slate-200 rounded-3xl overflow-hidden">
                 <button
                   onClick={() => setOpenPolicy(openPolicy === 2 ? null : 2)}
-                  className="
-          w-full
-          h-16
-          px-6
-          bg-slate-50
-          flex
-          items-center
-          justify-between
-        "
+                  className="w-full h-16 px-6 bg-slate-50 flex items-center justify-between"
                 >
                   <h4 className="font-black text-[16px] text-[#1E293B]">
                     Kebijakan Privasi
                   </h4>
-
                   <ChevronRight
                     size={20}
-                    className={`text-slate-400 duration-300 ${
-                      openPolicy === 2 ? "rotate-90" : ""
-                    }`}
+                    className={`text-slate-400 duration-300 ${openPolicy === 2 ? "rotate-90" : ""}`}
                   />
                 </button>
 
@@ -1032,29 +847,17 @@ function PengaturanModal({
                 </AnimatePresence>
               </div>
 
-              {/* Kebijakan Pengembalian */}
               <div className="border border-slate-200 rounded-3xl overflow-hidden">
                 <button
                   onClick={() => setOpenPolicy(openPolicy === 3 ? null : 3)}
-                  className="
-          w-full
-          h-16
-          px-6
-          bg-slate-50
-          flex
-          items-center
-          justify-between
-        "
+                  className="w-full h-16 px-6 bg-slate-50 flex items-center justify-between"
                 >
                   <h4 className="font-black text-[16px] text-[#1E293B]">
                     Kebijakan Pengembalian
                   </h4>
-
                   <ChevronRight
                     size={20}
-                    className={`text-slate-400 duration-300 ${
-                      openPolicy === 3 ? "rotate-90" : ""
-                    }`}
+                    className={`text-slate-400 duration-300 ${openPolicy === 3 ? "rotate-90" : ""}`}
                   />
                 </button>
 
@@ -1077,29 +880,17 @@ function PengaturanModal({
                 </AnimatePresence>
               </div>
 
-              {/* Ketentuan Pembayaran */}
               <div className="border border-slate-200 rounded-3xl overflow-hidden">
                 <button
                   onClick={() => setOpenPolicy(openPolicy === 4 ? null : 4)}
-                  className="
-          w-full
-          h-16
-          px-6
-          bg-slate-50
-          flex
-          items-center
-          justify-between
-        "
+                  className="w-full h-16 px-6 bg-slate-50 flex items-center justify-between"
                 >
                   <h4 className="font-black text-[16px] text-[#1E293B]">
                     Ketentuan Pembayaran
                   </h4>
-
                   <ChevronRight
                     size={20}
-                    className={`text-slate-400 duration-300 ${
-                      openPolicy === 4 ? "rotate-90" : ""
-                    }`}
+                    className={`text-slate-400 duration-300 ${openPolicy === 4 ? "rotate-90" : ""}`}
                   />
                 </button>
 
@@ -1122,41 +913,19 @@ function PengaturanModal({
                 </AnimatePresence>
               </div>
 
-              {/* Tombol */}
               <button
                 onClick={() => setActiveModal(null)}
-                className="
-        w-full
-        h-14
-        rounded-2xl
-        bg-[#07142E]
-        text-white
-        font-black
-        tracking-[3px]
-        hover:opacity-90
-      "
+                className="w-full h-14 rounded-2xl bg-[#07142E] text-white font-black tracking-[3px] hover:opacity-90"
               >
                 KEMBALI
               </button>
             </div>
           )}
+
           {activeModal === "values" && (
             <div className="space-y-8">
-              {/* Icon */}
               <div className="flex justify-center">
-                <div
-                  className="
-          w-20 h-20
-          rounded-3xl
-          bg-[#FFF8E8]
-          border
-          border-[#F3D78C]
-          shadow-sm
-          flex
-          items-center
-          justify-center
-        "
-                >
+                <div className="w-20 h-20 rounded-3xl bg-[#FFF8E8] border border-[#F3D78C] shadow-sm flex items-center justify-center">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     fill="#F5A000"
@@ -1168,18 +937,15 @@ function PengaturanModal({
                 </div>
               </div>
 
-              {/* Judul */}
               <div className="text-center">
                 <h3 className="text-[18px] font-black text-[#0F172A]">
                   Nilai Pengalaman Anda
                 </h3>
-
                 <p className="mt-2 text-[14px] text-[#64748B]">
                   Ulasan Anda akan langsung tampil di Dashboard Admin Pusat!
                 </p>
               </div>
 
-              {/* Rating */}
               <div className="flex justify-center gap-4">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button key={star}>
@@ -1195,172 +961,77 @@ function PengaturanModal({
                 ))}
               </div>
 
-              {/* Textarea */}
               <div>
-                <p
-                  className="
-          text-[13px]
-          font-black
-          tracking-wider
-          text-slate-400
-          mb-3
-        "
-                >
+                <p className="text-[13px] font-black tracking-wider text-slate-400 mb-3">
                   CATATAN / KOMENTAR ANDA
                 </p>
-
                 <textarea
                   rows={4}
                   placeholder="Ceritakan pengalaman belanja atau jualan Anda disini..."
-                  className="
-          w-full
-          rounded-3xl
-          border
-          border-slate-200
-          bg-slate-50
-          p-5
-          resize-none
-          outline-none
-        "
+                  className="w-full rounded-3xl border border-slate-200 bg-slate-50 p-5 resize-none outline-none"
                 />
               </div>
 
-              {/* Button */}
               <div className="grid grid-cols-2 gap-4">
                 <button
                   onClick={() => setActiveModal(null)}
-                  className="
-          h-14
-          rounded-3xl
-          bg-slate-100
-          font-black
-          text-slate-700
-        "
+                  className="h-14 rounded-3xl bg-slate-100 font-black text-slate-700"
                 >
                   BATAL
                 </button>
-
                 <button
-                  onClick={() => {
-                    setActiveModal(null);
-                  }}
-                  className="
-    h-14
-    rounded-3xl
-    bg-blue-600
-    text-white
-    font-black
-    shadow-lg
-    hover:bg-blue-700
-    duration-300
-  "
+                  onClick={() => setActiveModal(null)}
+                  className="h-14 rounded-3xl bg-blue-600 text-white font-black shadow-lg hover:bg-blue-700 duration-300"
                 >
                   KIRIM ULASAN
                 </button>
               </div>
             </div>
-          )}{" "}
+          )}
+
           {activeModal === "info" && (
             <div className="space-y-5">
-              {/* Logo */}
               <div className="flex flex-col items-center">
-                <div
-                  className="
-          w-28 h-28
-          rounded-[30px]
-          bg-white
-          shadow-lg
-          flex items-center justify-center
-          overflow-hidden
-        "
-                >
+                <div className="w-28 h-28 rounded-[30px] bg-white shadow-lg flex items-center justify-center overflow-hidden">
                   <img
-                    src="/logo.png"
+                    src="/logo.jpeg"
                     alt="Logo"
                     className="w-16 h-16 object-contain"
                   />
                 </div>
-
                 <h3 className="mt-5 text-[22px] font-black text-slate-900">
                   Belanjain
                 </h3>
-
                 <p className="text-blue-600 font-black tracking-widest text-sm">
                   VERSION 1.0.0 (BUILD 001)
                 </p>
               </div>
 
-              {/* Menu */}
               <div className="space-y-3 mt-6">
-                <button
-                  className="
-          w-full
-          h-16
-          rounded-3xl
-          bg-slate-50
-          border
-          border-slate-200
-          px-5
-          flex items-center justify-between
-        "
-                >
+                <button className="w-full h-16 rounded-3xl bg-slate-50 border border-slate-200 px-5 flex items-center justify-between">
                   <span className="font-bold text-slate-700">
                     Periksa Pembaruan
                   </span>
-
-                  <span
-                    className="
-            px-4 py-1
-            rounded-xl
-            border
-            border-blue-200
-            text-blue-600
-            text-xs
-            font-black
-          "
-                  >
+                  <span className="px-4 py-1 rounded-xl border border-blue-200 text-blue-600 text-xs font-black">
                     Terbaru
                   </span>
                 </button>
 
-                <button
-                  className="
-          w-full
-          h-16
-          rounded-3xl
-          bg-slate-50
-          border
-          border-slate-200
-          px-5
-          flex items-center justify-between
-        "
-                >
+                <button className="w-full h-16 rounded-3xl bg-slate-50 border border-slate-200 px-5 flex items-center justify-between">
                   <span className="font-bold text-slate-700">
                     Lisensi Sumber Terbuka
                   </span>
-
                   <ChevronRight size={18} className="text-slate-400" />
                 </button>
               </div>
 
-              {/* Footer */}
-              <p
-                className="
-        text-center
-        text-xs
-        font-black
-        tracking-[2px]
-        text-slate-400
-        pt-4
-      "
-              >
+              <p className="text-center text-xs font-black tracking-[2px] text-slate-400 pt-4">
                 © 2026. SEMUA HAK DILINDUNGI.
               </p>
             </div>
           )}
           {activeModal === "delete" && (
             <div className="space-y-6">
-              {/* Warning Box */}
               <div className="bg-red-50 border border-red-100 rounded-3xl p-5 flex gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center shrink-0">
                   <svg
@@ -1378,12 +1049,10 @@ function PengaturanModal({
                     <path d="M14 11v6" />
                   </svg>
                 </div>
-
                 <div>
                   <h4 className="font-black text-[18px] text-[#0B1739]">
                     Peringatan Kritis
                   </h4>
-
                   <p className="text-red-500 text-[14px] mt-2 leading-7">
                     Penghapusan akun bersifat permanen. Seluruh koin, voucher,
                     dan riwayat pesanan Anda akan hilang selamanya.
@@ -1391,27 +1060,11 @@ function PengaturanModal({
                 </div>
               </div>
 
-              {/* Alasan */}
               <div>
                 <p className="text-[13px] font-black tracking-[2px] text-slate-400 uppercase mb-3">
                   Alasan Penghapusan
                 </p>
-
-                <select
-                  className="
-          w-full
-          h-14
-          px-5
-          rounded-2xl
-          border
-          border-slate-200
-          bg-slate-50
-          font-semibold
-          text-slate-700
-          outline-none
-          focus:border-red-500
-        "
-                >
+                <select className="w-full h-14 px-5 rounded-2xl border border-slate-200 bg-slate-50 font-semibold text-slate-700 outline-none focus:border-red-500">
                   <option>Ingin membuat akun baru</option>
                   <option>Kekhawatiran privasi</option>
                   <option>Aplikasi sulit digunakan</option>
@@ -1419,26 +1072,12 @@ function PengaturanModal({
                 </select>
               </div>
 
-              {/* Button */}
-              <button
-                className="
-        w-full
-        h-16
-        rounded-2xl
-        bg-red-600
-        text-white
-        font-black
-        text-xl
-        shadow-lg
-        shadow-red-200
-        hover:bg-red-700
-        duration-300
-      "
-              >
+              <button className="w-full h-16 rounded-2xl bg-red-600 text-white font-black text-xl shadow-lg shadow-red-200 hover:bg-red-700 duration-300">
                 Hapus Akun Sekarang
               </button>
             </div>
           )}
+
           {activeModal === "logout" && (
             <div className="space-y-4">
               <p>{currentText.logoutPrompt}</p>
@@ -1448,14 +1087,7 @@ function PengaturanModal({
                   setActiveModal(null);
                   navigate("/");
                 }}
-                className="
-                w-full
-                h-12
-                bg-red-500
-                text-white
-                rounded-xl
-                font-bold
-              "
+                className="w-full h-12 bg-red-500 text-white rounded-xl font-bold"
               >
                 {currentText.logoutButton}
               </button>

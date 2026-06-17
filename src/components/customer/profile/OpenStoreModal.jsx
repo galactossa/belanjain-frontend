@@ -1,168 +1,178 @@
-import { X, Store, Upload } from "lucide-react";
+// src/components/customer/profile/OpenStoreModal.jsx
 
+import { X, Store, Upload } from "lucide-react";
 import { useState } from "react";
+import api from "../../../api/api";
+import PasswordModal from "../../common/PasswordModal"; // 🔥 Import
 
 function OpenStoreModal({ show, onClose }) {
   const [storeName, setStoreName] = useState("");
-
   const [category, setCategory] = useState("");
-
   const [description, setDescription] = useState("");
-
   const [address, setAddress] = useState("");
-
   const [logo, setLogo] = useState("");
-
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false); // 🔥 State untuk modal password
+  const [pendingSubmit, setPendingSubmit] = useState(false);
+  const currentUser = JSON.parse(localStorage.getItem("currentUser"));
 
   if (!show) return null;
 
   const handleLogo = (e) => {
     const file = e.target.files[0];
-
     if (!file) return;
-
     const reader = new FileReader();
-
     reader.onloadend = () => {
       setLogo(reader.result);
     };
-
     reader.readAsDataURL(file);
   };
 
-  const handleSubmit = () => {
+  // ================= 🔥 FUNGSI UNTUK PROSES SETELAH PASSWORD DIVERIFIKASI =================
+  const processStoreCreation = async (password) => {
+    const userId = currentUser?.id_pengguna || currentUser?.id;
+
+    if (!userId) {
+      alert("User tidak ditemukan. Silakan login ulang.");
+      setShowPasswordModal(false);
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      // 1. Buat toko (backend otomatis update role)
+      const response = await api.post("/toko", {
+        id_pengguna: userId,
+        nama_toko: storeName,
+        deskripsi: description || category,
+      });
+
+      const storeData = response.data.data;
+      console.log("✅ Store created:", storeData);
+
+      // 2. Login ulang untuk dapat token baru dengan role "penjual"
+      const email = currentUser?.email;
+
+      if (!email || !password) {
+        alert("Data tidak lengkap. Silakan login ulang.");
+        window.location.href = "/login";
+        return;
+      }
+
+      const loginResponse = await api.post("/pengguna/login", {
+        email: email,
+        password: password,
+      });
+
+      const { token, pengguna } = loginResponse.data.data;
+
+      // Simpan token baru
+      localStorage.setItem("token", token);
+      api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+
+      // 3. Ambil data toko terbaru
+      const storeRes = await api.get(`/toko/user/${userId}`);
+      const freshStore = storeRes.data.data;
+
+      // 4. Simpan user dengan role baru
+      const finalUser = {
+        ...pengguna,
+        storeName: freshStore.nama_toko,
+        storeCategory: category,
+        storeDescription: description,
+        storeAddress: address,
+        storeLogo: logo,
+        id_toko: freshStore.id_toko,
+      };
+      localStorage.setItem("currentUser", JSON.stringify(finalUser));
+
+      // 5. Upload logo jika ada
+      if (logo) {
+        try {
+          const res = await fetch(logo);
+          const blob = await res.blob();
+          const file = new File([blob], "logo.png", { type: "image/png" });
+
+          const formData = new FormData();
+          formData.append("logo", file);
+
+          await api.post(`/toko/${freshStore.id_toko}/upload-logo`, formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+          });
+          console.log("✅ Logo uploaded");
+        } catch (uploadError) {
+          console.warn("⚠️ Logo upload failed:", uploadError);
+        }
+      }
+
+      setShowPasswordModal(false);
+      setIsSubmitting(false);
+      onClose();
+      window.location.href = "/seller";
+    } catch (error) {
+      console.error("❌ Error creating store:", error);
+      console.error("❌ Error response:", error.response?.data);
+
+      if (error.response?.data?.message?.includes("sudah memiliki toko")) {
+        alert("Anda sudah memiliki toko. Silakan login ulang.");
+        window.location.href = "/login";
+        return;
+      }
+
+      const errorMessage =
+        error.response?.data?.message || "Gagal membuka toko";
+      alert(errorMessage);
+      setShowPasswordModal(false);
+      setIsSubmitting(false);
+    }
+  };
+
+  // ================= 🔥 HANDLE SUBMIT - TAMPILKAN MODAL PASSWORD =================
+  const handleSubmit = async () => {
     if (!storeName || !category || !address) {
       alert("Lengkapi data toko terlebih dahulu");
       return;
     }
 
-    setIsSubmitting(true);
+    const userId = currentUser?.id_pengguna || currentUser?.id;
 
-    const storeData = {
-      storeName,
-      category,
-      description,
-      address,
-      logo,
-      createdAt: new Date().toISOString(),
-    };
-
-    localStorage.setItem("sellerStore", JSON.stringify(storeData));
-
-    const currentUser = JSON.parse(localStorage.getItem("currentUser"));
-    if (currentUser) {
-      const updatedUser = {
-        ...currentUser,
-        role: "seller",
-        storeName,
-        storeCategory: category,
-        storeDescription: description,
-        storeAddress: address,
-        storeLogo: logo,
-      };
-      localStorage.setItem("currentUser", JSON.stringify(updatedUser));
+    if (!userId) {
+      alert("User tidak ditemukan. Silakan login ulang.");
+      return;
     }
 
-    setTimeout(() => {
-      onClose();
-      window.location.href = "/seller";
-    }, 800);
+    setIsSubmitting(true);
+    setShowPasswordModal(true); // 🔥 Tampilkan modal password
   };
 
   return (
     <>
-      {/* BACKDROP */}
+      {/* MODAL UTAMA */}
       <div
         onClick={onClose}
-        className="
-          fixed
-          inset-0
-          bg-black/50
-          backdrop-blur-sm
-          z-[200]
-        "
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200]"
       />
-
-      {/* MODAL */}
-      <div
-        className="
-          fixed
-          inset-0
-          z-[201]
-          flex
-          items-center
-          justify-center
-          p-4
-        "
-      >
-        <div
-          className="
-    bg-white
-    w-full
-    max-w-xl
-    h-[90vh]
-    rounded-[40px]
-    overflow-hidden
-    shadow-2xl
-    flex
-    flex-col
-  "
-        >
+      <div className="fixed inset-0 z-[201] flex items-center justify-center p-4">
+        <div className="bg-white w-full max-w-xl h-[90vh] rounded-[40px] overflow-hidden shadow-2xl flex flex-col">
           {/* HEADER */}
           <div className="p-8 pb-6">
             <div className="flex justify-between">
               <div className="flex gap-4">
-                <div
-                  className="
-                    w-14
-                    h-14
-                    rounded-2xl
-                    bg-blue-50
-                    flex
-                    items-center
-                    justify-center
-                  "
-                >
+                <div className="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center">
                   <Store size={24} className="text-blue-600" />
                 </div>
-
                 <div>
-                  <h2
-                    className="
-                      text-3xl
-                      font-black
-                      text-slate-900
-                    "
-                  >
+                  <h2 className="text-3xl font-black text-slate-900">
                     Formulir Buka Toko
                   </h2>
-
-                  <p
-                    className="
-                      text-xs
-                      tracking-wider
-                      font-bold
-                      text-slate-400
-                      uppercase
-                    "
-                  >
+                  <p className="text-xs tracking-wider font-bold text-slate-400 uppercase">
                     Langkah Mendaftar Akun Penjual Baru
                   </p>
                 </div>
               </div>
-
               <button
                 onClick={onClose}
-                className="
-                  w-11
-                  h-11
-                  rounded-full
-                  bg-slate-100
-                  flex
-                  items-center
-                  justify-center
-                "
+                className="w-11 h-11 rounded-full bg-slate-100 flex items-center justify-center"
               >
                 <X />
               </button>
@@ -172,215 +182,83 @@ function OpenStoreModal({ show, onClose }) {
           <div className="border-t" />
 
           {/* FORM */}
-          <div
-            className="
-    flex-1
-    overflow-y-auto
-    p-8
-    space-y-5
-    scrollbar-thin
-    scrollbar-thumb-slate-300
-    scrollbar-track-transparent
-  "
-          >
+          <div className="flex-1 overflow-y-auto p-8 space-y-5">
             {/* NAMA TOKO */}
             <div>
-              <label
-                className="
-                  text-xs
-                  font-black
-                  tracking-wider
-                  uppercase
-                  text-slate-500
-                  block
-                  mb-2
-                "
-              >
+              <label className="text-xs font-black tracking-wider uppercase text-slate-500 block mb-2">
                 Nama Toko *
               </label>
-
               <input
                 value={storeName}
                 onChange={(e) => setStoreName(e.target.value)}
                 placeholder="Contoh: Toko Hamid Jaya"
-                className="
-                  w-full
-                  h-14
-                  rounded-2xl
-                  border
-                  border-slate-200
-                  px-5
-                  outline-none
-                "
+                className="w-full h-14 rounded-2xl border border-slate-200 px-5 outline-none"
               />
             </div>
 
             {/* KATEGORI */}
             <div>
-              <label
-                className="
-                  text-xs
-                  font-black
-                  tracking-wider
-                  uppercase
-                  text-slate-500
-                  block
-                  mb-2
-                "
-              >
+              <label className="text-xs font-black tracking-wider uppercase text-slate-500 block mb-2">
                 Kategori Utama *
               </label>
-
               <input
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 placeholder="Elektronik"
-                className="
-                  w-full
-                  h-14
-                  rounded-2xl
-                  border
-                  border-slate-200
-                  px-5
-                "
+                className="w-full h-14 rounded-2xl border border-slate-200 px-5"
               />
             </div>
 
             {/* DESKRIPSI */}
             <div>
-              <label
-                className="
-                  text-xs
-                  font-black
-                  tracking-wider
-                  uppercase
-                  text-slate-500
-                  block
-                  mb-2
-                "
-              >
+              <label className="text-xs font-black tracking-wider uppercase text-slate-500 block mb-2">
                 Deskripsi Toko
               </label>
-
               <textarea
                 rows={3}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Ceritakan tentang toko Anda secara singkat..."
-                className="
-                  w-full
-                  rounded-2xl
-                  border
-                  border-slate-200
-                  p-4
-                  resize-none
-                "
+                className="w-full rounded-2xl border border-slate-200 p-4 resize-none"
               />
             </div>
 
             {/* ALAMAT */}
             <div>
-              <label
-                className="
-                  text-xs
-                  font-black
-                  tracking-wider
-                  uppercase
-                  text-slate-500
-                  block
-                  mb-2
-                "
-              >
+              <label className="text-xs font-black tracking-wider uppercase text-slate-500 block mb-2">
                 Alamat Asal Pengiriman *
               </label>
-
               <input
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
                 placeholder="Contoh: Jl. Sudirman No.123, Jakarta"
-                className="
-                  w-full
-                  h-14
-                  rounded-2xl
-                  border
-                  border-slate-200
-                  px-5
-                "
+                className="w-full h-14 rounded-2xl border border-slate-200 px-5"
               />
             </div>
 
             {/* LOGO */}
             <div>
-              <label
-                className="
-                  text-xs
-                  font-black
-                  tracking-wider
-                  uppercase
-                  text-slate-500
-                  block
-                  mb-2
-                "
-              >
+              <label className="text-xs font-black tracking-wider uppercase text-slate-500 block mb-2">
                 Logo Toko
               </label>
-
-              <label
-                className="
-                  border-2
-                  border-dashed
-                  border-slate-200
-                  rounded-3xl
-                  p-6
-                  flex
-                  items-center
-                  gap-4
-                  cursor-pointer
-                "
-              >
-                <div
-                  className="
-                    w-14
-                    h-14
-                    rounded-2xl
-                    overflow-hidden
-                    bg-gradient-to-br
-                    from-pink-300
-                    via-yellow-300
-                    to-blue-400
-                    flex
-                    items-center
-                    justify-center
-                  "
-                >
+              <label className="border-2 border-dashed border-slate-200 rounded-3xl p-6 flex items-center gap-4 cursor-pointer">
+                <div className="w-14 h-14 rounded-2xl overflow-hidden bg-gradient-to-br from-pink-300 via-yellow-300 to-blue-400 flex items-center justify-center">
                   {logo ? (
                     <img
                       src={logo}
                       alt=""
-                      className="
-                        w-full
-                        h-full
-                        object-cover
-                      "
+                      className="w-full h-full object-cover"
                     />
                   ) : (
                     <Upload size={22} className="text-white" />
                   )}
                 </div>
-
                 <div>
                   <p className="font-bold">Tarik logo kesini atau klik</p>
-
-                  <p
-                    className="
-                      text-xs
-                      text-slate-400
-                    "
-                  >
+                  <p className="text-xs text-slate-400">
                     Direkomendasikan foto persegi rasio 1:1
                   </p>
                 </div>
-
                 <input
                   type="file"
                   hidden
@@ -394,26 +272,18 @@ function OpenStoreModal({ show, onClose }) {
             <div className="grid grid-cols-2 gap-4 pt-3">
               <button
                 onClick={onClose}
-                className="
-                  h-14
-                  rounded-2xl
-                  bg-slate-100
-                  font-black
-                  text-slate-600
-                "
+                className="h-14 rounded-2xl bg-slate-100 font-black text-slate-600"
               >
                 BATAL
               </button>
-
               <button
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className={
-                  `h-14 rounded-2xl text-white font-black shadow-lg transition-all duration-200 ` +
-                  (isSubmitting
+                className={`h-14 rounded-2xl text-white font-black shadow-lg transition-all duration-200 ${
+                  isSubmitting
                     ? "bg-blue-400 cursor-not-allowed"
-                    : "bg-blue-600 hover:bg-blue-700")
-                }
+                    : "bg-blue-600 hover:bg-blue-700"
+                }`}
               >
                 {isSubmitting ? (
                   <span className="flex items-center justify-center gap-2">
@@ -428,6 +298,18 @@ function OpenStoreModal({ show, onClose }) {
           </div>
         </div>
       </div>
+
+      {/* 🔥 MODAL PASSWORD (MASKED) */}
+      <PasswordModal
+        isOpen={showPasswordModal}
+        onClose={() => {
+          setShowPasswordModal(false);
+          setIsSubmitting(false);
+        }}
+        onConfirm={processStoreCreation}
+        title="Verifikasi Password"
+        description="Masukkan password Anda untuk mengaktifkan toko."
+      />
     </>
   );
 }

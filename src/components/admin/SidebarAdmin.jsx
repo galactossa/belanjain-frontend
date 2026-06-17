@@ -27,13 +27,10 @@ function SidebarAdmin() {
 
   // ================= LOGOUT =================
   const handleLogout = () => {
-    // hapus data login/session
     localStorage.removeItem("token");
     localStorage.removeItem("currentUser");
     localStorage.removeItem("user");
     sessionStorage.clear();
-
-    // kembali ke homepage
     navigate("/");
   };
 
