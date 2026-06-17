@@ -4,5 +4,109 @@
 
 body {
   margin: 0;
-  font-family: 'Poppins', sans-serif;
+  font-family: "Poppins", sans-serif;
+}
+
+/* Scoped admin layout adjustments - balanced desktop proportions */
+.admin-layout {
+  font-size: 14px;
+  letter-spacing: -0.2px;
+}
+
+.admin-layout h1 {
+  font-size: 1.75rem !important; /* 28px - readable header */
+  font-weight: 700 !important;
+  line-height: 1.2 !important;
+  margin: 0 0 0.25rem 0 !important;
+}
+
+.admin-layout h2 {
+  font-size: 1.125rem !important; /* 18px */
+  margin: 0 !important;
+}
+
+.admin-layout p {
+  margin: 0.5rem 0 !important;
+  line-height: 1.4 !important;
+}
+
+/* Normalize large utility font sizes to desktop-balanced proportions */
+.admin-layout .text-\[54px\] {
+  font-size: 1.75rem !important;
+}
+.admin-layout .text-\[48px\],
+.admin-layout .text-\[46px\],
+.admin-layout .text-\[42px\] {
+  font-size: 1.5rem !important;
+}
+.admin-layout .text-\[38px\],
+.admin-layout .text-\[36px\],
+.admin-layout .text-\[35px\] {
+  font-size: 1.5rem !important;
+}
+.admin-layout .text-\[32px\] {
+  font-size: 1.375rem !important;
+}
+.admin-layout .text-\[30px\],
+.admin-layout .text-\[24px\] {
+  font-size: 1.25rem !important;
+}
+
+.admin-layout .p-8 {
+  padding: 1.5rem !important;
+}
+
+.admin-layout .px-8 {
+  padding-left: 1.5rem !important;
+  padding-right: 1.5rem !important;
+}
+
+.admin-layout .py-8 {
+  padding-top: 1.5rem !important;
+  padding-bottom: 1.5rem !important;
+}
+
+/* ===== SIDEBAR ADJUSTMENTS ===== */
+.admin-layout > aside {
+  width: 240px !important;
+}
+
+/* Logo section alignment */
+.admin-layout > aside > div:first-child {
+  padding: 1.25rem 1rem 1rem 1rem !important;
+}
+
+.admin-layout > aside > div:first-child > div {
+  gap: 0.75rem !important;
+}
+
+.admin-layout > aside h1 {
+  font-size: 1.25rem !important; /* 20px */
+  font-weight: 700 !important;
+  line-height: 1.1 !important;
+  margin: 0 !important;
+}
+
+.admin-layout > aside > div:first-child p {
+  font-size: 0.7rem !important; /* 11px */
+  margin: 0.25rem 0 0 0 !important;
+  line-height: 1 !important;
+}
+
+/* Menu items in sidebar */
+.admin-layout > aside a {
+  height: 48px !important;
+  font-size: 0.875rem !important; /* 14px */
+  padding-left: 1rem !important;
+  padding-right: 1rem !important;
+}
+
+/* Profile section */
+.admin-layout > aside h3 {
+  font-size: 1rem !important; /* 16px */
+}
+
+.admin-layout > aside button {
+  height: 48px !important;
+  font-size: 0.875rem !important; /* 14px */
 }

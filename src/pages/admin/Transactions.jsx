@@ -1,163 +1,73 @@
 /* ================= IMPORT ================= */
-import {
-  Search,
-  Bell,
-  FileSpreadsheet,
-  FileDown,
-  Trash2,
-} from "lucide-react";
+import { Search, Bell, ChevronDown, Download, Trash2 } from "lucide-react";
 
-import {
-  useState,
-  useRef,
-  useEffect,
-} from "react";
+import { useState, useRef, useEffect } from "react";
 
 import AdminLayout from "../../layouts/AdminLayout";
+import ModalNotfications from "../../components/admin/ModalNotfications";
+import { orders } from "../../data/orders";
+import { notifications as defaultNotifications } from "../../data/notifications";
 
 function Transactions() {
-
   /* ================= TRANSACTIONS ================= */
-  const [transactions] =
-    useState([
-      {
-        id: "TX-001",
-        customer:
-          "HAMID SAPUTRA",
-        total: "Rp 450.000",
-        date: "2024-03-19",
-        status: "SELESAI",
-        statusColor:
-          "bg-emerald-100 text-emerald-600",
-      },
-      {
-        id: "TX-002",
-        customer:
-          "TOKO HAMID JAYA",
-        total: "Rp 1.250.000",
-        date: "2024-03-20",
-        status: "PROSES",
-        statusColor:
-          "bg-blue-100 text-blue-600",
-      },
-      {
-        id: "TX-003",
-        customer:
-          "ADMIN BELANJAIN",
-        total: "Rp 75.000",
-        date: "2024-03-20",
-        status: "MENUNGGU",
-        statusColor:
-          "bg-yellow-100 text-yellow-600",
-      },
-    ]);
+  const [transactions] = useState(orders);
 
   /* ================= SEARCH ================= */
-  const [search, setSearch] =
-    useState("");
+  const [search, setSearch] = useState("");
 
-  const [
-    filteredTransactions,
-    setFilteredTransactions,
-  ] = useState(transactions);
+  const [filteredTransactions, setFilteredTransactions] =
+    useState(transactions);
 
   /* ================= NOTIFICATION ================= */
-  const [showNotif, setShowNotif] =
-    useState(false);
+  const [showNotif, setShowNotif] = useState(false);
+  const [showDownloadMenu, setShowDownloadMenu] = useState(false);
 
   const notifRef = useRef();
+  const downloadRef = useRef();
 
-  const [notifications, setNotifications] =
-    useState([
-      {
-        id: 1,
-        title:
-          'Transaksi baru "TX-001" berhasil dibuat',
+  const [notifications, setNotifications] = useState(() =>
+    defaultNotifications
+      .filter((item) => item.role === "admin")
+      .map((item) => ({
+        ...item,
         time: "Baru saja",
         read: false,
-      },
-      {
-        id: 2,
-        title:
-          'Pembayaran transaksi TX-002 berhasil dikonfirmasi',
-        time: "5 menit lalu",
-        read: false,
-      },
-      {
-        id: 3,
-        title:
-          'Transaksi TX-003 sedang menunggu pembayaran',
-        time: "20 menit lalu",
-        read: false,
-      },
-    ]);
+      })),
+  );
 
   /* ================= CLOSE NOTIF ================= */
   useEffect(() => {
-
-    function handleClickOutside(
-      event
-    ) {
-
-      if (
-        notifRef.current &&
-        !notifRef.current.contains(
-          event.target
-        )
-      ) {
+    function handleClickOutside(event) {
+      if (notifRef.current && !notifRef.current.contains(event.target)) {
         setShowNotif(false);
       }
-
+      if (downloadRef.current && !downloadRef.current.contains(event.target)) {
+        setShowDownloadMenu(false);
+      }
     }
 
-    document.addEventListener(
-      "mousedown",
-      handleClickOutside
-    );
+    document.addEventListener("mousedown", handleClickOutside);
 
     return () => {
-
-      document.removeEventListener(
-        "mousedown",
-        handleClickOutside
-      );
-
+      document.removeEventListener("mousedown", handleClickOutside);
     };
-
   }, []);
 
   /* ================= SEARCH FILTER ================= */
   useEffect(() => {
-
-    const result =
-      transactions.filter(
-        (item) =>
-          item.customer
-            .toLowerCase()
-            .includes(
-              search.toLowerCase()
-            ) ||
-          item.id
-            .toLowerCase()
-            .includes(
-              search.toLowerCase()
-            )
-      );
-
-    setFilteredTransactions(
-      result
+    const result = transactions.filter(
+      (item) =>
+        item.customer.toLowerCase().includes(search.toLowerCase()) ||
+        item.id.toLowerCase().includes(search.toLowerCase()),
     );
 
+    setFilteredTransactions(result);
   }, [search, transactions]);
 
   /* ================= NOTIF FUNCTION ================= */
-  const unreadCount =
-    notifications.filter(
-      (notif) => !notif.read
-    ).length;
+  const unreadCount = notifications.filter((notif) => !notif.read).length;
 
   const markAsRead = (id) => {
-
     setNotifications(
       notifications.map((notif) =>
         notif.id === id
@@ -165,496 +75,265 @@ function Transactions() {
               ...notif,
               read: true,
             }
-          : notif
-      )
+          : notif,
+      ),
     );
-
   };
 
   const deleteNotif = (id) => {
-
-    setNotifications(
-      notifications.filter(
-        (notif) =>
-          notif.id !== id
-      )
-    );
-
+    setNotifications(notifications.filter((notif) => notif.id !== id));
   };
 
   const markAllRead = () => {
-
     setNotifications(
       notifications.map((notif) => ({
         ...notif,
         read: true,
-      }))
+      })),
     );
+  };
 
+  const formatCurrency = (value) =>
+    new Intl.NumberFormat("id-ID", {
+      style: "currency",
+      currency: "IDR",
+      maximumFractionDigits: 0,
+    }).format(value);
+
+  const getStatusColor = (status) => {
+    if (status.includes("MENUNGGU")) return "bg-amber-100 text-amber-700";
+    if (status.includes("DIPROSES") || status.includes("DIKIRIM"))
+      return "bg-sky-100 text-sky-700";
+    if (status.includes("SELESAI")) return "bg-emerald-100 text-emerald-700";
+    return "bg-slate-100 text-slate-700";
+  };
+
+  const getStatusLabel = (status) => {
+    if (status.includes("MENUNGGU")) return "MENUNGGU";
+    return status;
   };
 
   /* ================= DOWNLOAD EXCEL ================= */
   const downloadExcel = () => {
-
     const content =
       "ID,Pelanggan,Total,Tanggal,Status\n" +
       transactions
         .map(
           (item) =>
-            `${item.id},${item.customer},${item.total},${item.date},${item.status}`
+            `${item.id},${item.customer},${item.total},${item.date},${item.status}`,
         )
         .join("\n");
 
-    const blob = new Blob(
-      [content],
-      {
-        type: "text/csv",
-      }
-    );
+    const blob = new Blob([content], {
+      type: "text/csv",
+    });
 
-    const link =
-      document.createElement("a");
+    const link = document.createElement("a");
 
-    link.href =
-      URL.createObjectURL(blob);
+    link.href = URL.createObjectURL(blob);
 
-    link.download =
-      "laporan-transaksi.csv";
+    link.download = "laporan-transaksi.csv";
 
     link.click();
-
   };
 
   /* ================= DOWNLOAD PDF ================= */
   const downloadPDF = () => {
-
-    const content =
-      transactions
-        .map(
-          (item) =>
-            `ID: ${item.id}
+    const content = transactions
+      .map(
+        (item) =>
+          `ID: ${item.id}
 Pelanggan: ${item.customer}
 Total: ${item.total}
 Tanggal: ${item.date}
 Status: ${item.status}
 
-`
-        )
-        .join("");
+`,
+      )
+      .join("");
 
-    const blob = new Blob(
-      [content],
-      {
-        type: "application/pdf",
-      }
-    );
+    const blob = new Blob([content], {
+      type: "application/pdf",
+    });
 
-    const link =
-      document.createElement("a");
+    const link = document.createElement("a");
 
-    link.href =
-      URL.createObjectURL(blob);
+    link.href = URL.createObjectURL(blob);
 
-    link.download =
-      "laporan-transaksi.pdf";
+    link.download = "laporan-transaksi.pdf";
 
     link.click();
-
   };
 
   return (
     <AdminLayout>
-
       <div className="min-h-screen bg-[#f6f8fc] p-8">
-
-        {/* ================= TOP BAR ================= */}
-        <div className="flex justify-end items-center gap-4">
-
-          {/* SEARCH */}
-          <div className="w-[320px] h-[58px] bg-[#F5F7FB] border border-[#E2E8F0] rounded-2xl px-5 flex items-center">
-
-            <Search
-              size={20}
-              className="text-slate-400"
-            />
-
-            <input
-              type="text"
-              value={search}
-              onChange={(e) =>
-                setSearch(
-                  e.target.value
-                )
-              }
-              placeholder="cari transaksi..."
-              className="bg-transparent outline-none w-full h-full px-4 text-slate-600"
-            />
-
+        <div className="flex flex-col gap-8 xl:flex-row xl:items-center xl:justify-between">
+          <div>
+            <h1 className="text-[28px] leading-tight font-black text-slate-900">
+              Seluruh Transaksi
+            </h1>
+            <p className="text-slate-500 mt-2 text-sm max-w-xl">
+              Riwayat transaksi pembelian dan pengiriman di platform BelanjaIn.
+            </p>
           </div>
 
-          {/* ================= NOTIF ================= */}
-          <div
-            className="relative"
-            ref={notifRef}
-          >
+          <div className="flex items-center gap-3">
+            <div className="relative" ref={downloadRef}>
+              <button
+                onClick={() => setShowDownloadMenu((prev) => !prev)}
+                className="h-[44px] px-4 rounded-[16px] bg-[#eef6ff] border border-blue-200 text-blue-700 font-semibold text-[13px] flex items-center gap-2 shadow-sm"
+              >
+                <Download size={16} />
+                Download
+                <ChevronDown size={14} />
+              </button>
 
-            <button
-              onClick={() =>
-                setShowNotif(
-                  !showNotif
-                )
-              }
-              className="w-[58px] h-[58px] rounded-2xl border border-[#E2E8F0] bg-[#F5F7FB] flex items-center justify-center relative"
-            >
-
-              <Bell
-                size={20}
-                className="text-slate-600"
-              />
-
-              {unreadCount > 0 && (
-                <div className="absolute -top-1 -right-1 min-w-[22px] h-[22px] px-1 rounded-full bg-pink-500 text-white text-[11px] font-black flex items-center justify-center">
-
-                  {unreadCount}
-
+              {showDownloadMenu && (
+                <div className="absolute right-0 mt-2 w-36 rounded-[18px] border border-slate-200 bg-white shadow-lg py-2">
+                  <button
+                    onClick={() => {
+                      downloadExcel();
+                      setShowDownloadMenu(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                  >
+                    Excel
+                  </button>
+                  <button
+                    onClick={() => {
+                      downloadPDF();
+                      setShowDownloadMenu(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                  >
+                    PDF
+                  </button>
                 </div>
               )}
+            </div>
 
-            </button>
+            <div className="bg-white border border-slate-200 shadow-sm h-11 w-[240px] rounded-2xl px-3 flex items-center gap-2">
+              <Search size={16} className="text-slate-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="cari transaksi..."
+                className="bg-transparent outline-none w-full h-full px-2 text-slate-700 text-sm"
+              />
+            </div>
 
-            {/* ================= DROPDOWN ================= */}
-            {showNotif && (
-              <div className="absolute top-20 right-0 w-[420px] bg-white border border-slate-200 rounded-[30px] shadow-2xl overflow-hidden z-50">
-
-                {/* HEADER */}
-                <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
-
-                  <div>
-
-                    <h2 className="font-black text-slate-900 text-xl">
-
-                      Notifikasi
-
-                    </h2>
-
-                    <p className="text-slate-400 text-sm mt-1">
-
-                      {unreadCount} belum dibaca
-
-                    </p>
-
+            <div className="relative" ref={notifRef}>
+              <button
+                onClick={() => setShowNotif(!showNotif)}
+                className="relative w-11 h-11 rounded-2xl border border-slate-200 bg-white flex items-center justify-center hover:bg-slate-100 duration-300"
+              >
+                <Bell size={16} className="text-slate-600" />
+                {unreadCount > 0 && (
+                  <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-blue-500 text-white text-[10px] font-black flex items-center justify-center">
+                    {unreadCount}
                   </div>
+                )}
+              </button>
 
-                  <button
-                    onClick={
-                      markAllRead
-                    }
-                    className="text-blue-600 text-sm font-black hover:underline"
-                  >
-
-                    Tandai dibaca
-
-                  </button>
-
-                </div>
-
-                {/* BODY */}
-                <div className="max-h-[420px] overflow-y-auto">
-
-                  {notifications.length ===
-                  0 ? (
-                    <div className="py-16 text-center text-slate-400 font-bold">
-
-                      Tidak ada notifikasi
-
-                    </div>
-                  ) : (
-                    notifications.map(
-                      (notif) => (
-                        <div
-                          key={notif.id}
-                          className={`px-6 py-5 border-b border-slate-100 hover:bg-slate-50 duration-300 ${
-                            !notif.read
-                              ? "bg-blue-50/40"
-                              : ""
-                          }`}
-                        >
-
-                          <div className="flex items-start justify-between gap-4">
-
-                            <div
-                              onClick={() =>
-                                markAsRead(
-                                  notif.id
-                                )
-                              }
-                              className="cursor-pointer flex-1"
-                            >
-
-                              <p className="font-bold text-slate-700 leading-relaxed">
-
-                                {
-                                  notif.title
-                                }
-
-                              </p>
-
-                              <p className="text-sm text-slate-400 mt-2">
-
-                                {
-                                  notif.time
-                                }
-
-                              </p>
-
-                            </div>
-
-                            {/* DELETE */}
-                            <button
-                              onClick={() =>
-                                deleteNotif(
-                                  notif.id
-                                )
-                              }
-                              className="text-slate-300 hover:text-red-500 duration-300"
-                            >
-
-                              <Trash2
-                                size={17}
-                              />
-
-                            </button>
-
-                          </div>
-
-                        </div>
-                      )
-                    )
-                  )}
-
-                </div>
-
-              </div>
-            )}
-
+              {showNotif && (
+                <ModalNotfications
+                  open={showNotif}
+                  onClose={() => setShowNotif(false)}
+                  notifications={notifications}
+                  setNotifications={setNotifications}
+                />
+              )}
+            </div>
           </div>
-
-        </div>
-
-        {/* ================= HEADER ================= */}
-        <div className="mt-14">
-
-          <h1 className="text-[54px] leading-none font-black text-[#0F172A]">
-
-            Seluruh Transaksi
-
-          </h1>
-
-          <p className="text-[#64748B] text-lg mt-4 font-medium">
-
-            Riwayat transaksi pembelian dan pengiriman di platform BelanjaIn.
-
-          </p>
-
-        </div>
-
-        {/* ================= EXPORT BOX ================= */}
-        <div className="bg-white rounded-[40px] border border-slate-200 shadow-sm mt-10 px-8 py-8 flex items-center justify-between">
-
-          {/* LEFT */}
-          <div>
-
-            <h2 className="text-3xl font-black text-slate-900 uppercase">
-
-              Unduh Laporan Transaksi
-
-            </h2>
-
-            <p className="text-slate-400 uppercase tracking-[2px] text-sm font-black mt-3">
-
-              Ekspor seluruh log riwayat transaksi belanjain ke format yang diinginkan.
-
-            </p>
-
-          </div>
-
-          {/* BUTTON */}
-          <div className="flex items-center gap-5">
-
-            {/* EXCEL */}
-            <button
-              onClick={
-                downloadExcel
-              }
-              className="bg-emerald-500 text-white px-8 h-14 rounded-2xl font-black tracking-widest flex items-center gap-3 shadow-lg hover:bg-emerald-600 duration-300"
-            >
-
-              <FileSpreadsheet
-                size={20}
-              />
-
-              EKSPOR EXCEL
-
-            </button>
-
-            {/* PDF */}
-            <button
-              onClick={downloadPDF}
-              className="bg-red-600 text-white px-8 h-14 rounded-2xl font-black tracking-widest flex items-center gap-3 shadow-lg hover:bg-red-700 duration-300"
-            >
-
-              <FileDown
-                size={20}
-              />
-
-              EKSPOR PDF
-
-            </button>
-
-          </div>
-
         </div>
 
         {/* ================= TABLE ================= */}
         <div className="mt-8 bg-white border border-[#E7ECF3] rounded-[42px] overflow-hidden shadow-sm">
-
           {/* TOP */}
           <div className="px-10 py-8 border-b border-[#EEF2F7]">
-
             <p className="text-[#94A3B8] text-sm font-black tracking-[2px] uppercase">
-
-              Total{" "}
-              {
-                filteredTransactions.length
-              }{" "}
-              Log Transaksi Terbaru
-
+              Total {filteredTransactions.length} Log Transaksi Terbaru
             </p>
-
           </div>
 
           {/* TABLE HEADER */}
-          <div className="grid grid-cols-[1fr_1.5fr_1fr_1fr_0.7fr] px-10 py-8 border-b border-[#EEF2F7] bg-[#FCFDFE]">
-
-            <p className="text-[#94A3B8] text-sm font-black tracking-wider uppercase">
-
+          <div className="grid grid-cols-[1fr_2fr_1.1fr_1fr_0.8fr] px-8 py-6 border-b border-[#EEF2F7] bg-[#FCFDFE]">
+            <p className="text-[#64748B] text-[12px] font-black tracking-[0.22em] uppercase">
               ID Transaksi
-
             </p>
 
-            <p className="text-[#94A3B8] text-sm font-black tracking-wider uppercase">
-
+            <p className="text-[#64748B] text-[12px] font-black tracking-[0.22em] uppercase">
               Pelanggan/Pembeli
-
             </p>
 
-            <p className="text-[#94A3B8] text-sm font-black tracking-wider uppercase">
-
+            <p className="text-[#64748B] text-[12px] font-black tracking-[0.22em] uppercase">
               Total Bayar
-
             </p>
 
-            <p className="text-[#94A3B8] text-sm font-black tracking-wider uppercase">
-
+            <p className="text-[#64748B] text-[12px] font-black tracking-[0.22em] uppercase">
               Tanggal Order
-
             </p>
 
-            <p className="text-[#94A3B8] text-sm font-black tracking-wider uppercase text-center">
-
+            <p className="text-[#64748B] text-[12px] font-black tracking-[0.22em] uppercase text-center">
               Status
-
             </p>
-
           </div>
 
           {/* EMPTY */}
-          {filteredTransactions.length ===
-            0 && (
+          {filteredTransactions.length === 0 && (
             <div className="py-16 text-center text-slate-400 font-black text-xl">
-
               Transaksi tidak ditemukan
-
             </div>
           )}
 
           {/* TABLE BODY */}
-          {filteredTransactions.map(
-            (item) => (
-              <div
-                key={item.id}
-                className="grid grid-cols-[1fr_1.5fr_1fr_1fr_0.7fr] items-center px-10 py-10 border-b border-[#EEF2F7] hover:bg-slate-50 duration-300"
-              >
-
-                {/* ID */}
-                <div>
-
-                  <p className="text-[#2563FF] font-black text-lg">
-
-                    {item.id}
-
-                  </p>
-
-                </div>
-
-                {/* CUSTOMER */}
-                <div>
-
-                  <h3 className="text-[#0F172A] text-xl font-black uppercase">
-
-                    {
-                      item.customer
-                    }
-
-                  </h3>
-
-                </div>
-
-                {/* TOTAL */}
-                <div>
-
-                  <p className="text-[#0F172A] text-xl font-black">
-
-                    {item.total}
-
-                  </p>
-
-                </div>
-
-                {/* DATE */}
-                <div>
-
-                  <p className="text-[#64748B] text-lg font-bold">
-
-                    {item.date}
-
-                  </p>
-
-                </div>
-
-                {/* STATUS */}
-                <div className="flex justify-center">
-
-                  <span
-                    className={`px-5 py-2 rounded-xl text-sm font-black tracking-widest ${item.statusColor}`}
-                  >
-
-                    {
-                      item.status
-                    }
-
-                  </span>
-
-                </div>
-
+          {filteredTransactions.map((item) => (
+            <div
+              key={item.id}
+              className="grid grid-cols-[1fr_2fr_1.1fr_1fr_0.8fr] items-center gap-4 px-8 py-6 border-b border-[#EEF2F7] hover:bg-slate-50 duration-300"
+            >
+              {/* ID */}
+              <div>
+                <p className="text-[#2563FF] font-black text-base tracking-tight">
+                  {item.id}
+                </p>
               </div>
-            )
-          )}
 
+              {/* CUSTOMER */}
+              <div>
+                <h3 className="text-[#0F172A] text-sm font-black uppercase tracking-tight">
+                  {item.customer}
+                </h3>
+              </div>
+
+              {/* TOTAL */}
+              <div>
+                <p className="text-[#0F172A] text-sm font-black">
+                  {formatCurrency(item.total)}
+                </p>
+              </div>
+
+              {/* DATE */}
+              <div>
+                <p className="text-[#64748B] text-sm font-semibold">
+                  {item.date}
+                </p>
+              </div>
+
+              {/* STATUS */}
+              <div className="flex justify-center">
+                <span
+                  className={`inline-flex items-center justify-center px-4 py-1.5 rounded-full text-[11px] font-black uppercase tracking-[0.22em] ${getStatusColor(item.status)}`}
+                >
+                  {getStatusLabel(item.status)}
+                </span>
+              </div>
+            </div>
+          ))}
         </div>
-
       </div>
-
     </AdminLayout>
   );
 }

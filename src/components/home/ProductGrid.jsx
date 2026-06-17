@@ -21,6 +21,32 @@ function ProductGrid({
   setShowCart,
   setAuthModal,
 }) {
+const localProducts = [];
+
+Object.keys(localStorage).forEach((key) => {
+  if (key.startsWith("sellerProducts_")) {
+    const sellerProducts =
+      JSON.parse(localStorage.getItem(key)) || [];
+
+    localProducts.push(...sellerProducts);
+  }
+});
+
+// HAPUS DUPLIKAT BERDASARKAN ID
+const productMap = new Map();
+
+[...products, ...localProducts].forEach(
+  (item) => {
+    productMap.set(item.id, item);
+  }
+);
+
+const allProducts = Array.from(
+  productMap.values()
+);
+console.log("Data products.js", products.length);
+console.log("Data seller", localProducts.length);
+console.log("Semua produk", allProducts);
   const [viewMode, setViewMode] =
     useState("grid");
 
@@ -29,12 +55,13 @@ function ProductGrid({
 
   /* ================= FILTER ================= */
 let filteredProducts =
-  products.filter((item) => {
-
+  allProducts.filter((item) => {
+    console.log("ITEM", item);
     // ================= CATEGORY =================
     const matchCategory =
-      selectedCategory === "Semua" ||
-      item.category === selectedCategory;
+  selectedCategory === "Semua" ||
+  item.category?.toLowerCase() ===
+    selectedCategory?.toLowerCase();
 
     // ================= MODE =================
     const matchMode =
@@ -100,7 +127,12 @@ let filteredProducts =
         b.price - a.price
     );
   }
-
+console.log(
+  "Produk seller 5",
+  allProducts.filter(
+    (item) => item.sellerId === 5
+  )
+);
   return (
     <div className="mt-10">
 

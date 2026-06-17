@@ -9,26 +9,147 @@ import {
   Download,
   Layers,
   Star,
+  ChevronDown,
 } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import AdminLayout from "../../layouts/AdminLayout";
+import ModalNotfications from "../../components/admin/ModalNotfications";
+import { notifications as defaultNotifications } from "../../data/notifications";
+import { products } from "../../data/products";
+import { users as usersData } from "../../data/users";
+import { orders } from "../../data/orders";
+import { sellers } from "../../data/sellers";
+import { reviews } from "../../data/reviews";
 
 function DashboardAdmin() {
   const navigate = useNavigate();
   const [showNotif, setShowNotif] = useState(false);
+  const [showDownloadMenu, setShowDownloadMenu] = useState(false);
+  const notifRef = useRef();
+  const [notifications, setNotifications] = useState(() =>
+    defaultNotifications.filter((item) => item.role === "admin"),
+  );
+  const unreadCount = notifications.filter((notif) => !notif.read).length;
+  const downloadRef = useRef();
+  const [chartMounted, setChartMounted] = useState(false);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setChartMounted(true);
+    }, 80);
+
+    return () => window.clearTimeout(timeout);
+  }, []);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (notifRef.current && !notifRef.current.contains(event.target)) {
+        setShowNotif(false);
+      }
+      if (downloadRef.current && !downloadRef.current.contains(event.target)) {
+        setShowDownloadMenu(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  const totalUsers = usersData.length;
+  const totalProducts = products.length;
+  const totalTransactions = orders.length;
+  const totalRevenue = orders.reduce(
+    (acc, order) => acc + Number(order.total || 0),
+    0,
+  );
+  const averageRating = products.length
+    ? (
+        products.reduce((acc, item) => acc + Number(item.rating || 0), 0) /
+        products.length
+      ).toFixed(1)
+    : "0.0";
+
+  const totalReviews = reviews.length;
+  const averageReviewRating = totalReviews
+    ? (
+        reviews.reduce((acc, item) => acc + Number(item.rating || 0), 0) /
+        totalReviews
+      ).toFixed(1)
+    : "0.0";
+
+  const satisfactionPercent = totalReviews
+    ? Math.round(
+        (reviews.filter((review) => Number(review.rating) >= 4).length /
+          totalReviews) *
+          100,
+      )
+    : 0;
+
+  const reviewDistribution = [5, 4, 3, 2, 1].map((star) => {
+    const count = reviews.filter(
+      (review) => Math.round(Number(review.rating || 0)) === star,
+    ).length;
+
+    return {
+      star,
+      count,
+      percent: totalReviews
+        ? `${Math.round((count / totalReviews) * 100)}%`
+        : "0%",
+      width: totalReviews
+        ? `${Math.round((count / totalReviews) * 100)}%`
+        : "0%",
+    };
+  });
+
+  const recentReviews = [...reviews]
+    .sort((a, b) => {
+      const parseDate = (value) => {
+        const [day, month, year] = value.split("/");
+        return new Date(`${year}-${month}-${day}`);
+      };
+
+      return parseDate(b.date) - parseDate(a.date);
+    })
+    .slice(0, 3)
+    .map((review) => ({
+      ...review,
+      role:
+        usersData.find((user) => user.id === review.reviewerId)?.role ===
+        "seller"
+          ? "PENJUAL"
+          : "PEMBELI",
+      letter: review.reviewerName.charAt(0).toUpperCase(),
+      stars: Array(Math.round(Number(review.rating || 0))).fill("★"),
+    }));
+
+  const pathLength = 3000;
+
+  const recentUsers = [...usersData]
+    .filter((user) => user.role !== "admin")
+    .sort((a, b) => b.id - a.id)
+    .slice(0, 3)
+    .map((user) => ({
+      name: user.storeName || user.name || "User",
+      role: user.role === "customer" ? "PEMBELI" : user.role.toUpperCase(),
+      letter: (user.storeName || user.name || "U").charAt(0).toUpperCase(),
+    }));
 
   /* ================= DOWNLOAD EXCEL ================= */
   const downloadExcel = () => {
     const content = `
 LAPORAN BELANJAIN
 
-TOTAL USER : 3
-TOTAL PRODUK : 10
-TOTAL TRANSAKSI : 1243
-TOTAL REVENUE : Rp 130.275.000
+TOTAL USER : ${totalUsers}
+TOTAL PRODUK : ${totalProducts}
+TOTAL TRANSAKSI : ${totalTransactions}
+TOTAL REVENUE : Rp ${totalRevenue.toLocaleString("id-ID")}
 `;
 
     const blob = new Blob([content], {
@@ -51,10 +172,10 @@ TOTAL REVENUE : Rp 130.275.000
     const content = `
 RINGKASAN PDF BELANJAIN
 
-TOTAL USER : 3
-TOTAL PRODUK : 10
-TOTAL TRANSAKSI : 1243
-TOTAL REVENUE : Rp 130.275.000
+TOTAL USER : ${totalUsers}
+TOTAL PRODUK : ${totalProducts}
+TOTAL TRANSAKSI : ${totalTransactions}
+TOTAL REVENUE : Rp ${totalRevenue.toLocaleString("id-ID")}
 `;
 
     const blob = new Blob([content], {
@@ -76,382 +197,127 @@ TOTAL REVENUE : Rp 130.275.000
   const stats = [
     {
       title: "TOTAL USER",
-      value: "3",
+      value: `${totalUsers}`,
       icon: <Users size={22} />,
       increase: "+12%",
     },
     {
       title: "TOTAL PRODUK",
-      value: "10",
+      value: `${totalProducts}`,
       icon: <Package size={22} />,
       increase: "+5%",
     },
     {
       title: "TOTAL TRANSAKSI",
-      value: "1243",
+      value: `${totalTransactions}`,
       icon: <ShoppingBag size={22} />,
       increase: "+18%",
     },
     {
       title: "TOTAL REVENUE",
-      value: "Rp\n130.275.000",
+      value: `Rp ${totalRevenue.toLocaleString("id-ID")}`,
       icon: <TrendingUp size={22} />,
       increase: "+22%",
     },
     {
       title: "RATING APP (USER)",
-      value: "★ 4.5 / 5.0",
+      value: `★ ${averageRating} / 5.0`,
       icon: <Star size={22} />,
-      increase: "4 Ulasan",
+      increase: `${products.length} Produk`,
     },
   ];
 
-  const users = [
-    {
-      name: "TOKO HAMID JAYA",
-      role: "PENJUAL",
-      letter: "T",
-    },
-    {
-      name: "TOKO HAMID JAYA",
-      role: "PENJUAL",
-      letter: "T",
-    },
-    {
-      name: "SITI AMINAH",
-      role: "PEMBELI",
-      letter: "S",
-    },
-  ];
+  const users = recentUsers;
 
   return (
     <AdminLayout>
       <div className="min-h-screen bg-[#f6f8fc] px-7 py-6">
-
         {/* ================= TOP ================= */}
-        <div className="flex items-start justify-between">
-
+        <div className="flex items-center justify-between gap-6">
           {/* LEFT */}
-          <div className="pt-20">
-
-            <h1 className="text-[28px] font-black text-slate-900">
+          <div>
+            <h1 className="text-[28px] leading-tight font-black text-slate-900">
               Dashboard
             </h1>
 
-            <p className="text-slate-500 mt-1 text-[15px]">
+            <p className="text-slate-500 mt-2 text-sm max-w-xl">
               Kelola sistem dan pantau aktivitas platform BelanjaIn.
             </p>
-
           </div>
 
           {/* RIGHT */}
-          <div className="flex flex-col items-end gap-5">
-
-            {/* SEARCH */}
-            <div className="flex items-center gap-4">
-
-              <div
-                className="
-                  w-[290px]
-                  h-[58px]
-                  rounded-2xl
-                  bg-white
-                  border
-                  border-slate-200
-                  px-5
-                  flex
-                  items-center
-                  gap-3
-                  shadow-sm
-                "
-              >
-
-                <Search
-                  size={18}
-                  className="text-slate-400"
-                />
-
-                <input
-                  type="text"
-                  placeholder="cari sesuatu..."
-                  className="
-                    bg-transparent
-                    outline-none
-                    w-full
-                    text-[14px]
-                  "
-                />
-
-              </div>
-
-             {/* NOTIF */}
-<div className="relative">
-
-  <button
-    onClick={() => setShowNotif(!showNotif)}
-    className="
-      relative
-      w-[58px]
-      h-[58px]
-      rounded-2xl
-      bg-white
-      border
-      border-slate-200
-      flex
-      items-center
-      justify-center
-      shadow-sm
-    "
-  >
-
-    <Bell
-      size={21}
-      className="text-slate-600"
-    />
-
-    <div
-      className="
-        absolute
-        top-3
-        right-3
-        w-3
-        h-3
-        rounded-full
-        bg-pink-500
-      "
-    />
-
-  </button>
-
-  {/* PANEL NOTIF */}
-  {showNotif && (
-
-    <div
-      className="
-        absolute
-        top-[75px]
-        right-0
-        w-[340px]
-        bg-white
-        rounded-[30px]
-        border
-        border-slate-200
-        shadow-2xl
-        p-5
-        z-50
-      "
-    >
-
-      {/* HEADER */}
-      <div className="mb-4">
-
-        <h2
-          className="
-            text-[13px]
-            font-black
-            tracking-[1px]
-            text-slate-400
-          "
-        >
-          NOTIFIKASI (3)
-        </h2>
-
-      </div>
-
-      {/* LIST */}
-      <div
-        className="
-          max-h-[260px]
-          overflow-y-auto
-          pr-1
-          flex
-          flex-col
-          gap-4
-        "
-      >
-
-        {/* ITEM */}
-        <div
-          className="
-            bg-[#f8fafc]
-            rounded-[22px]
-            p-4
-            border
-            border-slate-200
-          "
-        >
-
-          <h3
-            className="
-              text-[14px]
-              font-black
-              text-slate-700
-              leading-relaxed
-            "
-          >
-            User baru "Hamid Saputra" berhasil terdaftar
-          </h3>
-
-          <p
-            className="
-              text-[12px]
-              text-slate-400
-              font-bold
-              mt-2
-            "
-          >
-            Baru saja
-          </p>
-
-        </div>
-
-        {/* ITEM */}
-        <div
-          className="
-            bg-[#f8fafc]
-            rounded-[22px]
-            p-4
-            border
-            border-slate-200
-          "
-        >
-
-          <h3
-            className="
-              text-[14px]
-              font-black
-              text-slate-700
-              leading-relaxed
-            "
-          >
-            Laporan baru masuk untuk produk
-            "iPhone 15 Pro Max"
-          </h3>
-
-          <p
-            className="
-              text-[12px]
-              text-slate-400
-              font-bold
-              mt-2
-            "
-          >
-            5 menit lalu
-          </p>
-
-        </div>
-
-        {/* ITEM */}
-        <div
-          className="
-            bg-[#f8fafc]
-            rounded-[22px]
-            p-4
-            border
-            border-slate-200
-          "
-        >
-
-          <h3
-            className="
-              text-[14px]
-              font-black
-              text-slate-700
-              leading-relaxed
-            "
-          >
-            Voucher GLOBAL "HEMAT10"
-            berhasil diaktifkan
-          </h3>
-
-          <p
-            className="
-              text-[12px]
-              text-slate-400
-              font-bold
-              mt-2
-            "
-          >
-            20 menit lalu
-          </p>
-
-        </div>
-
-      </div>
-
-    </div>
-
-  )}
-
-</div>
-              
-
-            </div>
-
-            {/* BUTTON */}
-            <div className="flex items-center gap-3">
-
+          <div className="flex items-center justify-end gap-3">
+            <div className="relative" ref={downloadRef}>
               <button
-                onClick={downloadExcel}
-                className="
-                  h-[48px]
-                  px-6
-                  rounded-[16px]
-                  bg-[#e8faf1]
-                  border
-                  border-emerald-200
-                  text-emerald-700
-                  font-black
-                  text-[13px]
-                  flex
-                  items-center
-                  gap-2
-                  shadow-sm
-                "
+                onClick={() => setShowDownloadMenu((prev) => !prev)}
+                className="h-[44px] px-4 rounded-[16px] bg-[#eef6ff] border border-blue-200 text-blue-700 font-semibold text-[13px] flex items-center gap-2 shadow-sm"
               >
-
-                <Layers size={16} />
-
-                LAPORAN EXCEL
-
-              </button>
-
-              <button
-                onClick={downloadPDF}
-                className="
-                  h-[48px]
-                  px-6
-                  rounded-[16px]
-                  bg-[#fff1f3]
-                  border
-                  border-rose-200
-                  text-rose-600
-                  font-black
-                  text-[13px]
-                  flex
-                  items-center
-                  gap-2
-                  shadow-sm
-                "
-              >
-
                 <Download size={16} />
-
-                RINGKASAN PDF
-
+                Download
+                <ChevronDown size={14} />
               </button>
 
+              {showDownloadMenu && (
+                <div className="absolute right-0 mt-2 w-36 rounded-[18px] border border-slate-200 bg-white shadow-lg py-2">
+                  <button
+                    onClick={() => {
+                      downloadExcel();
+                      setShowDownloadMenu(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                  >
+                    Excel
+                  </button>
+                  <button
+                    onClick={() => {
+                      downloadPDF();
+                      setShowDownloadMenu(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                  >
+                    PDF
+                  </button>
+                </div>
+              )}
             </div>
 
-          </div>
+            <div className="bg-white border border-slate-200 shadow-sm h-11 w-[240px] rounded-2xl px-3 flex items-center gap-2">
+              <Search size={16} className="text-slate-400" />
 
+              <input
+                type="text"
+                placeholder="Cari sesuatu..."
+                className="bg-transparent outline-none w-full text-sm text-slate-700"
+              />
+            </div>
+
+            <div className="relative" ref={notifRef}>
+              <button
+                onClick={() => setShowNotif(!showNotif)}
+                className="relative w-11 h-11 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shadow-sm"
+              >
+                <Bell size={16} className="text-slate-600" />
+
+                {unreadCount > 0 && (
+                  <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-blue-500 text-white text-[10px] font-black flex items-center justify-center">
+                    {unreadCount}
+                  </div>
+                )}
+              </button>
+
+              <ModalNotfications
+                open={showNotif}
+                onClose={() => setShowNotif(false)}
+                notifications={notifications}
+                setNotifications={setNotifications}
+              />
+            </div>
+          </div>
         </div>
 
         {/* ================= STATS ================= */}
         <div className="grid grid-cols-5 gap-5 mt-8">
-
           {stats.map((item, index) => (
-
             <div
               key={index}
               className="
@@ -467,10 +333,8 @@ TOTAL REVENUE : Rp 130.275.000
                 justify-between
               "
             >
-
               {/* TOP */}
               <div className="flex items-start justify-between">
-
                 <div
                   className={`
                     w-14
@@ -486,9 +350,7 @@ TOTAL REVENUE : Rp 130.275.000
                     }
                   `}
                 >
-
                   {item.icon}
-
                 </div>
 
                 <div
@@ -498,25 +360,17 @@ TOTAL REVENUE : Rp 130.275.000
                     gap-1
                     text-[13px]
                     font-black
-                    ${
-                      index === 4
-                        ? "text-orange-500"
-                        : "text-blue-600"
-                    }
+                    ${index === 4 ? "text-orange-500" : "text-blue-600"}
                   `}
                 >
-
                   <ArrowUpRight size={14} />
 
                   {item.increase}
-
                 </div>
-
               </div>
 
               {/* CONTENT */}
               <div>
-
                 <p
                   className="
                     text-[12px]
@@ -525,9 +379,7 @@ TOTAL REVENUE : Rp 130.275.000
                     text-slate-400
                   "
                 >
-
                   {item.title}
-
                 </p>
 
                 <h2
@@ -537,29 +389,18 @@ TOTAL REVENUE : Rp 130.275.000
                     leading-tight
                     whitespace-pre-line
                     mt-3
-                    ${
-                      index === 3
-                        ? "text-[24px]"
-                        : "text-[18px]"
-                    }
+                    ${index === 3 ? "text-[24px]" : "text-[18px]"}
                   `}
                 >
-
                   {item.value}
-
                 </h2>
-
               </div>
-
             </div>
-
           ))}
-
         </div>
 
         {/* ================= CHART + USER ================= */}
         <div className="grid grid-cols-12 gap-6 mt-7">
-
           {/* CHART */}
           <div
             className="
@@ -570,42 +411,37 @@ TOTAL REVENUE : Rp 130.275.000
               border-slate-200
               p-7
               shadow-sm
+              overflow-hidden
             "
           >
-
             <div className="flex items-center justify-between">
-
               <h2 className="text-[16px] font-black text-slate-900">
                 STATISTIK PENDAPATAN KUMULATIF
               </h2>
 
               <div className="flex items-center gap-2">
-
                 <div className="w-3 h-3 rounded-full bg-blue-600"></div>
 
-                <p className="text-[12px] font-black text-slate-500">
-                  REVENUE
-                </p>
-
+                <p className="text-[12px] font-black text-slate-500">REVENUE</p>
               </div>
-
             </div>
 
             {/* CHART */}
-            <div className="relative h-[320px] mt-6 overflow-hidden">
-
+            <div
+              className={`relative h-[320px] mt-6 overflow-hidden transition-all duration-700 ease-out ${
+                chartMounted
+                  ? "opacity-100 translate-y-0"
+                  : "opacity-0 translate-y-6"
+              }`}
+            >
               {/* GRID */}
               <div className="absolute inset-0 flex flex-col justify-between">
-
-                {[1,2,3,4,5].map((_,i)=>(
-
+                {[1, 2, 3, 4, 5].map((_, i) => (
                   <div
                     key={i}
                     className="border-b border-dashed border-slate-200"
                   />
-
                 ))}
-
               </div>
 
               {/* SVG */}
@@ -613,31 +449,12 @@ TOTAL REVENUE : Rp 130.275.000
                 viewBox="0 0 900 320"
                 className="absolute inset-0 w-full h-full"
               >
-
                 <defs>
+                  <linearGradient id="gradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#2563eb" stopOpacity="0.3" />
 
-                  <linearGradient
-                    id="gradient"
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-
-                    <stop
-                      offset="0%"
-                      stopColor="#2563eb"
-                      stopOpacity="0.3"
-                    />
-
-                    <stop
-                      offset="100%"
-                      stopColor="#2563eb"
-                      stopOpacity="0"
-                    />
-
+                    <stop offset="100%" stopColor="#2563eb" stopOpacity="0" />
                   </linearGradient>
-
                 </defs>
 
                 {/* AREA */}
@@ -653,7 +470,16 @@ TOTAL REVENUE : Rp 130.275.000
                     Z
                   "
                   fill="url(#gradient)"
-                />
+                  opacity="0"
+                >
+                  <animate
+                    attributeName="opacity"
+                    from="0"
+                    to="1"
+                    dur="1.2s"
+                    fill="freeze"
+                  />
+                </path>
 
                 {/* LINE */}
                 <path
@@ -668,8 +494,17 @@ TOTAL REVENUE : Rp 130.275.000
                   stroke="#2563eb"
                   strokeWidth="4"
                   strokeLinecap="round"
-                />
-
+                  strokeDasharray={pathLength}
+                  strokeDashoffset={pathLength}
+                >
+                  <animate
+                    attributeName="stroke-dashoffset"
+                    from={pathLength}
+                    to="0"
+                    dur="1.5s"
+                    fill="freeze"
+                  />
+                </path>
               </svg>
 
               {/* BOTTOM */}
@@ -686,7 +521,6 @@ TOTAL REVENUE : Rp 130.275.000
                   font-bold
                 "
               >
-
                 <p>Sen</p>
                 <p>Sel</p>
                 <p>Rab</p>
@@ -694,11 +528,8 @@ TOTAL REVENUE : Rp 130.275.000
                 <p>Jum</p>
                 <p>Sab</p>
                 <p>Min</p>
-
               </div>
-
             </div>
-
           </div>
 
           {/* USER */}
@@ -713,28 +544,21 @@ TOTAL REVENUE : Rp 130.275.000
               shadow-sm
             "
           >
-
             <div className="flex items-center justify-between">
-
               <h2 className="text-[16px] font-black text-slate-900">
                 USER BARU
               </h2>
 
               <button
-                onClick={() =>
-                  navigate("/admin/users")
-                }
+                onClick={() => navigate("/admin/users")}
                 className="text-blue-600 text-[12px] font-black"
               >
                 LIHAT SEMUA
               </button>
-
             </div>
 
             <div className="mt-6 flex flex-col gap-4">
-
               {users.map((user, index) => (
-
                 <div
                   key={index}
                   className="
@@ -746,9 +570,7 @@ TOTAL REVENUE : Rp 130.275.000
                     justify-between
                   "
                 >
-
                   <div className="flex items-center gap-4">
-
                     <div
                       className="
                         w-12
@@ -762,13 +584,10 @@ TOTAL REVENUE : Rp 130.275.000
                         font-black
                       "
                     >
-
                       {user.letter}
-
                     </div>
 
                     <div>
-
                       <h3 className="font-black text-[14px] text-slate-900">
                         {user.name}
                       </h3>
@@ -776,29 +595,20 @@ TOTAL REVENUE : Rp 130.275.000
                       <p className="text-[11px] font-bold text-slate-400 mt-1">
                         {user.role}
                       </p>
-
                     </div>
-
                   </div>
 
-                  <div className="text-emerald-500">
-                    ✓
-                  </div>
-
+                  <div className="text-emerald-500">✓</div>
                 </div>
-
               ))}
-
             </div>
-
           </div>
-
         </div>
 
         {/* ================= REPORT ================= */}
         {/* ================= REPORT ================= */}
-<div
-  className="
+        <div
+          className="
     bg-white
     rounded-[34px]
     border
@@ -807,32 +617,26 @@ TOTAL REVENUE : Rp 130.275.000
     shadow-sm
     mt-7
   "
->
+        >
+          {/* HEADER */}
+          <div className="flex items-center justify-between">
+            <h2 className="text-[16px] font-black text-slate-900">
+              LAPORAN TERBARU
+            </h2>
 
-  {/* HEADER */}
-  <div className="flex items-center justify-between">
+            <button
+              onClick={() => navigate("/admin/reports")}
+              className="text-blue-600 text-[12px] font-black"
+            >
+              LIHAT SEMUA
+            </button>
+          </div>
 
-    <h2 className="text-[16px] font-black text-slate-900">
-      LAPORAN TERBARU
-    </h2>
-
-    <button
-      onClick={() =>
-        navigate("/admin/reports")
-      }
-      className="text-blue-600 text-[12px] font-black"
-    >
-      LIHAT SEMUA
-    </button>
-
-  </div>
-
-  {/* REPORT LIST */}
-  <div className="grid grid-cols-2 gap-5 mt-7">
-
-    {/* ITEM 1 */}
-    <div
-      className="
+          {/* REPORT LIST */}
+          <div className="grid grid-cols-2 gap-5 mt-7">
+            {/* ITEM 1 */}
+            <div
+              className="
         bg-[#f8fafc]
         rounded-[24px]
         p-6
@@ -842,14 +646,12 @@ TOTAL REVENUE : Rp 130.275.000
         border
         border-slate-200
       "
-    >
-
-      {/* LEFT */}
-      <div className="flex items-center gap-5">
-
-        {/* ICON */}
-        <div
-          className="
+            >
+              {/* LEFT */}
+              <div className="flex items-center gap-5">
+                {/* ICON */}
+                <div
+                  className="
             w-12
             h-12
             rounded-2xl
@@ -861,27 +663,26 @@ TOTAL REVENUE : Rp 130.275.000
             text-[20px]
             font-black
           "
-        >
-          !
-        </div>
+                >
+                  !
+                </div>
 
-        {/* CONTENT */}
-        <div>
-
-          <h3
-            className="
+                {/* CONTENT */}
+                <div>
+                  <h3
+                    className="
               font-black
               text-slate-900
               text-[15px]
               uppercase
               leading-tight
             "
-          >
-            DESAIN & DESKRIPSI TIDAK SESUAI
-          </h3>
+                  >
+                    DESAIN & DESKRIPSI TIDAK SESUAI
+                  </h3>
 
-          <p
-            className="
+                  <p
+                    className="
               text-slate-400
               text-[11px]
               font-black
@@ -889,17 +690,15 @@ TOTAL REVENUE : Rp 130.275.000
               uppercase
               mt-1
             "
-          >
-            OLEH: HAMID SAPUTRA
-          </p>
+                  >
+                    OLEH: HAMID SAPUTRA
+                  </p>
+                </div>
+              </div>
 
-        </div>
-
-      </div>
-
-      {/* STATUS */}
-      <div
-        className="
+              {/* STATUS */}
+              <div
+                className="
           bg-amber-100
           text-amber-600
           px-4
@@ -911,15 +710,14 @@ TOTAL REVENUE : Rp 130.275.000
           text-[11px]
           whitespace-nowrap
         "
-      >
-        PENDING
-      </div>
+              >
+                PENDING
+              </div>
+            </div>
 
-    </div>
-
-    {/* ITEM 2 */}
-    <div
-      className="
+            {/* ITEM 2 */}
+            <div
+              className="
         bg-[#f8fafc]
         rounded-[24px]
         p-6
@@ -929,14 +727,12 @@ TOTAL REVENUE : Rp 130.275.000
         border
         border-slate-200
       "
-    >
-
-      {/* LEFT */}
-      <div className="flex items-center gap-5">
-
-        {/* ICON */}
-        <div
-          className="
+            >
+              {/* LEFT */}
+              <div className="flex items-center gap-5">
+                {/* ICON */}
+                <div
+                  className="
             w-12
             h-12
             rounded-2xl
@@ -948,27 +744,26 @@ TOTAL REVENUE : Rp 130.275.000
             text-[20px]
             font-black
           "
-        >
-          !
-        </div>
+                >
+                  !
+                </div>
 
-        {/* CONTENT */}
-        <div>
-
-          <h3
-            className="
+                {/* CONTENT */}
+                <div>
+                  <h3
+                    className="
               font-black
               text-slate-900
               text-[15px]
               uppercase
               leading-tight
             "
-          >
-            MELAKUKAN SPAM CHAT & PROMOSI LUAR
-          </h3>
+                  >
+                    MELAKUKAN SPAM CHAT & PROMOSI LUAR
+                  </h3>
 
-          <p
-            className="
+                  <p
+                    className="
               text-slate-400
               text-[11px]
               font-black
@@ -976,17 +771,15 @@ TOTAL REVENUE : Rp 130.275.000
               uppercase
               mt-1
             "
-          >
-            OLEH: TOKO HAMID JAYA
-          </p>
+                  >
+                    OLEH: TOKO HAMID JAYA
+                  </p>
+                </div>
+              </div>
 
-        </div>
-
-      </div>
-
-      {/* STATUS */}
-      <div
-        className="
+              {/* STATUS */}
+              <div
+                className="
           bg-amber-100
           text-amber-600
           px-4
@@ -998,26 +791,17 @@ TOTAL REVENUE : Rp 130.275.000
           text-[11px]
           whitespace-nowrap
         "
-      >
-        PENDING
+              >
+                PENDING
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-    </div>
-
-  </div>
-
-</div>
-          
-
-
-        </div>
-
-
-
-
-              {/* ================= ANALISIS KEPUASAN ================= */}
-        <div
-          className="
+      {/* ================= ANALISIS KEPUASAN ================= */}
+      <div
+        className="
             bg-white
             rounded-[35px]
             border
@@ -1026,19 +810,16 @@ TOTAL REVENUE : Rp 130.275.000
             shadow-sm
             mt-8
           "
-        >
+      >
+        {/* HEADER */}
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-[30px] font-black text-slate-900">
+              ANALISIS KEPUASAN & ULASAN PENGGUNA
+            </h2>
 
-          {/* HEADER */}
-          <div className="flex items-start justify-between">
-
-            <div>
-
-              <h2 className="text-[30px] font-black text-slate-900">
-                ANALISIS KEPUASAN & ULASAN PENGGUNA
-              </h2>
-
-              <p
-                className="
+            <p
+              className="
                   text-slate-400
                   text-[13px]
                   font-black
@@ -1046,15 +827,14 @@ TOTAL REVENUE : Rp 130.275.000
                   uppercase
                   mt-1
                 "
-              >
-                RATING APLIKASI TERKINI DARI PEMBELI DAN PENJUAL TERDAFTAR
-              </p>
+            >
+              RATING APLIKASI TERKINI DARI PEMBELI DAN PENJUAL TERDAFTAR
+            </p>
+          </div>
 
-            </div>
-
-            {/* BADGE */}
-            <div
-              className="
+          {/* BADGE */}
+          <div
+            className="
                 h-[52px]
                 px-6
                 rounded-[18px]
@@ -1068,20 +848,16 @@ TOTAL REVENUE : Rp 130.275.000
                 items-center
                 gap-2
               "
-            >
-
-              ★ 4.8 DARI 5.0 BINTANG
-
-            </div>
-
+          >
+            ★ {averageReviewRating} DARI 5.0 BINTANG
           </div>
+        </div>
 
-          {/* CONTENT */}
-          <div className="grid grid-cols-12 gap-8 mt-8">
-
-            {/* LEFT */}
-            <div
-              className="
+        {/* CONTENT */}
+        <div className="grid grid-cols-12 gap-8 mt-8">
+          {/* LEFT */}
+          <div
+            className="
                 col-span-4
                 bg-[#f8fafc]
                 rounded-[30px]
@@ -1089,126 +865,89 @@ TOTAL REVENUE : Rp 130.275.000
                 border
                 border-slate-200
               "
-            >
-
-              {/* SCORE */}
-              <div className="text-center">
-
-                <h1
-                  className="
+          >
+            {/* SCORE */}
+            <div className="text-center">
+              <h1
+                className="
                     text-[70px]
                     font-black
                     text-slate-900
                     leading-none
                   "
-                >
-                  4.8
-                </h1>
+              >
+                {averageReviewRating}
+              </h1>
 
-                <div className="flex justify-center gap-1 mt-4 text-[34px] text-amber-400">
-                  ★ ★ ★ ★ ★
-                </div>
+              <div className="flex justify-center gap-1 mt-4 text-[34px] text-amber-400">
+                {Array(5)
+                  .fill(0)
+                  .map((_, index) => (
+                    <span key={index}>★</span>
+                  ))}
+              </div>
 
-                <p
-                  className="
+              <p
+                className="
                     text-slate-400
                     font-black
                     text-[15px]
                     mt-4
                     tracking-[1px]
                   "
-                >
-                  96% KEPUASAN PELANGGAN
-                </p>
+              >
+                {satisfactionPercent}% KEPUASAN PELANGGAN
+              </p>
+            </div>
 
-              </div>
-
-              {/* BAR */}
-              <div className="mt-10 space-y-5">
-
-                {[
-                  {
-                    star: "5",
-                    percent: "85%",
-                    width: "85%",
-                  },
-                  {
-                    star: "4",
-                    percent: "11%",
-                    width: "11%",
-                  },
-                  {
-                    star: "3",
-                    percent: "3%",
-                    width: "3%",
-                  },
-                  {
-                    star: "2",
-                    percent: "1%",
-                    width: "1%",
-                  },
-                  {
-                    star: "1",
-                    percent: "0%",
-                    width: "0%",
-                  },
-                ].map((item, index) => (
+            {/* BAR */}
+            <div className="mt-10 space-y-5">
+              {reviewDistribution.map((item) => (
+                <div key={item.star} className="flex items-center gap-4">
+                  <p className="w-[15px] text-slate-600 font-black">
+                    {item.star}
+                  </p>
 
                   <div
-                    key={index}
-                    className="flex items-center gap-4"
-                  >
-
-                    <p className="w-[15px] text-slate-600 font-black">
-                      {item.star}
-                    </p>
-
-                    <div
-                      className="
+                    className="
                         flex-1
                         h-[10px]
                         rounded-full
                         bg-slate-200
                         overflow-hidden
                       "
-                    >
-
-                      <div
-                        className="
+                  >
+                    <div
+                      className="
                           h-full
                           rounded-full
                           bg-amber-400
                         "
-                        style={{
-                          width: item.width,
-                        }}
-                      />
+                      style={{
+                        width: item.width,
+                      }}
+                    />
+                  </div>
 
-                    </div>
-
-                    <p
-                      className="
+                  <p
+                    className="
                         w-[50px]
                         text-right
                         text-slate-600
                         font-black
                         text-sm
                       "
-                    >
-                      {item.percent}
-                    </p>
-
-                  </div>
-
-                ))}
-
-              </div>
-
+                  >
+                    {item.percent}
+                  </p>
+                </div>
+              ))}
             </div>
+          </div>
 
-            {/* RIGHT */}
-            <div
-              className="
+          {/* RIGHT */}
+          <div
+            className="
                 col-span-8
                 max-h-[430px]
                 overflow-y-auto
@@ -1217,54 +956,24 @@ TOTAL REVENUE : Rp 130.275.000
                 flex-col
                 gap-5
               "
-            >
-
-              {[
-                {
-                  name: "SITI RAHMA",
-                  role: "PEMBELI",
-                  letter: "S",
-                  date: "21/05/2026 14:15",
-                  review:
-                    "Sangat mudah digunakan untuk belanja dari produsen lokal! Fitur chat cepat dan responsif.",
-                },
-                {
-                  name: "TOKO BUDI JAYA",
-                  role: "PENJUAL",
-                  letter: "T",
-                  date: "20/05/2026 18:30",
-                  review:
-                    "Sistem komisi sangat bersahabat dibanding ecommerce lain, dan pencairan cepat.",
-                },
-                {
-                  name: "DEWI LESTARI",
-                  role: "PEMBELI",
-                  letter: "D",
-                  date: "19/05/2026 11:10",
-                  review:
-                    "Tampilan modern dan nyaman digunakan setiap hari.",
-                },
-              ].map((item, index) => (
-
-                <div
-                  key={index}
-                  className="
+          >
+            {recentReviews.map((item, index) => (
+              <div
+                key={index}
+                className="
                     bg-[#f8fafc]
                     rounded-[28px]
                     p-6
                     border
                     border-slate-200
                   "
-                >
-
-                  {/* TOP */}
-                  <div className="flex items-start justify-between">
-
-                    <div className="flex items-start gap-4">
-
-                      {/* AVATAR */}
-                      <div
-                        className="
+              >
+                {/* TOP */}
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-4">
+                    {/* AVATAR */}
+                    <div
+                      className="
                           w-14
                           h-14
                           rounded-2xl
@@ -1275,21 +984,19 @@ TOTAL REVENUE : Rp 130.275.000
                           items-center
                           justify-center
                         "
-                      >
-                        {item.letter}
-                      </div>
+                    >
+                      {item.letter}
+                    </div>
 
-                      {/* INFO */}
-                      <div>
+                    {/* INFO */}
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <h3 className="font-black text-slate-900">
+                          {item.reviewerName}
+                        </h3>
 
-                        <div className="flex items-center gap-3">
-
-                          <h3 className="font-black text-slate-900">
-                            {item.name}
-                          </h3>
-
-                          <span
-                            className={`
+                        <span
+                          className={`
                               px-3
                               py-1
                               rounded-lg
@@ -1301,37 +1008,40 @@ TOTAL REVENUE : Rp 130.275.000
                                   : "bg-amber-100 text-amber-600"
                               }
                             `}
-                          >
-                            {item.role}
-                          </span>
-
-                        </div>
-
-                        {/* STAR */}
-                        <div className="flex gap-1 text-amber-400 mt-2">
-                          ★ ★ ★ ★ ★
-                        </div>
-
+                        >
+                          {item.role}
+                        </span>
                       </div>
 
+                      <div className="mt-2 flex items-center gap-2 text-amber-400">
+                        {item.stars.map((star, starIndex) => (
+                          <span key={starIndex}>{star}</span>
+                        ))}
+                        <span className="text-slate-500 font-bold ml-2">
+                          {item.rating.toFixed(1)}
+                        </span>
+                      </div>
+
+                      <p className="text-slate-500 text-sm mt-2">
+                        {item.productName} • {item.storeName}
+                      </p>
                     </div>
-
-                    {/* DATE */}
-                    <p
-                      className="
-                        text-slate-400
-                        text-sm
-                        font-bold
-                      "
-                    >
-                      {item.date}
-                    </p>
-
                   </div>
 
-                  {/* REVIEW */}
-                  <div
-                    className="
+                  {/* DATE */}
+                  <div className="text-right">
+                    <p className="text-slate-400 text-sm font-bold">
+                      {item.date}
+                    </p>
+                    <p className="text-slate-400 text-[12px] mt-1">
+                      {item.helpful} berguna
+                    </p>
+                  </div>
+                </div>
+
+                {/* REVIEW */}
+                <div
+                  className="
                       mt-5
                       bg-white
                       rounded-[20px]
@@ -1340,24 +1050,16 @@ TOTAL REVENUE : Rp 130.275.000
                       text-[15px]
                       leading-relaxed
                     "
-                  >
-
-                    "{item.review}"
-
-                  </div>
-
+                >
+                  "{item.comment}"
                 </div>
-
-              ))}
-
-            </div>
-
+              </div>
+            ))}
           </div>
-
         </div>
-      
+      </div>
     </AdminLayout>
   );
 }
 
-export default DashboardAdmin; 
+export default DashboardAdmin;

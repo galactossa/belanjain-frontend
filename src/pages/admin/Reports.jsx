@@ -5,133 +5,75 @@ import {
   AlertTriangle,
   FileSpreadsheet,
   FileDown,
+  Download,
+  ChevronDown,
   X,
 } from "lucide-react";
 
-import {
-  useState,
-  useEffect,
-  useRef,
-} from "react";
+import { useState, useEffect, useRef } from "react";
 
 import { useNavigate } from "react-router-dom";
 
 import AdminLayout from "../../layouts/AdminLayout";
+import ModalNotfications from "../../components/admin/ModalNotfications";
+import { reports as initialReports } from "../../data/reports";
+import { notifications as defaultNotifications } from "../../data/notifications";
 
 function Reports() {
-
   const navigate = useNavigate();
 
   const notifRef = useRef();
+  const downloadRef = useRef();
+  const formatReportDate = (value) => {
+    const [day, month, year] = value.split("/");
 
-  /* ================= REPORT ================= */
-  const initialReports = [
-    {
-      id: 1,
-      type: "PRODUCT REPORT",
-      title: "DESAIN & DESKRIPSI TIDAK SESUAI",
-      reporter: "Hamid Saputra",
-      reporterEmail: "hamidsaputra6@gmail.com",
-      target: "Toko Hamid Jaya",
-      targetEmail: "seller@example.com",
-      product: "PRODUK: IPHONE 15 PRO MAX (ID: 1)",
-      date: "21/5/2026",
-    },
-    {
-      id: 2,
-      type: "USER REPORT",
-      title: "MELAKUKAN SPAM CHAT & PROMOSI LUAR",
-      reporter: "Toko Hamid Jaya",
-      reporterEmail: "seller@example.com",
-      target: "Hamid Saputra",
-      targetEmail: "hamidsaputra6@gmail.com",
-      product: "",
-      date: "21/5/2026",
-    },
-  ];
+    return `${Number(day)}-${month.padStart(2, "0")}-${year}`;
+  };
+  const [reports, setReports] = useState(initialReports);
+  const [notifications, setNotifications] = useState(() =>
+    defaultNotifications
+      .filter((item) => item.role === "admin")
+      .map((item) => ({
+        ...item,
+        read: false,
+        time: "Baru saja",
+      })),
+  );
 
-  const [reports, setReports] =
-    useState(initialReports);
+  const unreadCount = notifications.filter((notif) => !notif.read).length;
 
   /* ================= SEARCH ================= */
-  const [search, setSearch] =
-    useState("");
+  const [search, setSearch] = useState("");
 
   /* ================= NOTIF ================= */
-  const [showNotif, setShowNotif] =
-    useState(false);
-
-  const [notifications, setNotifications] =
-    useState([
-      {
-        id: 1,
-        title:
-          'User baru "Hamid Saputra" berhasil terdaftar',
-        time: "Baru saja",
-        read: false,
-      },
-      {
-        id: 2,
-        title:
-          'Laporan baru masuk untuk produk "iPhone 15 Pro Max"',
-        time: "5 menit lalu",
-        read: false,
-      },
-      {
-        id: 3,
-        title:
-          'Voucher GLOBAL "HEMAT10" berhasil diaktifkan',
-        time: "20 menit lalu",
-        read: false,
-      },
-    ]);
+  const [showNotif, setShowNotif] = useState(false);
+  const [showDownloadMenu, setShowDownloadMenu] = useState(false);
 
   /* ================= CLOSE NOTIF ================= */
   useEffect(() => {
-
     function handleClickOutside(event) {
-
-      if (
-        notifRef.current &&
-        !notifRef.current.contains(event.target)
-      ) {
+      if (notifRef.current && !notifRef.current.contains(event.target)) {
         setShowNotif(false);
       }
-
+      if (downloadRef.current && !downloadRef.current.contains(event.target)) {
+        setShowDownloadMenu(false);
+      }
     }
 
-    document.addEventListener(
-      "mousedown",
-      handleClickOutside
-    );
+    document.addEventListener("mousedown", handleClickOutside);
 
     return () => {
-
-      document.removeEventListener(
-        "mousedown",
-        handleClickOutside
-      );
-
+      document.removeEventListener("mousedown", handleClickOutside);
     };
-
   }, []);
 
   /* ================= SEARCH REPORT ================= */
-  const filteredReports =
-    reports.filter((item) =>
-      item.title
-        .toLowerCase()
-        .includes(search.toLowerCase())
-    );
+  const filteredReports = reports.filter((item) =>
+    item.title.toLowerCase().includes(search.toLowerCase()),
+  );
 
   /* ================= NOTIF FUNCTION ================= */
-  const unreadCount =
-    notifications.filter(
-      (notif) => !notif.read
-    ).length;
-
   const markAsRead = (id) => {
-
     setNotifications(
       notifications.map((notif) =>
         notif.id === id
@@ -139,80 +81,64 @@ function Reports() {
               ...notif,
               read: true,
             }
-          : notif
-      )
+          : notif,
+      ),
     );
-
   };
 
   const deleteNotif = (id) => {
-
-    setNotifications(
-      notifications.filter(
-        (notif) => notif.id !== id
-      )
-    );
-
+    setNotifications(notifications.filter((notif) => notif.id !== id));
   };
 
   const markAllRead = () => {
-
     setNotifications(
       notifications.map((notif) => ({
         ...notif,
         read: true,
-      }))
+      })),
     );
-
   };
 
   /* ================= EXPORT ================= */
   /* ================= EXPORT ================= */
-const exportExcel = () => {
-
-  const data =
-    "ID,TYPE,TITLE,REPORTER,TARGET,DATE\n" +
-    reports.map((item) =>
-      `${item.id},
+  const exportExcel = () => {
+    const data =
+      "ID,TYPE,TITLE,REPORTER,TARGET,DATE\n" +
+      reports
+        .map(
+          (item) =>
+            `${item.id},
       ${item.type},
       ${item.title},
       ${item.reporter},
       ${item.target},
-      ${item.date}`
-    ).join("\n");
+      ${item.date}`,
+        )
+        .join("\n");
 
-  const blob = new Blob(
-    [data],
-    {
+    const blob = new Blob([data], {
       type: "text/csv;charset=utf-8;",
-    }
-  );
+    });
 
-  const url =
-    window.URL.createObjectURL(blob);
+    const url = window.URL.createObjectURL(blob);
 
-  const link =
-    document.createElement("a");
+    const link = document.createElement("a");
 
-  link.href = url;
+    link.href = url;
 
-  link.setAttribute(
-    "download",
-    "laporan-report.csv"
-  );
+    link.setAttribute("download", "laporan-report.csv");
 
-  document.body.appendChild(link);
+    document.body.appendChild(link);
 
-  link.click();
+    link.click();
 
-  document.body.removeChild(link);
+    document.body.removeChild(link);
+  };
 
-};
-
-const exportPDF = () => {
-
-  const content = reports.map(
-    (item) => `
+  const exportPDF = () => {
+    const content = reports
+      .map(
+        (item) => `
 REPORT ID : ${item.id}
 
 TYPE : ${item.type}
@@ -226,367 +152,175 @@ TARGET : ${item.target}
 DATE : ${item.date}
 
 ------------------------------------
-`
-  ).join("\n");
+`,
+      )
+      .join("\n");
 
-  const blob = new Blob(
-    [content],
-    {
+    const blob = new Blob([content], {
       type: "application/pdf",
-    }
-  );
+    });
 
-  const url =
-    window.URL.createObjectURL(blob);
+    const url = window.URL.createObjectURL(blob);
 
-  const link =
-    document.createElement("a");
+    const link = document.createElement("a");
 
-  link.href = url;
+    link.href = url;
 
-  link.setAttribute(
-    "download",
-    "laporan-report.pdf"
-  );
+    link.setAttribute("download", "laporan-report.pdf");
 
-  document.body.appendChild(link);
+    document.body.appendChild(link);
 
-  link.click();
+    link.click();
 
-  document.body.removeChild(link);
-
-};
+    document.body.removeChild(link);
+  };
 
   /* ================= IGNORE REPORT ================= */
   const handleIgnore = (id) => {
-
-    setReports(
-      reports.filter(
-        (item) => item.id !== id
-      )
-    );
-
+    setReports(reports.filter((item) => item.id !== id));
   };
 
   /* ================= ACTION ================= */
   const handleAction = (item) => {
-
     navigate("/admin/chat-seller", {
       state: {
         report: item,
       },
     });
-
   };
 
   return (
     <AdminLayout>
-
       <div className="min-h-screen bg-[#f6f8fc] p-8">
-
         {/* ================= HEADER ================= */}
-        <div className="flex items-start justify-between">
-
+        <div className="flex items-center justify-between gap-6">
           {/* LEFT */}
           <div>
-
-            <h1 className="text-[52px] font-black text-slate-900 leading-none">
-
+            <h1 className="text-[28px] font-black text-slate-900 leading-tight">
               Reports
-
             </h1>
 
+            <p className="text-slate-500 mt-2 text-sm max-w-xl">
+              Lihat dan ekspor laporan pengaduan dengan cepat.
+            </p>
           </div>
 
           {/* RIGHT */}
-          <div className="flex items-center gap-5">
+          <div className="flex items-center gap-3">
+            <div className="relative" ref={downloadRef}>
+              <button
+                onClick={() => setShowDownloadMenu((prev) => !prev)}
+                className="h-[44px] px-4 rounded-[16px] bg-[#eef6ff] border border-blue-200 text-blue-700 font-semibold text-[13px] flex items-center gap-2 shadow-sm"
+              >
+                <Download size={16} />
+                Download
+                <ChevronDown size={14} />
+              </button>
 
-            {/* SEARCH */}
-            <div className="bg-white border border-slate-200 shadow-sm h-16 w-[320px] rounded-2xl px-5 flex items-center">
+              {showDownloadMenu && (
+                <div className="absolute right-0 mt-2 w-40 rounded-[18px] border border-slate-200 bg-white shadow-lg py-2">
+                  <button
+                    onClick={exportExcel}
+                    className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50"
+                  >
+                    <span className="font-semibold">Excel</span>
+                  </button>
+                  <button
+                    onClick={exportPDF}
+                    className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50"
+                  >
+                    <span className="font-semibold">PDF</span>
+                  </button>
+                </div>
+              )}
+            </div>
 
-              <Search
-                size={20}
-                className="text-slate-400"
-              />
+            <div className="bg-white border border-slate-200 shadow-sm h-11 w-[240px] rounded-2xl px-3 flex items-center gap-2">
+              <Search size={16} className="text-slate-400" />
 
               <input
                 type="text"
                 value={search}
-                onChange={(e) =>
-                  setSearch(e.target.value)
-                }
+                onChange={(e) => setSearch(e.target.value)}
                 placeholder="cari laporan..."
-                className="w-full h-full bg-transparent outline-none px-4 text-slate-700"
+                className="w-full h-full bg-transparent outline-none px-2 text-slate-700 text-sm"
               />
-
             </div>
 
             {/* ================= NOTIF ================= */}
-            <div
-              className="relative"
-              ref={notifRef}
-            >
-
+            <div className="relative" ref={notifRef}>
               <button
-                onClick={() =>
-                  setShowNotif(!showNotif)
-                }
-                className="w-16 h-16 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center hover:bg-slate-100 duration-300 relative"
+                onClick={() => setShowNotif(!showNotif)}
+                className="relative w-11 h-11 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center hover:bg-slate-100 duration-300"
               >
+                <Bell size={16} className="text-slate-600" />
 
-                <Bell
-                  size={22}
-                  className="text-slate-600"
-                />
-
-                {unreadCount > 0 && (
-                  <div className="w-3 h-3 bg-pink-500 rounded-full absolute top-4 right-4"></div>
+                {notifications.filter((notif) => !notif.read).length > 0 && (
+                  <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-blue-500 text-white text-[10px] font-black flex items-center justify-center">
+                    {notifications.filter((notif) => !notif.read).length}
+                  </div>
                 )}
-
               </button>
 
-              {/* PANEL */}
               {showNotif && (
-
-                <div className="absolute top-[75px] right-0 w-[380px] bg-white rounded-[30px] border border-slate-200 shadow-2xl p-5 z-50">
-
-                  {/* HEADER */}
-                  <div className="flex items-center justify-between mb-5">
-
-                    <div>
-
-                      <h2 className="text-[15px] font-black text-slate-800">
-
-                        NOTIFIKASI
-
-                      </h2>
-
-                      <p className="text-[12px] text-slate-400 font-bold mt-1">
-
-                        {notifications.length} Notifikasi
-
-                      </p>
-
-                    </div>
-
-                    <button
-                      onClick={markAllRead}
-                      className="text-blue-600 font-black text-[12px]"
-                    >
-
-                      Tandai semua
-
-                    </button>
-
-                  </div>
-
-                  {/* LIST */}
-                  <div className="max-h-[320px] overflow-y-auto flex flex-col gap-4">
-
-                    {notifications.map((notif) => (
-
-                      <div
-                        key={notif.id}
-                        className={`
-                          rounded-[24px]
-                          p-5
-                          border
-                          ${
-                            notif.read
-                              ? "bg-white border-slate-200"
-                              : "bg-blue-50 border-blue-100"
-                          }
-                        `}
-                      >
-
-                        <div className="flex justify-between gap-3">
-
-                          <div
-                            onClick={() =>
-                              markAsRead(notif.id)
-                            }
-                            className="flex-1 cursor-pointer"
-                          >
-
-                            <h3 className="text-[14px] font-black text-slate-700 leading-relaxed">
-
-                              {notif.title}
-
-                            </h3>
-
-                            <p className="text-[12px] text-slate-400 font-bold mt-3">
-
-                              {notif.time}
-
-                            </p>
-
-                          </div>
-
-                          <button
-                            onClick={() =>
-                              deleteNotif(notif.id)
-                            }
-                            className="w-8 h-8 rounded-xl hover:bg-red-50 flex items-center justify-center text-slate-400 hover:text-red-500"
-                          >
-
-                            <X size={16} />
-
-                          </button>
-
-                        </div>
-
-                      </div>
-
-                    ))}
-
-                  </div>
-
-                </div>
-
+                <ModalNotfications
+                  open={showNotif}
+                  onClose={() => setShowNotif(false)}
+                  notifications={notifications}
+                  setNotifications={setNotifications}
+                />
               )}
-
             </div>
-
           </div>
-
-        </div>
-
-        {/* ================= TITLE ================= */}
-        <div className="mt-14">
-
-          <h1 className="text-5xl font-black text-slate-900">
-
-            Reports
-
-          </h1>
-
-        </div>
-
-        {/* ================= EXPORT BOX ================= */}
-        <div className="bg-white rounded-[40px] border border-slate-200 shadow-sm mt-10 px-8 py-8 flex items-center justify-between">
-
-          {/* LEFT */}
-          <div>
-
-            <h2 className="text-3xl font-black text-slate-900 uppercase">
-
-              Unduh Laporan Pelaporan
-
-            </h2>
-
-            <p className="text-slate-400 uppercase tracking-[2px] text-sm font-black mt-3">
-
-              Ekspor semua log pengaduan & laporan ke format yang diinginkan.
-
-            </p>
-
-          </div>
-
-          {/* BUTTON */}
-          <div className="flex items-center gap-5">
-
-            {/* EXCEL */}
-            <button
-              onClick={exportExcel}
-              className="bg-emerald-500 text-white px-8 h-14 rounded-2xl font-black tracking-widest flex items-center gap-3 shadow-lg hover:bg-emerald-600 duration-300"
-            >
-
-              <FileSpreadsheet size={20} />
-
-              EKSPOR EXCEL
-
-            </button>
-
-            {/* PDF */}
-            <button
-              onClick={exportPDF}
-              className="bg-red-600 text-white px-8 h-14 rounded-2xl font-black tracking-widest flex items-center gap-3 shadow-lg hover:bg-red-700 duration-300"
-            >
-
-              <FileDown size={20} />
-
-              UNDUH PDF (DOKUMEN)
-
-            </button>
-
-          </div>
-
         </div>
 
         {/* ================= REPORTS ================= */}
-        <div className="mt-10 flex flex-col gap-8">
-
+        <div className="mt-10 flex flex-col gap-5">
           {filteredReports.map((item) => (
-
             <div
               key={item.id}
-              className="bg-white rounded-[45px] border border-slate-200 shadow-sm px-8 py-10 flex items-center justify-between hover:shadow-xl duration-300"
+              className="bg-white rounded-[28px] border border-slate-200 shadow-sm px-5 py-5 flex items-start justify-between hover:shadow-xl duration-300"
             >
-
               {/* LEFT */}
-              <div className="flex items-start gap-8">
-
+              <div className="flex items-start gap-4">
                 {/* ICON */}
-                <div className="w-16 h-16 rounded-3xl bg-yellow-50 flex items-center justify-center">
-
-                  <AlertTriangle
-                    size={34}
-                    className="text-orange-500"
-                  />
-
+                <div className="w-12 h-12 rounded-3xl bg-yellow-50 flex items-center justify-center">
+                  <AlertTriangle size={24} className="text-orange-500" />
                 </div>
 
                 {/* CONTENT */}
                 <div>
-
                   {/* TOP */}
-                  <div className="flex items-center gap-5">
-
-                    <span className="bg-yellow-100 text-orange-500 px-4 py-2 rounded-xl text-xs font-black tracking-[2px] uppercase">
-
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="bg-yellow-100 text-orange-500 px-3 py-1 rounded-xl text-[10px] font-black tracking-[1px] uppercase">
                       {item.type}
-
                     </span>
 
-                    <p className="text-slate-400 font-black">
-
-                      {item.date}
-
+                    <p className="text-slate-400 font-semibold text-sm">
+                      {formatReportDate(item.date)}
                     </p>
-
                   </div>
 
                   {/* TITLE */}
-                  <h2 className="text-[38px] leading-none font-black text-slate-900 mt-5 uppercase">
-
+                  <h2 className="text-xl leading-snug font-black text-slate-900 mt-3 uppercase">
                     {item.title}
-
                   </h2>
 
                   {/* CARD */}
-                  <div className="bg-slate-50 border border-slate-100 rounded-[24px] mt-8 px-6 py-5 flex items-center gap-8">
-
+                  <div className="bg-slate-50 border border-slate-100 rounded-[22px] mt-6 px-5 py-4 flex items-start gap-6">
                     {/* REPORTER */}
                     <div>
-
-                      <p className="text-pink-500 text-xs font-black tracking-[3px] uppercase">
-
+                      <p className="text-pink-500 text-[11px] font-black tracking-[2px] uppercase">
                         Pelapor (Reporter)
-
                       </p>
 
-                      <h3 className="font-black text-slate-900 mt-3 text-lg">
-
+                      <h3 className="font-black text-slate-900 mt-3 text-base">
                         {item.reporter}
-
                       </h3>
 
-                      <p className="text-slate-400 font-semibold text-sm mt-1">
-
+                      <p className="text-slate-500 font-medium text-sm mt-1">
                         {item.reporterEmail}
-
                       </p>
-
                     </div>
 
                     {/* LINE */}
@@ -594,78 +328,52 @@ DATE : ${item.date}
 
                     {/* TARGET */}
                     <div>
-
-                      <p className="text-blue-600 text-xs font-black tracking-[3px] uppercase">
-
+                      <p className="text-blue-600 text-[11px] font-black tracking-[2px] uppercase">
                         Yang Dilaporkan (Reported)
-
                       </p>
 
-                      <h3 className="font-black text-slate-900 mt-3 text-lg">
-
-                        {item.target}
-
+                      <h3 className="font-black text-slate-900 mt-3 text-base">
+                        {item.targetName}
                       </h3>
 
-                      <p className="text-slate-400 font-semibold text-sm mt-1">
-
-                        {item.targetEmail}
-
-                      </p>
-
-                      {item.product && (
-                        <p className="text-blue-600 text-xs font-black mt-3 uppercase">
-
-                          {item.product}
-
+                      {item.storeName && (
+                        <p className="text-slate-500 font-medium text-sm mt-1">
+                          Toko: {item.storeName}
                         </p>
                       )}
 
+                      {item.productName && (
+                        <p className="text-blue-600 text-[11px] font-black mt-3 uppercase">
+                          Produk: {item.productName}
+                        </p>
+                      )}
                     </div>
-
                   </div>
-
                 </div>
-
               </div>
 
               {/* RIGHT BUTTON */}
               <div className="flex items-center gap-5">
-
                 {/* IGNORE */}
                 <button
-                  onClick={() =>
-                    handleIgnore(item.id)
-                  }
-                  className="bg-slate-200 text-slate-700 font-black tracking-wider px-10 h-14 rounded-2xl hover:bg-slate-300 duration-300"
+                  onClick={() => handleIgnore(item.id)}
+                  className="bg-slate-200 text-slate-700 font-black tracking-wider px-5 h-10 rounded-2xl hover:bg-slate-300 duration-300 text-sm"
                 >
-
                   ABAIKAN
-
                 </button>
 
                 {/* ACTION */}
                 <button
-                  onClick={() =>
-                    handleAction(item)
-                  }
-                  className="bg-red-600 text-white font-black tracking-wider px-10 h-14 rounded-2xl shadow-xl hover:bg-red-700 duration-300"
+                  onClick={() => handleAction(item)}
+                  className="bg-red-600 text-white font-black tracking-wider px-5 h-10 rounded-2xl shadow-xl hover:bg-red-700 duration-300 text-sm"
                 >
-
                   TINDAK LANJUT
-
                 </button>
-
               </div>
-
             </div>
-
           ))}
-
         </div>
-
       </div>
-
     </AdminLayout>
   );
 }

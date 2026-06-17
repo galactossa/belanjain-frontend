@@ -12,15 +12,40 @@ import {
   X,
   Upload,
 } from "lucide-react";
-
-import { useMemo, useState } from "react";
+import ModalNotifications from "../../components/seller/ModalNotifications";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-
+import { users } from "../../data/users";
+import { products } from "../../data/products";
 import SellerLayout from "../../layouts/SellerLayout";
-
+import { orders } from "../../data/orders";
+import { sales } from "../../data/sales";
+import { notifications as defaultNotifications } from "../../data/notifications";
 function DashboardSeller() {
   const navigate = useNavigate();
+  const currentUser = JSON.parse(localStorage.getItem("currentUser")) || null;
 
+  const seller =
+    users.find(
+      (user) => user.id === currentUser?.id && user.role === "seller",
+    ) || (currentUser?.role === "seller" ? currentUser : null);
+
+  if (!seller) {
+    return (
+      <SellerLayout>
+        <div className="p-10">Seller tidak ditemukan atau belum login.</div>
+      </SellerLayout>
+    );
+  }
+  console.log("Current User:", currentUser);
+  console.log("Seller:", seller);
+  const sellerOrders = orders.filter((order) => order.sellerId === seller?.id);
+
+  const sellerSales = sales.find((sale) => sale.sellerId === seller?.id);
+
+  const sellerNotifications =
+    JSON.parse(localStorage.getItem(`sellerNotifications_${seller?.id}`)) ??
+    defaultNotifications.filter((notif) => notif.sellerId === seller?.id);
   const [search, setSearch] = useState("");
   const [showNotif, setShowNotif] = useState(false);
 
@@ -41,153 +66,147 @@ function DashboardSeller() {
     file: null,
   });
   const [chartFilter, setChartFilter] = useState("Mingguan");
+  const [animateChart, setAnimateChart] = useState(false);
 
-const [showChartFilter, setShowChartFilter] = useState(false);
+  useEffect(() => {
+    setAnimateChart(false);
+
+    setTimeout(() => {
+      setAnimateChart(true);
+    }, 100);
+  }, [chartFilter]);
+
+  const [showChartFilter, setShowChartFilter] = useState(false);
+
+  const sellerProducts = products.filter(
+    (product) => product.sellerId === seller?.id,
+  );
 
   const stats = [
     {
       title: "TOTAL PRODUK",
-      value: "3",
-      growth: "+12%",
+      value: sellerProducts.length,
       icon: <Package size={22} />,
       color: "bg-blue-100 text-blue-600",
     },
 
     {
       title: "TOTAL PESANAN",
-      value: "856",
-      growth: "+8%",
+      value: sellerOrders.length,
       icon: <ShoppingBag size={22} />,
       color: "bg-orange-100 text-orange-500",
     },
 
     {
       title: "TOTAL PENJUALAN",
-      value: "Rp 42.5JT",
-      growth: "+15%",
+      value: `Rp ${(
+        (sellerSales?.weekly?.reduce((sum, item) => sum + item.amount, 0) ||
+          0) / 1000000
+      ).toFixed(1)} Jt`,
       icon: <DollarSign size={22} />,
       color: "bg-red-100 text-red-500",
     },
 
     {
       title: "PESANAN BARU",
-      value: "12",
-      growth: "-2%",
+      value: sellerOrders.filter(
+        (order) => order.status === "MENUNGGU PEMBAYARAN",
+      ).length,
       icon: <Bell size={22} />,
       color: "bg-blue-100 text-blue-600",
     },
   ];
-
-  const orders = [
-    {
-      id: "ORD-001",
-      customer: "Budi Santoso",
-      total: "Rp 18.999.000",
-      date: "2026-03-31",
-      status: "MENUNGGU PEMBAYARAN",
-      color: "bg-orange-100 text-orange-500",
-      address: "Jl. Sudirman No. 123, Jakarta Pusat",
-      product: "IPHONE 15 PRO MAX - 256GB TITANIUM",
-      qty: "1X",
-      image:
-        "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?q=80&w=600",
-    },
-
-    {
-      id: "ORD-002",
-      customer: "Siti Aminah",
-      total: "Rp 4.599.000",
-      date: "2026-03-30",
-      status: "DIKIRIM",
-      color: "bg-blue-100 text-blue-500",
-      address: "Bandung",
-      product: "SONY WH1000XM5",
-      qty: "1X",
-      image:
-        "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=600",
-    },
-
-    {
-      id: "ORD-003",
-      customer: "Andi Wijaya",
-      total: "Rp 16.499.000",
-      date: "2026-03-29",
-      status: "SELESAI",
-      color: "bg-emerald-100 text-emerald-500",
-      address: "Surabaya",
-      product: "MACBOOK AIR M3",
-      qty: "1X",
-      image:
-        "https://images.unsplash.com/photo-1517336714739-489689fd1ca8?q=80&w=600",
-    },
-
-    {
-      id: "ORD-004",
-      customer: "Dewi Lestari",
-      total: "Rp 199.000",
-      date: "2026-03-28",
-      status: "DIPROSES",
-      color: "bg-purple-100 text-purple-500",
-      address: "Bekasi",
-      product: "LOGITECH MX MASTER 3S",
-      qty: "1X",
-      image:
-        "https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?q=80&w=600",
-    },
-  ];
-
-const [stocks, setStocks] = useState([
-  {
-    name: "IPHONE 15 PRO MAX - 256GB TITANIUM",
-    stock: 50,
-  },
-  {
-    name: "SONY WH-1000XM5",
-    stock: 55,
-  },
-  {
-    name: "LOGITECH MX MASTER 3S",
-    stock: 63,
-  },
-]);
-
-  const notifications = [
-    "Pesanan baru masuk dari Budi Santoso",
-    "Produk Sony berhasil ditambahkan",
-    "Pesanan ORD-002 sedang dikirim",
-  ];
-
+  const [stocks, setStocks] = useState(
+    sellerProducts
+      .filter((product) => product.stock <= 10)
+      .map((product) => ({
+        id: product.id,
+        name: product.name,
+        stock: product.stock,
+      })),
+  );
   const filteredOrders = useMemo(() => {
-    return orders.filter((item) => {
+    return sellerOrders.filter((item) => {
       const keyword = search.toLowerCase();
 
       return (
         item.customer.toLowerCase().includes(keyword) ||
         item.id.toLowerCase().includes(keyword) ||
-        item.status.toLowerCase().includes(keyword) ||
-        item.product.toLowerCase().includes(keyword)
+        item.status.toLowerCase().includes(keyword)
       );
     });
-  }, [search]);
+  }, [search, sellerOrders]);
 
-const handleStockPlus = (name) => {
-  setStocks((prev) =>
-    prev.map((item) =>
-      item.name === name
-        ? {
-            ...item,
-            stock: item.stock + 10,
-          }
-        : item
-    )
-  );
-};
+  const handleStockPlus = (name) => {
+    setStocks((prev) =>
+      prev.map((item) =>
+        item.name === name
+          ? {
+              ...item,
+              stock: item.stock + 10,
+            }
+          : item,
+      ),
+    );
+  };
 
   const openOrderDetail = (order) => {
     setSelectedOrder(order);
     setShowDetailOrder(true);
   };
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "MENUNGGU PEMBAYARAN":
+        return "bg-orange-100 text-orange-500";
 
+      case "DIPROSES":
+        return "bg-purple-100 text-purple-500";
+
+      case "DIKIRIM":
+        return "bg-blue-100 text-blue-500";
+
+      case "SELESAI":
+        return "bg-emerald-100 text-emerald-500";
+
+      default:
+        return "bg-slate-100 text-slate-500";
+    }
+  };
+  const selectedProduct = products.find(
+    (product) => product.id === selectedOrder?.productId,
+  );
+  const chartData =
+    chartFilter === "Mingguan"
+      ? sellerSales?.weekly || []
+      : sellerSales?.monthly || [];
+  const maxAmount = Math.max(...chartData.map((item) => item.amount), 1000000);
+  const points = chartData.map((item, index) => {
+    const x = (index / (chartData.length - 1)) * 1000;
+
+    const y = 280 - (item.amount / maxAmount) * 240;
+
+    return { x, y };
+  });
+
+  const linePath = points.reduce((path, point, index, arr) => {
+    if (index === 0) return `M ${point.x} ${point.y}`;
+
+    const prev = arr[index - 1];
+
+    const cx = (prev.x + point.x) / 2;
+
+    return `${path}
+      C ${cx} ${prev.y},
+        ${cx} ${point.y},
+        ${point.x} ${point.y}`;
+  }, "");
+  const areaPath =
+    linePath +
+    ` L 1000 320
+    L 0 320 Z`;
+
+  const pathLength = 3000;
+  const formatPrice = (price) => `Rp ${Number(price).toLocaleString("id-ID")}`;
   return (
     <SellerLayout>
       <div className="min-h-screen bg-[#f5f7fb] p-6 relative">
@@ -322,7 +341,6 @@ const handleStockPlus = (name) => {
 
                     <label className="h-12 px-5 rounded-2xl border border-blue-200 text-blue-600 font-black text-sm flex items-center cursor-pointer">
                       PILIH FILE
-
                       <input
                         type="file"
                         hidden
@@ -410,7 +428,7 @@ const handleStockPlus = (name) => {
             <div className="w-full max-w-[480px] bg-white rounded-[36px] shadow-2xl overflow-hidden">
               <div className="p-7 border-b border-slate-100 flex justify-between items-start">
                 <div>
-                  <h2 className="text-[34px] font-black uppercase text-[#0f172a] leading-none">
+                  <h2 className="text-[26px] font-black uppercase text-[#0f172a] leading-none">
                     Detail Pesanan
                   </h2>
 
@@ -435,7 +453,7 @@ const handleStockPlus = (name) => {
                     </p>
 
                     <span
-                      className={`inline-flex mt-3 px-3 py-1 rounded-full text-[10px] font-black ${selectedOrder.color}`}
+                      className={`inline-flex mt-3 px-3 py-1 rounded-full text-[15px] font-semibold  ${selectedOrder.color}`}
                     >
                       {selectedOrder.status}
                     </span>
@@ -446,7 +464,7 @@ const handleStockPlus = (name) => {
                       Tanggal
                     </p>
 
-                    <h3 className="font-black text-slate-900 mt-3">
+                    <h3 className="font-semibold  text-slate-900 mt-3">
                       {selectedOrder.date}
                     </h3>
                   </div>
@@ -458,7 +476,7 @@ const handleStockPlus = (name) => {
                       Info Pelanggan
                     </p>
 
-                    <h3 className="font-black text-slate-900 mt-2">
+                    <h3 className="font-semibold text-slate-900 mt-2">
                       {selectedOrder.customer}
                     </h3>
                   </div>
@@ -482,14 +500,14 @@ const handleStockPlus = (name) => {
                   <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <img
-                        src={selectedOrder.image}
-                        alt=""
+                        src={selectedProduct?.image}
+                        alt={selectedProduct?.name}
                         className="w-16 h-16 rounded-2xl object-cover"
                       />
 
                       <div>
-                        <h3 className="font-black text-sm text-slate-900 uppercase">
-                          {selectedOrder.product}
+                        <h3 className="font-semibold text-sm text-slate-900">
+                          {selectedProduct?.name}
                         </h3>
 
                         <p className="text-[11px] font-black text-slate-400 mt-1">
@@ -498,8 +516,8 @@ const handleStockPlus = (name) => {
                       </div>
                     </div>
 
-                    <h3 className="font-black text-slate-900">
-                      {selectedOrder.total}
+                    <h3 className="font-semibold text-slate-900">
+                      Rp {Number(selectedOrder.total).toLocaleString("id-ID")}
                     </h3>
                   </div>
                 </div>
@@ -507,7 +525,9 @@ const handleStockPlus = (name) => {
                 <div className="mt-5 bg-[#0f172a] rounded-[28px] p-5 text-white">
                   <div className="flex justify-between text-sm">
                     <span>Subtotal</span>
-                    <span>{selectedOrder.total}</span>
+                    <span>
+                      Rp {Number(selectedOrder.total).toLocaleString("id-ID")}
+                    </span>
                   </div>
 
                   <div className="flex justify-between text-sm mt-3">
@@ -521,7 +541,7 @@ const handleStockPlus = (name) => {
                     </span>
 
                     <span className="font-black text-2xl">
-                      {selectedOrder.total}
+                      Rp {Number(selectedOrder.total).toLocaleString("id-ID")}
                     </span>
                   </div>
                 </div>
@@ -540,12 +560,12 @@ const handleStockPlus = (name) => {
         {/* HEADER */}
         <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-5 mb-7">
           <div>
-            <h1 className="text-[34px] font-black uppercase text-[#111827] leading-none">
+            <h1 className="text-[25px] font-black uppercase text-[#111827] leading-none">
               Ringkasan Toko
             </h1>
 
-            <p className="text-[11px] font-black tracking-[2px] uppercase text-slate-400 mt-2">
-              Selamat datang kembali, toko hamid jaya.
+            <p className="text-sm text-slate-500 mt-2">
+              Selamat datang kembali, {seller?.storeName || seller?.name}
             </p>
           </div>
 
@@ -571,38 +591,28 @@ const handleStockPlus = (name) => {
               >
                 <Bell size={18} className="text-slate-500" />
 
-                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center">
-                  3
+                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-black flex items-center justify-center">
+                  {sellerNotifications.length}
                 </span>
               </button>
 
               {showNotif && (
-                <div className="absolute right-0 top-14 w-[320px] bg-white rounded-3xl border border-slate-200 shadow-2xl p-5 z-40">
-                  <h3 className="font-black text-slate-900">
-                    Notifikasi
-                  </h3>
-
-                  <div className="mt-4 flex flex-col gap-3">
-                    {notifications.map((notif, index) => (
-                      <div
-                        key={index}
-                        className="p-4 rounded-2xl bg-slate-50 border border-slate-100 text-sm font-semibold text-slate-700"
-                      >
-                        {notif}
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <ModalNotifications
+                  notifications={sellerNotifications}
+                  onReadAll={() => {
+                    console.log("Read all");
+                  }}
+                />
               )}
             </div>
 
             {/* BUTTON */}
-           <button
-  onClick={() => navigate("/seller/add-product")}
-  className="h-11 px-5 rounded-2xl bg-blue-600 text-white font-black text-[12px] shadow-lg hover:bg-blue-700 duration-300"
->
-  + PRODUK BARU
-</button>
+            <button
+              onClick={() => navigate("/seller/add-product")}
+              className="h-11 px-5 rounded-2xl bg-blue-600 text-white font-black text-[12px] shadow-lg hover:bg-blue-700 duration-300"
+            >
+              + PRODUK BARU
+            </button>
           </div>
         </div>
 
@@ -619,8 +629,8 @@ const handleStockPlus = (name) => {
                 </p>
 
                 <h2 className="text-[26px] font-black text-[#111827] mt-2 leading-none break-words">
-  {item.value}
-</h2>
+                  {item.value}
+                </h2>
               </div>
 
               <div
@@ -637,13 +647,13 @@ const handleStockPlus = (name) => {
           {/* CHART */}
           <div className="xl:col-span-8 bg-white rounded-[32px] border border-slate-200 p-6 shadow-sm">
             <div className="flex items-center justify-between">
-  <div>
-    <h2 className="text-[30px] font-black text-[#111827]">
-      Statistik Penjualan
-    </h2>
+              <div>
+                <h2 className="text-[22px] font-black text-[#111827]">
+                  Statistik Penjualan
+                </h2>
 
-    <p
-      className="
+                <p
+                  className="
         text-[11px]
         uppercase
         tracking-[2px]
@@ -651,16 +661,16 @@ const handleStockPlus = (name) => {
         text-slate-400
         mt-1
       "
-    >
-      7 Hari Terakhir
-    </p>
-  </div>
+                >
+                  7 Hari Terakhir
+                </p>
+              </div>
 
-  {/* DROPDOWN */}
-  <div className="relative">
-    <button
-      onClick={() => setShowChartFilter(!showChartFilter)}
-      className="
+              {/* DROPDOWN */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowChartFilter(!showChartFilter)}
+                  className="
         h-10
         px-4
         rounded-xl
@@ -674,14 +684,14 @@ const handleStockPlus = (name) => {
         gap-2
         bg-white
       "
-    >
-      {chartFilter}
-      <ChevronDown size={16} />
-    </button>
+                >
+                  {chartFilter}
+                  <ChevronDown size={16} />
+                </button>
 
-    {showChartFilter && (
-      <div
-        className="
+                {showChartFilter && (
+                  <div
+                    className="
           absolute
           right-0
           top-12
@@ -694,15 +704,15 @@ const handleStockPlus = (name) => {
           overflow-hidden
           z-40
         "
-      >
-        {["Mingguan", "Bulanan"].map((item) => (
-          <button
-            key={item}
-            onClick={() => {
-              setChartFilter(item);
-              setShowChartFilter(false);
-            }}
-            className={`
+                  >
+                    {["Mingguan", "Bulanan"].map((item) => (
+                      <button
+                        key={item}
+                        onClick={() => {
+                          setChartFilter(item);
+                          setShowChartFilter(false);
+                        }}
+                        className={`
               w-full
               px-4
               py-3
@@ -716,80 +726,119 @@ const handleStockPlus = (name) => {
                   : "hover:bg-slate-50 text-slate-700"
               }
             `}
-          >
-            {item}
-          </button>
-        ))}
-      </div>
-    )}
-  </div>
-</div>
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
 
-{/* CHART */}
-<div className="mt-8 relative h-[320px]">
-  {/* GRID */}
-  <div className="absolute inset-0 flex flex-col justify-between">
-    {[1, 2, 3, 4, 5].map((item) => (
-      <div
-        key={item}
-        className="border-t border-dashed border-slate-200"
-      />
-    ))}
-  </div>
+            {/* CHART */}
+            <div className="mt-8 relative h-[320px]">
+              {/* GRID */}
+              <div className="absolute inset-0 flex flex-col justify-between">
+                {[1, 2, 3, 4, 5].map((item) => (
+                  <div
+                    key={item}
+                    className="border-t border-dashed border-slate-200"
+                  />
+                ))}
+              </div>
 
-  {/* LABEL */}
-  <div className="absolute left-0 top-0 h-full flex flex-col justify-between text-[11px] text-slate-400 font-semibold">
-    <span>Rp 12.0jt</span>
-    <span>Rp 9.0jt</span>
-    <span>Rp 6.0jt</span>
-    <span>Rp 3.0jt</span>
-    <span>Rp 0.0jt</span>
-  </div>
+              {/* LABEL */}
+              <div className="absolute left-0 top-0 h-full flex flex-col justify-between text-[11px] text-slate-400 font-semibold">
+                {[4, 3, 2, 1, 0].map((i) => (
+                  <span key={i}>
+                    Rp {((maxAmount * i) / 4 / 1000000).toFixed(1)}jt
+                  </span>
+                ))}
+              </div>
 
-  {/* SVG */}
-  <div className="absolute inset-0 pl-16 pr-4 pt-2">
-    <svg
-      viewBox="0 0 1000 320"
-      className="w-full h-full"
-      preserveAspectRatio="none"
-    >
-      {/* AREA */}
-      <path
-        d="
-          M0 220
-          C80 180 120 170 180 160
-          C240 150 290 210 360 190
-          C430 170 450 120 520 110
-          C590 100 650 150 720 150
-          C790 150 860 100 1000 60
-          L1000 320
-          L0 320
-          Z
-        "
-        fill="#2563eb15"
-      />
+              {/* SVG */}
+              <div className="absolute inset-0 pl-16 pr-4 pt-2">
+                <svg
+                  key={chartFilter}
+                  viewBox="0 0 1000 320"
+                  className="w-full h-full overflow-visible"
+                >
+                  <defs>
+                    <linearGradient
+                      id="salesGradient"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop
+                        offset="0%"
+                        stopColor="#2563eb"
+                        stopOpacity="0.25"
+                      />
 
-      {/* LINE */}
-      <path
-        d="
-          M0 220
-          C80 180 120 170 180 160
-          C240 150 290 210 360 190
-          C430 170 450 120 520 110
-          C590 100 650 150 720 150
-          C790 150 860 100 1000 60
-        "
-        fill="none"
-        stroke="#2563eb"
-        strokeWidth="4"
-        strokeLinecap="round"
-      />
-    </svg>
-  </div>
+                      <stop offset="100%" stopColor="#2563eb" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
 
-  {/* HARI */}
-  <div
-    className="
+                  {/* AREA */}
+                  <path d={areaPath} fill="url(#salesGradient)" opacity="0">
+                    <animate
+                      attributeName="opacity"
+                      from="0"
+                      to="1"
+                      dur="1.2s"
+                      fill="freeze"
+                    />
+                  </path>
+
+                  {/* GARIS */}
+                  <path
+                    d={linePath}
+                    fill="none"
+                    stroke="#2563eb"
+                    strokeWidth="5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeDasharray={pathLength}
+                    strokeDashoffset={pathLength}
+                  >
+                    <animate
+                      attributeName="stroke-dashoffset"
+                      from={pathLength}
+                      to="0"
+                      dur="1.5s"
+                      fill="freeze"
+                    />
+                  </path>
+
+                  {/* TITIK */}
+                  {points.map((point, index) => (
+                    <circle
+                      key={index}
+                      cx={point.x}
+                      cy={point.y}
+                      r="0"
+                      fill="#2563eb"
+                      stroke="white"
+                      strokeWidth="3"
+                    >
+                      <animate
+                        attributeName="r"
+                        from="0"
+                        to="6"
+                        begin={`${index * 0.15}s`}
+                        dur="0.3s"
+                        fill="freeze"
+                      />
+                    </circle>
+                  ))}
+                </svg>
+              </div>
+
+              {/* HARI */}
+              <div
+                className="
       absolute
       bottom-0
       left-16
@@ -800,16 +849,12 @@ const handleStockPlus = (name) => {
       text-slate-400
       font-bold
     "
-  >
-    <span>Sen</span>
-    <span>Sel</span>
-    <span>Rab</span>
-    <span>Kam</span>
-    <span>Jum</span>
-    <span>Sab</span>
-    <span>Min</span>
-  </div>
-</div>
+              >
+                {chartData.map((item, index) => (
+                  <span key={index}>{item.day || item.month}</span>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* STOCK */}
@@ -820,9 +865,7 @@ const handleStockPlus = (name) => {
               </div>
 
               <div>
-                <h2 className="font-black text-slate-900">
-                  Stok Menipis
-                </h2>
+                <h2 className="font-black text-slate-900">Stok Menipis</h2>
               </div>
             </div>
 
@@ -865,7 +908,7 @@ const handleStockPlus = (name) => {
         <div className="mt-5 bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-6 flex items-center justify-between border-b border-slate-100">
             <div>
-              <h2 className="text-[30px] font-black text-[#111827]">
+              <h2 className="text-[22px] font-black text-[#111827]">
                 Pesanan Terbaru
               </h2>
             </div>
@@ -894,7 +937,7 @@ const handleStockPlus = (name) => {
               <tbody>
                 {filteredOrders.map((item, index) => (
                   <tr key={index} className="border-t border-slate-100">
-                    <td className="px-6 py-5 font-black text-slate-900">
+                    <td className="px-6 py-5 font-medium text-slate-900">
                       {item.id}
                     </td>
 
@@ -914,13 +957,13 @@ const handleStockPlus = (name) => {
                       {item.date}
                     </td>
 
-                    <td className="px-6 py-5 font-black text-slate-900">
-                      {item.total}
+                    <td className="px-6 py-5 font-medium text-slate-900">
+                      Rp {Number(item.total).toLocaleString("id-ID")}
                     </td>
 
                     <td className="px-6 py-5">
                       <span
-                        className={`px-3 py-1 rounded-full text-[10px] font-black ${item.color}`}
+                        className={`px-3 py-1 rounded-full text-[10px] font-black ${getStatusColor(item.status)}`}
                       >
                         {item.status}
                       </span>
@@ -932,22 +975,14 @@ const handleStockPlus = (name) => {
                           onClick={() => openOrderDetail(item)}
                           className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center"
                         >
-                          <Eye
-                            size={16}
-                            className="text-slate-500"
-                          />
+                          <Eye size={16} className="text-slate-500" />
                         </button>
 
                         <button
-                          onClick={() =>
-                            navigate("/seller/chat")
-                          }
+                          onClick={() => navigate("/seller/chat")}
                           className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center"
                         >
-                          <MessageSquare
-                            size={16}
-                            className="text-blue-600"
-                          />
+                          <MessageSquare size={16} className="text-blue-600" />
                         </button>
                       </div>
                     </td>

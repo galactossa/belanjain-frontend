@@ -22,6 +22,18 @@ function ProductCard({
 
   const navigate = useNavigate();
 
+const currentUser = JSON.parse(
+  localStorage.getItem("currentUser")
+);
+
+const wishlistKey = currentUser
+  ? `wishlist_${currentUser.id}`
+  : "wishlist";
+
+const cartKey = currentUser
+  ? `cart_${currentUser.id}`
+  : "cart";
+
   /* =========================
      FORMAT PRICE
   ========================= */
@@ -56,9 +68,9 @@ function ProductCard({
     if (isCustomer) {
 
       const oldWishlist =
-        JSON.parse(
-          localStorage.getItem("wishlist")
-        ) || [];
+  JSON.parse(
+    localStorage.getItem(wishlistKey)
+  ) || [];
 
       const isExist = oldWishlist.find(
         (wishlistItem) =>
@@ -106,11 +118,10 @@ function ProductCard({
     /* JIKA SUDAH LOGIN */
     if (isCustomer) {
 
-      const oldCart =
-        JSON.parse(
-          localStorage.getItem("cart")
-        ) || [];
-
+     const oldCart =
+  JSON.parse(
+    localStorage.getItem(cartKey)
+  ) || [];
       const isExist = oldCart.find(
         (cartItem) =>
           cartItem.id === item.id
@@ -151,10 +162,10 @@ function ProductCard({
       }
       
    /* SAVE LOCAL */
-    localStorage.setItem(
-      "cart",
-      JSON.stringify(updatedCart)
-    );
+   localStorage.setItem(
+  cartKey,
+  JSON.stringify(updatedCart)
+);
 
     /* UPDATE STATE */
     if (setCartItems) {

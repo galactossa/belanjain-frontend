@@ -1,50 +1,32 @@
-import {
-  useState,
-  useRef,
-  useEffect,
-} from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Upload,
-  Sparkles,
-  Search,
-  Bell,
-} from "lucide-react";
+import { Upload, Sparkles, Search, Bell } from "lucide-react";
 
 import SellerLayout from "../../layouts/SellerLayout";
+import ModalNotifications from "../../components/seller/ModalNotifications";
+import { notifications as defaultNotifications } from "../../data/notifications";
 
 function AddProduct() {
-    const [showNotif, setShowNotif] = useState(false);
+  const [showNotif, setShowNotif] = useState(false);
+  const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
+  const sellerNotifications =
+    JSON.parse(localStorage.getItem(`sellerNotifications_${currentUser.id}`)) ||
+    defaultNotifications.filter((notif) => notif.sellerId === currentUser?.id);
+  const notifRef = useRef(null);
 
-const notifications = [
-  "Produk berhasil ditambahkan",
-  "Pesanan baru masuk",
-  "Stok produk diperbarui",
-];
-const notifRef = useRef(null);
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (notifRef.current && !notifRef.current.contains(event.target)) {
+        setShowNotif(false);
+      }
+    };
 
-useEffect(() => {
-  const handleClickOutside = (event) => {
-    if (
-      notifRef.current &&
-      !notifRef.current.contains(event.target)
-    ) {
-      setShowNotif(false);
-    }
-  };
+    document.addEventListener("mousedown", handleClickOutside);
 
-  document.addEventListener(
-    "mousedown",
-    handleClickOutside
-  );
-
-  return () => {
-    document.removeEventListener(
-      "mousedown",
-      handleClickOutside
-    );
-  };
-}, []);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
   const navigate = useNavigate();
 
   const [preview, setPreview] = useState("");
@@ -57,53 +39,78 @@ useEffect(() => {
     stock: "",
     image: "",
     description: "",
+    city: "",
+    mode: "PREMIUM",
   });
 
   const handleSave = () => {
-    if (
-      !productForm.name ||
-      !productForm.category ||
-      !productForm.price
-    ) {
+    if (!productForm.name || !productForm.category || !productForm.price) {
       alert("Lengkapi data produk terlebih dahulu");
       return;
     }
 
+    const currentUser = JSON.parse(localStorage.getItem("currentUser"));
+
+    const sellerKey = `sellerProducts_${currentUser.id}`;
+
     const newProduct = {
       id: Date.now(),
 
-      image:
-        productForm.image ||
-        "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9",
+      sellerId: currentUser.id,
 
       name: productForm.name,
 
       category: productForm.category,
 
-      price: `Rp ${Number(
-        productForm.price
-      ).toLocaleString("id-ID")}`,
+      store: currentUser.storeName,
 
-      stock: `${productForm.stock || 0} Unit`,
+      city: productForm.city,
 
-      rating: "4.8",
+      mode: productForm.mode,
+
+      price: Number(productForm.price),
+
+      stock: Number(productForm.stock),
+
+      rating: 4.8,
+
+      trust: 95,
+
+      sold: 0,
 
       brand: productForm.brand,
 
+      image: productForm.image,
+
       description: productForm.description,
+
+      infoPenting: "",
+
+      ulasan: [],
     };
 
-    const oldProducts =
-      JSON.parse(
-        localStorage.getItem("sellerProducts")
-      ) || [];
+    const oldProducts = JSON.parse(localStorage.getItem(sellerKey)) || [];
+
+    const updatedProducts = [newProduct, ...oldProducts];
+
+    localStorage.setItem(sellerKey, JSON.stringify(updatedProducts));
+
+    const notifKey = `sellerNotifications_${currentUser.id}`;
+    const savedNotifications =
+      JSON.parse(localStorage.getItem(notifKey)) ||
+      defaultNotifications.filter((notif) => notif.sellerId === currentUser.id);
+
+    const newNotification = {
+      id: Date.now(),
+      role: "seller",
+      sellerId: currentUser.id,
+      message: `Produk ${productForm.name} berhasil ditambahkan.`,
+      time: "Baru saja",
+    };
 
     localStorage.setItem(
-      "sellerProducts",
-      JSON.stringify([
-        newProduct,
-        ...oldProducts,
-      ])
+      notifKey,
+      JSON.stringify([newNotification, ...savedNotifications]),
     );
 
     navigate("/seller/products");
@@ -113,8 +120,8 @@ useEffect(() => {
     <SellerLayout>
       <div className="min-h-screen bg-[#f5f7fb] p-6">
         {/* HEADER */}
-       <div
-  className="
+        <div
+          className="
     flex
     flex-col
     xl:flex-row
@@ -123,10 +130,10 @@ useEffect(() => {
     gap-5
     mb-8
   "
->
+        >
           <div>
-            <h1 className="text-[42px] font-black uppercase text-[#0f172a] leading-none">
-             Tambah Produk
+            <h1 className="text-[25px] font-black uppercase text-[#0f172a] leading-none">
+              Tambah Produk
             </h1>
 
             <p className="text-[11px] uppercase tracking-[2px] font-black text-slate-400 mt-2">
@@ -135,15 +142,15 @@ useEffect(() => {
           </div>
 
           <div
-  className="
+            className="
     flex
     flex-wrap
     items-center
     gap-3
   "
->
+          >
             <div
-  className="
+              className="
     w-full
     sm:w-[320px]
     h-12
@@ -157,11 +164,8 @@ useEffect(() => {
     px-4
     shadow-sm
   "
->
-              <Search
-                size={18}
-                className="text-slate-400"
-              />
+            >
+              <Search size={18} className="text-slate-400" />
 
               <input
                 type="text"
@@ -169,12 +173,10 @@ useEffect(() => {
                 className="w-full bg-transparent outline-none text-sm"
               />
             </div>
-<div className="relative" ref={notifRef}>
-  <button
-    onClick={() =>
-      setShowNotif(!showNotif)
-    }
-    className="
+            <div className="relative" ref={notifRef}>
+              <button
+                onClick={() => setShowNotif(!showNotif)}
+                className="
       w-11
       h-11
       rounded-2xl
@@ -186,21 +188,18 @@ useEffect(() => {
       justify-center
       relative
     "
-  >
-    <Bell
-      size={18}
-      className="text-slate-500"
-    />
+              >
+                <Bell size={18} className="text-slate-500" />
 
-    <span
-      className="
+                <span
+                  className="
         absolute
         -top-1
         -right-1
         w-5
         h-5
         rounded-full
-        bg-red-500
+        bg-blue-600
         text-white
         text-[10px]
         font-black
@@ -208,55 +207,21 @@ useEffect(() => {
         items-center
         justify-center
       "
-    >
-      {notifications.length}
-    </span>
-  </button>
+                >
+                  {sellerNotifications.length}
+                </span>
+              </button>
 
-  {showNotif && (
-    <div
-      className="
-        absolute
-        top-14
-        right-0
-        w-72
-        bg-white
-        rounded-3xl
-        border
-        border-slate-200
-        shadow-xl
-        overflow-hidden
-        z-50
-      "
-    >
-      <div className="p-4 border-b">
-        <h3 className="font-black">
-          Notifikasi
-        </h3>
-      </div>
-
-      {notifications.map(
-        (item, index) => (
-          <div
-            key={index}
-            className="
-              p-4
-              border-b
-              hover:bg-slate-50
-            "
-          >
-            {item}
-          </div>
-        )
-      )}
-    </div>
-  )}
-</div>
+              {showNotif && (
+                <ModalNotifications
+                  notifications={sellerNotifications}
+                  onReadAll={() => setShowNotif(false)}
+                />
+              )}
+            </div>
 
             <button
-              onClick={() =>
-                navigate("/seller/add-product")
-              }
+              onClick={() => navigate("/seller/add-product")}
               className="h-11 px-6 rounded-2xl bg-blue-600 text-white font-black text-sm shadow-xl"
             >
               + PRODUK BARU
@@ -266,7 +231,7 @@ useEffect(() => {
 
         {/* CARD */}
         <div
-  className="
+          className="
     max-w-[950px]
     mx-auto
     bg-white
@@ -276,7 +241,7 @@ useEffect(() => {
     shadow-sm
     p-8
   "
->
+        >
           <div className="grid md:grid-cols-2 grid-cols-1 gap-6">
             {/* NAMA */}
             <div>
@@ -334,25 +299,13 @@ useEffect(() => {
                 }
                 className="w-full h-[52px] rounded-[18px] border border-slate-200 bg-[#f8fafc] px-5 mt-2 font-semibold outline-none"
               >
-                <option value="">
-                  Pilih Kategori
-                </option>
+                <option value="">Pilih Kategori</option>
 
-                <option>
-                  ELEKTRONIK
-                </option>
+                <option>FASHION</option>
 
-                <option>
-                  LAPTOP
-                </option>
+                <option>RUMAH TANGGA</option>
 
-                <option>
-                  AKSESORI
-                </option>
-
-                <option>
-                  AUDIO
-                </option>
+                <option>ELEKTRONIK</option>
               </select>
             </div>
 
@@ -424,19 +377,14 @@ useEffect(() => {
 
                 <label className="h-[52px] px-5 rounded-[18px] border border-blue-300 text-blue-600 font-black flex items-center cursor-pointer">
                   PILIH FILE
-
                   <input
                     hidden
                     type="file"
                     onChange={(e) => {
-                      const file =
-                        e.target.files[0];
+                      const file = e.target.files[0];
 
                       if (file) {
-                        const url =
-                          URL.createObjectURL(
-                            file
-                          );
+                        const url = URL.createObjectURL(file);
 
                         setPreview(url);
 
@@ -450,13 +398,9 @@ useEffect(() => {
                 </label>
               </div>
 
-              {(preview ||
-                productForm.image) && (
+              {(preview || productForm.image) && (
                 <img
-                  src={
-                    preview ||
-                    productForm.image
-                  }
+                  src={preview || productForm.image}
                   alt=""
                   className="w-28 h-28 rounded-2xl object-cover border mt-4"
                 />
@@ -466,10 +410,7 @@ useEffect(() => {
             {/* PROFIT */}
             <div className="col-span-2 bg-blue-50 border border-blue-100 rounded-[30px] p-6">
               <div className="flex items-center gap-2">
-                <Sparkles
-                  size={18}
-                  className="text-blue-600"
-                />
+                <Sparkles size={18} className="text-blue-600" />
 
                 <h3 className="font-black uppercase text-blue-700 text-sm">
                   Rekomendasi Profit Maximum
@@ -477,9 +418,7 @@ useEffect(() => {
               </div>
 
               <p className="mt-3 text-sm text-slate-600">
-                Sistem menganalisis data
-                pasar dan memberikan harga
-                terbaik.
+                Sistem menganalisis data pasar dan memberikan harga terbaik.
               </p>
 
               <div className="flex gap-3 mt-5">
@@ -523,8 +462,7 @@ useEffect(() => {
                 onChange={(e) =>
                   setProductForm({
                     ...productForm,
-                    description:
-                      e.target.value,
+                    description: e.target.value,
                   })
                 }
                 placeholder="Jelaskan spesifikasi produk..."

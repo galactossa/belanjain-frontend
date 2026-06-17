@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+"react-router-dom";
 
 import {
   Star,
@@ -8,65 +7,108 @@ import {
   List,
   SlidersHorizontal,
 } from "lucide-react";
-
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { products } from "../../data/products";
 import { sellers } from "../../data/sellers";
 
 function StoreDetail() {
-    const [search, setSearch] = useState("");
-    const [sortBy, setSortBy] = useState("latest");
-    const [viewMode, setViewMode] = useState("grid");
-    const { id } = useParams();
-    const navigate = useNavigate();
-    
-  const [isFollowing, setIsFollowing] =
-    useState(false);
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState("latest");
+  const [viewMode, setViewMode] = useState("grid");
+  const { id } = useParams();
+  const navigate = useNavigate();
 
-  const seller = sellers.find(
-    (item) => item.id === Number(id)
-  );
+  const [isFollowing, setIsFollowing] = useState(false);
+  useEffect(() => {
+    const currentUser = JSON.parse(localStorage.getItem("currentUser"));
 
-  if (!seller) {
-    return (
-      <div className="text-center py-20">
-        <h1 className="text-4xl font-black">
-          Toko Tidak Ditemukan
-        </h1>
-      </div>
-    );
+    const followedStores =
+      (currentUser &&
+        JSON.parse(localStorage.getItem(`followedStores_${currentUser.id}`))) ||
+      [];
+
+    setIsFollowing(followedStores.includes(Number(id)));
+  }, [id]);
+
+  const seller = sellers.find((item) => item.id === Number(id));
+  const handleFollow = () => {
+    const followedStores =
+      JSON.parse(localStorage.getItem("followedStores")) || [];
+
+    let updated = [];
+
+    if (isFollowing) {
+      updated = followedStores.filter((storeId) => storeId !== seller.id);
+    } else {
+      updated = [...followedStores, seller.id];
+    }
+
+    const currentUser = JSON.parse(localStorage.getItem("currentUser"));
+
+    if (currentUser) {
+      localStorage.setItem(
+        `followedStores_${currentUser.id}`,
+        JSON.stringify(updated),
+      );
+    }
+
+    setIsFollowing(!isFollowing);
+  };
+
+const localProducts = [];
+
+Object.keys(localStorage).forEach((key) => {
+  if (key.startsWith("sellerProducts_")) {
+    const sellerProducts =
+      JSON.parse(localStorage.getItem(key)) || [];
+
+    localProducts.push(...sellerProducts);
   }
+});
 
-  const storeProducts = products.filter(
-    (item) => item.store === seller.name
+const allProducts = [
+  ...products,
+  ...localProducts,
+];
+
+const storeProducts = allProducts.filter(
+  (item) => item.sellerId === seller?.id
+);
+console.log("Seller :", seller);
+console.log("Local Products :", localProducts);
+console.log("Store Products :", storeProducts);
+if (!seller) {
+  return (
+    <div className="text-center py-20">
+      <h1 className="text-4xl font-black">
+        Toko Tidak Ditemukan
+      </h1>
+    </div>
   );
-const filteredProducts = [...storeProducts]
-  .filter((product) =>
-    product.name
-      .toLowerCase()
-      .includes(search.toLowerCase())
-  )
-  .sort((a, b) => {
-    if (sortBy === "price-low")
-      return a.price - b.price;
+}
 
-    if (sortBy === "price-high")
-      return b.price - a.price;
+  const filteredProducts = [...storeProducts]
+    .filter((product) =>
+      product.name.toLowerCase().includes(search.toLowerCase()),
+    )
+    .sort((a, b) => {
+      if (sortBy === "price-low") return a.price - b.price;
 
-    if (sortBy === "sold")
-      return b.sold - a.sold;
+      if (sortBy === "price-high") return b.price - a.price;
 
-    return b.id - a.id;
-  });
+      if (sortBy === "sold") return b.sold - a.sold;
+
+      return b.id - a.id;
+    });
   return (
     <div className="bg-slate-50 min-h-screen pb-20">
-
       {/* BANNER */}
       <div className="max-w-7xl mx-auto px-6 pt-8">
-
         <div className="relative">
-            <button
-  onClick={() => navigate(-1)}
-  className="
+          <button
+            onClick={() => navigate(-1)}
+            className="
   absolute
   top-6
   left-6
@@ -78,39 +120,34 @@ const filteredProducts = [...storeProducts]
   rounded-xl
   backdrop-blur
   "
->
-  ← Kembali
-</button>
+          >
+            ← Kembali
+          </button>
 
-         <div className="h-[340px] rounded-[40px] overflow-hidden relative">
+          <div className="h-[340px] rounded-[40px] overflow-hidden relative">
+            <img
+              src={seller.banner}
+              alt={seller.name}
+              className="w-full h-full object-cover"
+            />
 
-  <img
-    src={seller.banner}
-    alt={seller.name}
-    className="w-full h-full object-cover"
-  />
-
-  <div
-    className="
+            <div
+              className="
     absolute
     inset-0
     bg-black/55
     "
-  />
-
-</div>
+            />
+          </div>
 
           {/* HEADER TOKO */}
-<div className="absolute bottom-8 left-8 right-8">
-
-  <div className="flex justify-between items-end">
-
-    <div className="flex items-center gap-5">
-
-      <img
-        src={seller.logo}
-        alt={seller.name}
-        className="
+          <div className="absolute bottom-8 left-8 right-8">
+            <div className="flex justify-between items-end">
+              <div className="flex items-center gap-5">
+                <img
+                  src={seller.logo}
+                  alt={seller.name}
+                  className="
         w-24
         h-24
         rounded-3xl
@@ -119,56 +156,40 @@ const filteredProducts = [...storeProducts]
         border-white
         shadow-lg
         "
-      />
+                />
 
-      <div>
+                <div>
+                  <h1 className="text-4xl font-black text-white">
+                    {seller.name}
+                  </h1>
 
-        <h1 className="text-4xl font-black text-white">
-          {seller.name}
-        </h1>
+                  <div className="flex gap-4 mt-2 text-white/90">
+                    <span>⭐ {seller.rating}/5.0</span>
 
-        <div className="flex gap-4 mt-2 text-white/90">
+                    <span>👥 {seller.followers.toLocaleString()}</span>
 
-          <span>
-            ⭐ {seller.rating}/5.0
-          </span>
+                    <span>📍 {seller.city}</span>
+                  </div>
+                </div>
+              </div>
 
-          <span>
-            👥 {seller.followers.toLocaleString()}
-          </span>
-
-          <span>
-            📍 {seller.city}
-          </span>
-
-        </div>
-
-      </div>
-
-    </div>
-
-    <div className="flex gap-3">
-
-     <button
-  onClick={() =>
-    navigate(`/customer/chat`)
-  }
-  className="
+              <div className="flex gap-3">
+                <button
+                  onClick={() => navigate(`/customer/chat`)}
+                  className="
   bg-white
   px-6
   h-12
   rounded-xl
   font-semibold
   "
->
-  Chat
-</button>
+                >
+                  Chat
+                </button>
 
- <button
-  onClick={() =>
-    setIsFollowing(!isFollowing)
-  }
-  className={`
+                <button
+                  onClick={handleFollow}
+                  className={`
     px-6
     h-12
     rounded-xl
@@ -180,64 +201,42 @@ const filteredProducts = [...storeProducts]
         : "bg-indigo-600 text-white"
     }
   `}
->
-  {isFollowing ? "✓ Mengikuti" : "+ Ikuti"}
-</button>
-
-    </div>
-
-  </div>
-
-</div>
-
+                >
+                  {isFollowing ? "✓ Mengikuti" : "+ Ikuti"}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
         <div className="grid grid-cols-4 gap-5 mt-8">
+          <div className="bg-white rounded-2xl p-6 shadow-sm border">
+            <p className="text-slate-400 text-sm">Kecepatan Respon</p>
 
-  <div className="bg-white rounded-2xl p-6 shadow-sm border">
-    <p className="text-slate-400 text-sm">
-      Kecepatan Respon
-    </p>
+            <h3 className="text-2xl font-bold mt-2">99%</h3>
+          </div>
 
-    <h3 className="text-2xl font-bold mt-2">
-      99%
-    </h3>
-  </div>
+          <div className="bg-white rounded-2xl p-6 shadow-sm border">
+            <p className="text-slate-400 text-sm">Waktu Proses</p>
 
-  <div className="bg-white rounded-2xl p-6 shadow-sm border">
-    <p className="text-slate-400 text-sm">
-      Waktu Proses
-    </p>
+            <h3 className="text-2xl font-bold mt-2">&lt; 24 Jam</h3>
+          </div>
 
-    <h3 className="text-2xl font-bold mt-2">
-      &lt; 24 Jam
-    </h3>
-  </div>
+          <div className="bg-white rounded-2xl p-6 shadow-sm border">
+            <p className="text-slate-400 text-sm">Bergabung Sejak</p>
 
-  <div className="bg-white rounded-2xl p-6 shadow-sm border">
-    <p className="text-slate-400 text-sm">
-      Bergabung Sejak
-    </p>
+            <h3 className="text-2xl font-bold mt-2">Jan {seller.joined}</h3>
+          </div>
 
-    <h3 className="text-2xl font-bold mt-2">
-      Jan {seller.joined}
-    </h3>
-  </div>
+          <div className="bg-white rounded-2xl p-6 shadow-sm border">
+            <p className="text-slate-400 text-sm">Produk Terjual</p>
 
-  <div className="bg-white rounded-2xl p-6 shadow-sm border">
-    <p className="text-slate-400 text-sm">
-      Produk Terjual
-    </p>
+            <h3 className="text-2xl font-bold mt-2">10rb+</h3>
+          </div>
+        </div>
+        {/* SEARCH & FILTER */}
 
-    <h3 className="text-2xl font-bold mt-2">
-      10rb+
-    </h3>
-  </div>
-
-</div>
-{/* SEARCH & FILTER */}
-
-<div
-  className="
+        <div
+          className="
   bg-white
   rounded-3xl
   p-6
@@ -245,32 +244,27 @@ const filteredProducts = [...storeProducts]
   shadow-sm
   mt-8
   "
->
-
-  {/* BARIS ATAS */}
-  <div className="flex items-center gap-3">
-
-    <div className="flex-1 relative">
-
-      <Search
-        size={20}
-        className="
+        >
+          {/* BARIS ATAS */}
+          <div className="flex items-center gap-3">
+            <div className="flex-1 relative">
+              <Search
+                size={20}
+                className="
         absolute
         left-4
         top-1/2
         -translate-y-1/2
         text-slate-400
         "
-      />
+              />
 
-      <input
-        type="text"
-        value={search}
-        onChange={(e) =>
-          setSearch(e.target.value)
-        }
-        placeholder="Cari produk di toko ini..."
-        className="
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Cari produk di toko ini..."
+                className="
         w-full
         h-12
         pl-12
@@ -279,14 +273,13 @@ const filteredProducts = [...storeProducts]
         bg-slate-50
         border
         "
-      />
+              />
+            </div>
 
-    </div>
-
-    {/* GRID */}
-    <button
-      onClick={() => setViewMode("grid")}
-      className={`
+            {/* GRID */}
+            <button
+              onClick={() => setViewMode("grid")}
+              className={`
         w-12
         h-12
         rounded-xl
@@ -299,14 +292,14 @@ const filteredProducts = [...storeProducts]
             : "bg-slate-100 text-slate-500"
         }
       `}
-    >
-      <LayoutGrid size={20} />
-    </button>
+            >
+              <LayoutGrid size={20} />
+            </button>
 
-    {/* LIST */}
-    <button
-      onClick={() => setViewMode("list")}
-      className={`
+            {/* LIST */}
+            <button
+              onClick={() => setViewMode("list")}
+              className={`
         w-12
         h-12
         rounded-xl
@@ -319,41 +312,31 @@ const filteredProducts = [...storeProducts]
             : "bg-slate-100 text-slate-500"
         }
       `}
-    >
-      <List size={20} />
-    </button>
+            >
+              <List size={20} />
+            </button>
 
-    <select
-      value={sortBy}
-      onChange={(e) =>
-        setSortBy(e.target.value)
-      }
-      className="
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="
       h-12
       px-4
       rounded-xl
       border
       "
-    >
-      <option value="latest">
-        Terbaru
-      </option>
+            >
+              <option value="latest">Terbaru</option>
 
-      <option value="sold">
-        Terlaris
-      </option>
+              <option value="sold">Terlaris</option>
 
-      <option value="price-low">
-        Harga Terendah
-      </option>
+              <option value="price-low">Harga Terendah</option>
 
-      <option value="price-high">
-        Harga Tertinggi
-      </option>
-    </select>
+              <option value="price-high">Harga Tertinggi</option>
+            </select>
 
-    <button
-      className="
+            <button
+              className="
       w-12
       h-12
       rounded-xl
@@ -362,34 +345,28 @@ const filteredProducts = [...storeProducts]
       items-center
       justify-center
       "
-    >
-      <SlidersHorizontal size={20} />
-    </button>
+            >
+              <SlidersHorizontal size={20} />
+            </button>
+          </div>
+        </div>
 
-  </div>
-
-</div>
-       
         {/* HEADER PRODUK */}
         <div className="mt-14 flex justify-between items-center">
-
           <div>
-            <h2 className="text-4xl font-black">
-              Semua Produk
-            </h2>
+            <h2 className="text-4xl font-black">Semua Produk</h2>
 
             <p className="text-slate-500 mt-2">
               {filteredProducts.length} produk tersedia
             </p>
           </div>
-
         </div>
 
         {/* GRID PRODUK */}
         <div
-  className={
-    viewMode === "grid"
-      ? `
+          className={
+            viewMode === "grid"
+              ? `
         grid
         grid-cols-2
         md:grid-cols-3
@@ -397,24 +374,18 @@ const filteredProducts = [...storeProducts]
         gap-6
         mt-8
       `
-      : `
+              : `
         flex
         flex-col
         gap-4
         mt-8
       `
-  }
->
-
+          }
+        >
           {filteredProducts.map((product) => (
-
             <div
               key={product.id}
-              onClick={() =>
-                navigate(
-                  `/customer/product-detail/${product.id}`
-                )
-              }
+              onClick={() => navigate(`/customer/product-detail/${product.id}`)}
               className={`
 bg-white
 border
@@ -422,14 +393,9 @@ overflow-hidden
 cursor-pointer
 transition
 
-${
-  viewMode === "grid"
-    ? "rounded-[28px]"
-    : "flex rounded-2xl min-h-[190px]"
-}
+${viewMode === "grid" ? "rounded-[28px]" : "flex rounded-2xl min-h-[190px]"}
 `}
             >
-
               <img
                 src={product.image}
                 alt={product.name}
@@ -441,7 +407,6 @@ ${
               />
 
               <div className="p-5">
-
                 <h3
                   className="
                   font-black
@@ -460,10 +425,7 @@ ${
                   mt-3
                   "
                 >
-                  Rp{" "}
-                  {product.price.toLocaleString(
-                    "id-ID"
-                  )}
+                  Rp {product.price.toLocaleString("id-ID")}
                 </p>
 
                 <div
@@ -474,7 +436,6 @@ ${
                   text-sm
                   "
                 >
-
                   <div className="flex items-center gap-1">
                     <Star
                       size={14}
@@ -486,22 +447,13 @@ ${
                     {product.rating}
                   </div>
 
-                  <span className="text-slate-400">
-                    {product.sold} Terjual
-                  </span>
-
+                  <span className="text-slate-400">{product.sold} Terjual</span>
                 </div>
-
               </div>
-
             </div>
-
           ))}
-
         </div>
-
       </div>
-
     </div>
   );
 }

@@ -1,6 +1,6 @@
 export const sellers = [
   {
-    id: 1,
+    id: 3,
     name: "Urban Wear Store",
     city: "Bandung",
     rating: 4.7,
@@ -15,7 +15,7 @@ export const sellers = [
   },
 
   {
-    id: 2,
+    id: 4,
     name: "Home Living Store",
     city: "Surabaya",
     rating: 4.6,
@@ -30,7 +30,7 @@ export const sellers = [
   },
 
   {
-    id: 3,
+    id: 5,
     name: "Tech Galaxy Store",
     city: "Jakarta",
     rating: 4.8,

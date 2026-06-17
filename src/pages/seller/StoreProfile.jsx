@@ -1,122 +1,174 @@
 import { useState, useEffect } from "react";
-import {
-  Camera,
-  Trash2,
-  Save,
-} from "lucide-react";
+import { Camera, Trash2, Save, Bell, Search } from "lucide-react";
 
 import SellerLayout from "../../layouts/SellerLayout";
+import { products } from "../../data/products";
+import ModalNotifications from "../../components/seller/ModalNotifications";
+import { notifications as defaultNotifications } from "../../data/notifications";
 
 function StoreProfile() {
-  const [banner, setBanner] = useState("");
-  const [logo, setLogo] = useState("");
+  const [showNotif, setShowNotif] = useState(false);
+  const savedProfile = JSON.parse(localStorage.getItem("storeProfile")) || {};
+  const [language, setLanguage] = useState(
+    localStorage.getItem("language") || "en",
+  );
+  const currentUser = JSON.parse(localStorage.getItem("currentUser")) || {};
 
-  const [storeData, setStoreData] =
-    useState({
-      storeName: "Toko Hamid Jaya",
-      category: "Elektronik",
+  const sellerNotifications =
+    JSON.parse(
+      localStorage.getItem(`sellerNotifications_${currentUser?.id}`),
+    ) ??
+    defaultNotifications.filter((notif) => notif.sellerId === currentUser?.id);
 
-      description:
-        "Penyedia produk e-commerce lokal berkualitas tinggi terpilih.",
+  const sellerCategory =
+    products.find((product) => product.sellerId === currentUser.id)?.category ||
+    "Umum";
 
-      policy:
-        "Garansi resmi 1 tahun. Pelayanan prima, packing aman, pengiriman jam 15:00 WIB.",
+  const [banner, setBanner] = useState(
+    savedProfile.banner || currentUser.banner || "",
+  );
 
-      address:
-        "Jl. Sudirman No.123, Jakarta Pusat",
+  const [logo, setLogo] = useState(
+    savedProfile.logo || currentUser.avatar || "",
+  );
 
-      owner: "Toko Hamid Jaya",
+  const [storeData, setStoreData] = useState({
+    storeName:
+      savedProfile.storeName ||
+      currentUser.storeName ||
+      currentUser.name ||
+      "Toko Hamid Jaya",
 
-      email:
-        "seller@example.com",
-    });
+    category:
+      savedProfile.category ||
+      currentUser.category ||
+      sellerCategory ||
+      "Elektronik",
 
-  useEffect(() => {
-    const saved = JSON.parse(
-      localStorage.getItem(
-        "storeProfile"
-      )
-    );
+    description:
+      savedProfile.description ||
+      currentUser.description ||
+      "Penyedia produk e-commerce lokal berkualitas tinggi terpilih.",
 
-    if (saved) {
-      setStoreData(saved);
-      setBanner(saved.banner || "");
-      setLogo(saved.logo || "");
-    }
-  }, []);
+    policy:
+      savedProfile.policy ||
+      "Garansi resmi 1 tahun. Pelayanan prima, packing aman, pengiriman jam 15:00 WIB.",
 
-  const handleBannerUpload = (
-    e
-  ) => {
-    const file =
-      e.target.files[0];
+    address:
+      savedProfile.address ||
+      currentUser.address ||
+      "Jl. Sudirman No.123, Jakarta Pusat",
+
+    owner:
+      savedProfile.owner ||
+      currentUser.ownerName ||
+      currentUser.name ||
+      "Toko Hamid Jaya",
+
+    email: savedProfile.email || currentUser.email || "seller@example.com",
+  });
+
+  const handleBannerUpload = (e) => {
+    const file = e.target.files[0];
 
     if (!file) return;
 
-    const reader =
-      new FileReader();
+    const reader = new FileReader();
 
-    reader.onload = (
-      event
-    ) => {
-      setBanner(
-        event.target.result
-      );
+    reader.onload = (event) => {
+      setBanner(event.target.result);
     };
 
-    reader.readAsDataURL(
-      file
-    );
+    reader.readAsDataURL(file);
   };
 
-  const handleLogoUpload = (
-    e
-  ) => {
-    const file =
-      e.target.files[0];
+  const handleLogoUpload = (e) => {
+    const file = e.target.files[0];
 
     if (!file) return;
 
-    const reader =
-      new FileReader();
+    const reader = new FileReader();
 
-    reader.onload = (
-      event
-    ) => {
-      setLogo(
-        event.target.result
-      );
+    reader.onload = (event) => {
+      setLogo(event.target.result);
     };
 
-    reader.readAsDataURL(
-      file
-    );
+    reader.readAsDataURL(file);
   };
 
   const saveProfile = () => {
-    localStorage.setItem(
-      "storeProfile",
-      JSON.stringify({
-        ...storeData,
-        banner,
-        logo,
-      })
-    );
+    const nextProfile = {
+      ...storeData,
+      banner,
+      logo,
+    };
 
-    alert(
-      "Profil berhasil disimpan"
-    );
+    localStorage.setItem("storeProfile", JSON.stringify(nextProfile));
+
+    if (currentUser.role === "seller") {
+      const updatedUser = {
+        ...currentUser,
+        storeName: nextProfile.storeName,
+        ownerName: nextProfile.owner,
+        email: nextProfile.email,
+        address: nextProfile.address,
+        banner: nextProfile.banner,
+        avatar: nextProfile.logo,
+        description: nextProfile.description,
+      };
+      localStorage.setItem("currentUser", JSON.stringify(updatedUser));
+    }
+
+    alert("Profil berhasil disimpan");
   };
 
   return (
     <SellerLayout>
       <div className="min-h-screen bg-[#f5f7fb] p-6">
+        {/* HEADER */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6 gap-4">
+          <div>
+            <h1 className="text-[25px] font-black uppercase text-slate-900 leading-none">
+              Profil Toko
+            </h1>
+            <p className="text-xs uppercase tracking-[1.5px] font-black text-slate-400 mt-1.5">
+              Kelola informasi toko dan profil seller anda
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="w-full sm:w-[280px] h-11 rounded-2xl bg-white border border-slate-200 px-4 flex items-center gap-3 shadow-sm">
+              <Search size={16} className="text-slate-400" />
+              <input
+                type="text"
+                placeholder="Cari pesanan atau produk..."
+                className="w-full bg-transparent outline-none text-sm text-slate-700"
+              />
+            </div>
+
+            <div className="relative">
+              <button
+                onClick={() => setShowNotif(!showNotif)}
+                className="w-11 h-11 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shadow-sm relative"
+              >
+                <Bell size={18} className="text-slate-500" />
+                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-black flex items-center justify-center">
+                  {sellerNotifications.length}
+                </span>
+              </button>
+              {showNotif && (
+                <ModalNotifications
+                  notifications={sellerNotifications}
+                  onReadAll={() => setShowNotif(false)}
+                />
+              )}
+            </div>
+          </div>
+        </div>
 
         {/* COVER */}
         <div className="max-w-6xl mx-auto bg-white rounded-[35px] overflow-hidden border border-slate-200 shadow-sm">
-
           <div className="relative h-[300px] group">
-
             <img
               src={
                 banner ||
@@ -163,22 +215,17 @@ function StoreProfile() {
               "
               >
                 Ganti Banner
-
                 <input
                   hidden
                   type="file"
                   accept="image/*"
-                  onChange={
-                    handleBannerUpload
-                  }
+                  onChange={handleBannerUpload}
                 />
               </label>
 
               {banner && (
                 <button
-                  onClick={() =>
-                    setBanner("")
-                  }
+                  onClick={() => setBanner("")}
                   className="
                     h-11
                     px-5
@@ -191,9 +238,7 @@ function StoreProfile() {
                     gap-2
                   "
                 >
-                  <Trash2
-                    size={16}
-                  />
+                  <Trash2 size={16} />
                   Hapus
                 </button>
               )}
@@ -202,7 +247,6 @@ function StoreProfile() {
 
           {/* PROFILE */}
           <div className="px-8 pb-8 relative">
-
             <div
               className="
               relative
@@ -212,10 +256,7 @@ function StoreProfile() {
             "
             >
               <img
-                src={
-                  logo ||
-                  "https://ui-avatars.com/api/?name=Toko"
-                }
+                src={logo || "https://ui-avatars.com/api/?name=Toko"}
                 alt=""
                 className="
                   w-32
@@ -247,9 +288,7 @@ function StoreProfile() {
               "
               >
                 <div className="flex flex-col items-center text-white">
-                  <Camera
-                    size={26}
-                  />
+                  <Camera size={26} />
 
                   <span
                     className="
@@ -266,17 +305,13 @@ function StoreProfile() {
                   hidden
                   type="file"
                   accept="image/*"
-                  onChange={
-                    handleLogoUpload
-                  }
+                  onChange={handleLogoUpload}
                 />
               </label>
 
               {logo && (
                 <button
-                  onClick={() =>
-                    setLogo("")
-                  }
+                  onClick={() => setLogo("")}
                   className="
                     absolute
                     -top-2
@@ -303,9 +338,7 @@ function StoreProfile() {
                 text-slate-900
               "
               >
-                {
-                  storeData.storeName
-                }
+                {storeData.storeName}
               </h1>
 
               <p
@@ -316,9 +349,7 @@ function StoreProfile() {
                 mt-1
               "
               >
-                {
-                  storeData.category
-                }
+                {storeData.category}
               </p>
             </div>
           </div>
@@ -335,7 +366,6 @@ function StoreProfile() {
           mt-8
         "
         >
-
           {/* LEFT */}
           <div
             className="
@@ -350,7 +380,7 @@ function StoreProfile() {
           >
             <h2
               className="
-              text-[28px]
+              text-[22px]
               font-black
             "
             >
@@ -371,7 +401,6 @@ function StoreProfile() {
             </p>
 
             <div className="space-y-6 mt-8">
-
               <div>
                 <label className="block mb-2 text-[11px] font-black uppercase tracking-[2px] text-slate-500">
                   Nama Toko *
@@ -379,15 +408,11 @@ function StoreProfile() {
 
                 <input
                   type="text"
-                  value={
-                    storeData.storeName
-                  }
+                  value={storeData.storeName}
                   onChange={(e) =>
                     setStoreData({
                       ...storeData,
-                      storeName:
-                        e.target
-                          .value,
+                      storeName: e.target.value,
                     })
                   }
                   className="w-full h-14 rounded-2xl border border-slate-200 px-5"
@@ -401,15 +426,11 @@ function StoreProfile() {
 
                 <input
                   type="text"
-                  value={
-                    storeData.category
-                  }
+                  value={storeData.category}
                   onChange={(e) =>
                     setStoreData({
                       ...storeData,
-                      category:
-                        e.target
-                          .value,
+                      category: e.target.value,
                     })
                   }
                   className="w-full h-14 rounded-2xl border border-slate-200 px-5"
@@ -423,15 +444,11 @@ function StoreProfile() {
 
                 <textarea
                   rows={4}
-                  value={
-                    storeData.description
-                  }
+                  value={storeData.description}
                   onChange={(e) =>
                     setStoreData({
                       ...storeData,
-                      description:
-                        e.target
-                          .value,
+                      description: e.target.value,
                     })
                   }
                   className="w-full rounded-2xl border border-slate-200 p-5"
@@ -445,15 +462,11 @@ function StoreProfile() {
 
                 <textarea
                   rows={3}
-                  value={
-                    storeData.policy
-                  }
+                  value={storeData.policy}
                   onChange={(e) =>
                     setStoreData({
                       ...storeData,
-                      policy:
-                        e.target
-                          .value,
+                      policy: e.target.value,
                     })
                   }
                   className="w-full rounded-2xl border border-slate-200 p-5"
@@ -467,15 +480,11 @@ function StoreProfile() {
 
                 <input
                   type="text"
-                  value={
-                    storeData.address
-                  }
+                  value={storeData.address}
                   onChange={(e) =>
                     setStoreData({
                       ...storeData,
-                      address:
-                        e.target
-                          .value,
+                      address: e.target.value,
                     })
                   }
                   className="w-full h-14 rounded-2xl border border-slate-200 px-5"
@@ -483,9 +492,7 @@ function StoreProfile() {
               </div>
 
               <button
-                onClick={
-                  saveProfile
-                }
+                onClick={saveProfile}
                 className="
                   w-full
                   h-14
@@ -499,7 +506,6 @@ function StoreProfile() {
               >
                 SIMPAN PROFIL TOKO & BRANDING
               </button>
-
             </div>
           </div>
 
@@ -515,9 +521,7 @@ function StoreProfile() {
             h-fit
           "
           >
-            <h2 className="text-[28px] font-black">
-              Kepemilikan Pribadi
-            </h2>
+            <h2 className="text-[22px] font-black">Kepemilikan Pribadi</h2>
 
             <p
               className="
@@ -533,7 +537,6 @@ function StoreProfile() {
             </p>
 
             <div className="space-y-6 mt-8">
-
               <div>
                 <label className="block mb-2 text-[11px] font-black uppercase tracking-[2px] text-slate-500">
                   Nama Pemilik *
@@ -541,15 +544,11 @@ function StoreProfile() {
 
                 <input
                   type="text"
-                  value={
-                    storeData.owner
-                  }
+                  value={storeData.owner}
                   onChange={(e) =>
                     setStoreData({
                       ...storeData,
-                      owner:
-                        e.target
-                          .value,
+                      owner: e.target.value,
                     })
                   }
                   className="w-full h-14 rounded-2xl border border-slate-200 px-5"
@@ -563,15 +562,11 @@ function StoreProfile() {
 
                 <input
                   type="email"
-                  value={
-                    storeData.email
-                  }
+                  value={storeData.email}
                   onChange={(e) =>
                     setStoreData({
                       ...storeData,
-                      email:
-                        e.target
-                          .value,
+                      email: e.target.value,
                     })
                   }
                   className="w-full h-14 rounded-2xl border border-slate-200 px-5"
@@ -579,9 +574,7 @@ function StoreProfile() {
               </div>
 
               <button
-                onClick={
-                  saveProfile
-                }
+                onClick={saveProfile}
                 className="
                   w-full
                   h-14
@@ -592,10 +585,8 @@ function StoreProfile() {
               >
                 SIMPAN PROFIL PRIBADI
               </button>
-
             </div>
           </div>
-
         </div>
       </div>
     </SellerLayout>

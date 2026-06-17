@@ -1,16 +1,8 @@
-import {
-  useState,
-  useRef,
-  useEffect,
-} from "react";
+import { useState, useRef, useEffect } from "react";
 
-import {
-  Heart,
-  ShoppingCart,
-  ArrowRight,
-} from "lucide-react";
+import { Heart, ShoppingCart, ArrowRight } from "lucide-react";
 
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 import CustomerNavbar from "../../components/customer/CustomerNavbar";
 
@@ -24,119 +16,90 @@ import Footer from "../../components/home/Footer";
 import LoginPopup from "../../components/home/LoginPopup";
 
 function Home() {
+  const location = useLocation();
+  const currentUser = JSON.parse(localStorage.getItem("currentUser"));
 
+  const wishlistKey = `wishlist_${currentUser.id}`;
+  const cartKey = `cart_${currentUser.id}`;
   const navigate = useNavigate();
 
   // ================= SEARCH =================
-  const [search, setSearch] =
-    useState("");
+  const [search, setSearch] = useState("");
 
   // ================= PRODUCT REF =================
   const productRef = useRef(null);
 
   // ================= CATEGORY =================
-  const [
-    selectedCategory,
-    setSelectedCategory,
-  ] = useState("Semua");
+  const [selectedCategory, setSelectedCategory] = useState("Semua");
 
   // ================= SHOPPING MODE =================
-  const [
-    shoppingMode,
-    setShoppingMode,
-  ] = useState("PREMIUM");
+  const [shoppingMode, setShoppingMode] = useState("PREMIUM");
 
   // ================= FILTER =================
-  const [filters, setFilters] =
-    useState({
-      minPrice: 0,
-      maxPrice: 50000000,
-      brands: [],
-      ratings: [],
-    });
+  const [filters, setFilters] = useState({
+    minPrice: 0,
+    maxPrice: 50000000,
+    brands: [],
+    ratings: [],
+  });
 
   // ================= LOGIN =================
-  const [
-    showLogin,
-    setShowLogin,
-  ] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
 
   // ================= WISHLIST =================
-  const [
-    showWishlist,
-    setShowWishlist,
-  ] = useState(false);
+  const [showWishlist, setShowWishlist] = useState(false);
 
-  const [
-    wishlistItems,
-    setWishlistItems,
-  ] = useState([]);
+  const [wishlistItems, setWishlistItems] = useState([]);
 
   // ================= CART =================
-  const [
-    showCart,
-    setShowCart,
-  ] = useState(false);
+  const [showCart, setShowCart] = useState(false);
 
-  const [
-    cartItems,
-    setCartItems,
-  ] = useState([]);
+  const [cartItems, setCartItems] = useState([]);
 
   // ================= TOTAL =================
   const subtotal = cartItems.reduce(
-    (acc, item) =>
-      acc + item.price * (item.quantity || 1),
-    0
+    (acc, item) => acc + item.price * (item.qty || 1),
+    0,
   );
 
   const serviceFee = 2000;
 
-  const total =
-    subtotal + serviceFee;
+  const total = subtotal + serviceFee;
 
   // ================= LOAD WISHLIST =================
   useEffect(() => {
-
-    const savedWishlist =
-      JSON.parse(
-        localStorage.getItem("wishlist")
-      ) || [];
+    const savedWishlist = JSON.parse(localStorage.getItem(wishlistKey)) || [];
 
     setWishlistItems(savedWishlist);
-
   }, []);
 
   // ================= LOAD CART =================
   useEffect(() => {
-
-    const savedCart =
-      JSON.parse(
-        localStorage.getItem("cart")
-      ) || [];
+    const savedCart = JSON.parse(localStorage.getItem(cartKey)) || [];
 
     setCartItems(savedCart);
-
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("showCart") === "true") {
+      setShowCart(true);
+    }
+  }, [location.search]);
 
   // ================= HANDLE SEARCH =================
   const handleSearch = () => {
-
     if (productRef.current) {
-
-      const topPosition =
-        productRef.current.offsetTop - 120;
+      const topPosition = productRef.current.offsetTop - 120;
 
       window.scrollTo({
         top: topPosition,
         behavior: "smooth",
       });
-
     }
   };
 
   return (
-
     <div
       className="
         bg-[#f5f7fb]
@@ -145,24 +108,15 @@ function Home() {
         overflow-x-hidden
       "
     >
-
       {/* ================= NAVBAR ================= */}
       <CustomerNavbar
         search={search}
         setSearch={setSearch}
-        setShowWishlist={
-          setShowWishlist
-        }
-        setShowCart={
-          setShowCart
-        }
+        setShowWishlist={setShowWishlist}
+        setShowCart={setShowCart}
         onSearch={handleSearch}
-        wishlistCount={
-          wishlistItems.length
-        }
-        cartCount={
-          cartItems.length
-        }
+        wishlistCount={wishlistItems.length}
+        cartCount={cartItems.length}
       />
 
       {/* ================= MAIN ================= */}
@@ -175,28 +129,20 @@ function Home() {
           py-6
         "
       >
-
         {/* HERO */}
         <HeroBanner
-  productRef={productRef}
-  scrollToShoppingMode={() => {
+          productRef={productRef}
+          scrollToShoppingMode={() => {
+            const section = document.getElementById("shopping-mode");
 
-    const section =
-      document.getElementById(
-        "shopping-mode"
-      );
-
-    if (section) {
-
-      section.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-
-    }
-
-  }}
-/>
+            if (section) {
+              section.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+              });
+            }
+          }}
+        />
 
         {/* CONTENT */}
         <div
@@ -207,43 +153,27 @@ function Home() {
             mt-6
           "
         >
-
           {/* SIDEBAR */}
           <div
             className="
               h-fit
             "
           >
-
-            <SidebarFilter
-              filters={filters}
-              setFilters={setFilters}
-            />
-
+            <SidebarFilter filters={filters} setFilters={setFilters} />
           </div>
 
           {/* RIGHT */}
-          <div> 
-
+          <div>
             <CategorySection
-              selectedCategory={
-                selectedCategory
-              }
-              setSelectedCategory={
-                setSelectedCategory
-              }
+              selectedCategory={selectedCategory}
+              setSelectedCategory={setSelectedCategory}
             />
 
-            <div 
-             id="shopping-mode"
-            className="mt-5 scroll-mt-32">
+            <div id="shopping-mode" className="mt-5 scroll-mt-32">
               <ShoppingMode
                 shoppingMode={shoppingMode}
-                setShoppingMode={
-                  setShoppingMode
-                }
+                setShoppingMode={setShoppingMode}
               />
-
             </div>
 
             <section
@@ -251,78 +181,48 @@ function Home() {
               ref={productRef}
               className="mt-5 scroll-mt-32"
             >
-
               <ProductGrid
-                selectedCategory={
-                  selectedCategory
-                }
+                selectedCategory={selectedCategory}
                 shoppingMode={shoppingMode}
                 filters={filters}
                 search={search}
                 isCustomer={true}
-                setWishlistItems={
-                  setWishlistItems
-                }
-                setShowWishlist={
-                  setShowWishlist
-                }
-                setCartItems={
-                  setCartItems
-                }
-                setShowCart={
-                  setShowCart
-                }
+                setWishlistItems={setWishlistItems}
+                setShowWishlist={setShowWishlist}
+                setCartItems={setCartItems}
+                setShowCart={setShowCart}
               />
-
             </section>
-
-            
-
           </div>
-          
-          
-
         </div>
         <div className="mt-12">
-
-  <RekomendasiSpesial
-    shoppingMode={shoppingMode}
-    pageType="customer"
-    isCustomer={true}
-    setWishlistItems={setWishlistItems}
-    setShowWishlist={setShowWishlist}
-    setCartItems={setCartItems}
-    setShowCart={setShowCart}
-    setAuthModal={setShowLogin}
-  />
-
-</div>
+          <RekomendasiSpesial
+            shoppingMode={shoppingMode}
+            pageType="customer"
+            isCustomer={true}
+            setWishlistItems={setWishlistItems}
+            setShowWishlist={setShowWishlist}
+            setCartItems={setCartItems}
+            setShowCart={setShowCart}
+            setAuthModal={setShowLogin}
+          />
+        </div>
 
         {/* FOOTER */}
         <div className="mt-14">
-
           <Footer />
-
         </div>
-
       </main>
 
       {/* ================= LOGIN POPUP ================= */}
-      <LoginPopup
-        show={showLogin}
-        setShow={setShowLogin}
-      />
+      <LoginPopup show={showLogin} setShow={setShowLogin} />
 
       {/* ================= WISHLIST DRAWER ================= */}
       {showWishlist && (
-
         <>
-
           {/* OVERLAY */}
           <div
-            onClick={() =>
-              setShowWishlist(false)
-            }
+            onClick={() => setShowWishlist(false)}
             className="
               fixed
               inset-0
@@ -346,18 +246,12 @@ function Home() {
               overflow-y-auto
             "
           >
-
             {/* HEADER */}
             <div className="flex items-center justify-between mb-6">
-
-              <h2 className="text-2xl font-black">
-                Wishlist
-              </h2>
+              <h2 className="text-2xl font-black">Wishlist</h2>
 
               <button
-                onClick={() =>
-                  setShowWishlist(false)
-                }
+                onClick={() => setShowWishlist(false)}
                 className="
                   w-10
                   h-10
@@ -367,12 +261,10 @@ function Home() {
               >
                 ✕
               </button>
-
             </div>
 
             {/* EMPTY */}
             {wishlistItems.length === 0 && (
-
               <div
                 className="
                   flex
@@ -383,7 +275,6 @@ function Home() {
                   text-center
                 "
               >
-
                 <div
                   className="
                     w-28
@@ -396,12 +287,7 @@ function Home() {
                     mb-6
                   "
                 >
-
-                  <Heart
-                    size={55}
-                    className="text-slate-300"
-                  />
-
+                  <Heart size={55} className="text-slate-300" />
                 </div>
 
                 <h3
@@ -420,23 +306,17 @@ function Home() {
                     max-w-[280px]
                   "
                 >
-                  Simpan produk favoritmu
-                  untuk dibeli nanti.
+                  Simpan produk favoritmu untuk dibeli nanti.
                 </p>
 
                 <button
                   onClick={() => {
-
                     setShowWishlist(false);
 
-                    document
-                      .getElementById("products")
-                      ?.scrollIntoView({
-                        behavior: "smooth",
-                        block: "start",
-
-                      });
-
+                    document.getElementById("products")?.scrollIntoView({
+                      behavior: "smooth",
+                      block: "start",
+                    });
                   }}
                   className="
                     mt-8
@@ -450,16 +330,12 @@ function Home() {
                 >
                   Belanja Sekarang
                 </button>
-
               </div>
-
             )}
 
             {/* LIST */}
             <div className="space-y-4">
-
               {wishlistItems.map((item) => (
-
                 <div
                   key={item.id}
                   className="
@@ -471,7 +347,6 @@ function Home() {
                     bg-white
                   "
                 >
-
                   <img
                     src={item.image}
                     alt={item.name}
@@ -484,7 +359,6 @@ function Home() {
                   />
 
                   <div className="flex-1">
-
                     <h3
                       className="
                         font-black
@@ -501,62 +375,49 @@ function Home() {
                         mt-2
                       "
                     >
-                      Rp{" "}
-                      {item.price.toLocaleString(
-                        "id-ID"
-                      )}
+                      Rp {item.price.toLocaleString("id-ID")}
                     </p>
 
                     <div className="flex gap-2 mt-4">
-
                       {/* TAMBAH CART */}
                       <button
                         onClick={() => {
-
                           const oldCart =
-                            JSON.parse(
-                              localStorage.getItem("cart")
-                            ) || [];
+                            JSON.parse(localStorage.getItem(cartKey)) || [];
 
-                          const isExist =
-                            oldCart.find(
-                              (cartItem) =>
-                                cartItem.id === item.id
-                            );
+                          const isExist = oldCart.find(
+                            (cartItem) => cartItem.id === item.id,
+                          );
 
-                          let updatedCart =
-                            oldCart;
+                          let updatedCart = oldCart;
 
                           if (!isExist) {
-
                             updatedCart = [
                               ...oldCart,
-                              item,
+                              {
+                                ...item,
+                                qty: 1,
+                              },
                             ];
 
                             localStorage.setItem(
-                              "cart",
-                              JSON.stringify(updatedCart)
+                              cartKey,
+                              JSON.stringify(updatedCart),
                             );
 
                             setCartItems(updatedCart);
                           }
 
-                          const updatedWishlist =
-                            wishlistItems.filter(
-                              (wishlistItem) =>
-                                wishlistItem.id !== item.id
-                            );
-
-                          setWishlistItems(
-                            updatedWishlist
+                          const updatedWishlist = wishlistItems.filter(
+                            (wishlistItem) => wishlistItem.id !== item.id,
                           );
+
+                          setWishlistItems(updatedWishlist);
 
                           localStorage.setItem(
-                            "wishlist",
-                            JSON.stringify(updatedWishlist)
+                            wishlistKey,
+                            JSON.stringify(updatedWishlist),
                           );
-
                         }}
                         className="
                           flex-1
@@ -573,20 +434,16 @@ function Home() {
                       {/* HAPUS */}
                       <button
                         onClick={() => {
-
-                          const updated =
-                            wishlistItems.filter(
-                              (wishlistItem) =>
-                                wishlistItem.id !== item.id
-                            );
+                          const updated = wishlistItems.filter(
+                            (wishlistItem) => wishlistItem.id !== item.id,
+                          );
 
                           setWishlistItems(updated);
 
                           localStorage.setItem(
-                            "wishlist",
-                            JSON.stringify(updated)
+                            wishlistKey,
+                            JSON.stringify(updated),
                           );
-
                         }}
                         className="
                           w-11
@@ -598,33 +455,21 @@ function Home() {
                       >
                         ✕
                       </button>
-
                     </div>
-
                   </div>
-
                 </div>
-
               ))}
-
             </div>
-
           </div>
-
         </>
-
       )}
 
       {/* ================= CART DRAWER ================= */}
       {showCart && (
-
         <>
-
           {/* OVERLAY */}
           <div
-            onClick={() =>
-              setShowCart(false)
-            }
+            onClick={() => setShowCart(false)}
             className="
               fixed
               inset-0
@@ -648,26 +493,18 @@ function Home() {
               overflow-y-auto
             "
           >
-
             {/* HEADER */}
             <div className="flex items-center justify-between mb-6">
-
               <div>
-
-                <h2 className="text-2xl font-black">
-                  Keranjang
-                </h2>
+                <h2 className="text-2xl font-black">Keranjang</h2>
 
                 <p className="text-slate-400 text-sm font-bold mt-1">
                   {cartItems.length} ITEM
                 </p>
-
               </div>
 
               <button
-                onClick={() =>
-                  setShowCart(false)
-                }
+                onClick={() => setShowCart(false)}
                 className="
                   w-10
                   h-10
@@ -677,12 +514,10 @@ function Home() {
               >
                 ✕
               </button>
-
             </div>
 
             {/* EMPTY */}
             {cartItems.length === 0 && (
-
               <div
                 className="
                   h-[75vh]
@@ -693,7 +528,6 @@ function Home() {
                   text-center
                 "
               >
-
                 <div
                   className="
                     w-28
@@ -706,12 +540,7 @@ function Home() {
                     mb-8
                   "
                 >
-
-                  <ShoppingCart
-                    size={50}
-                    className="text-slate-300"
-                  />
-
+                  <ShoppingCart size={50} className="text-slate-300" />
                 </div>
 
                 <h3
@@ -730,21 +559,16 @@ function Home() {
                     max-w-[300px]
                   "
                 >
-                  Tambahkan produk favoritmu
-                  ke keranjang untuk checkout.
+                  Tambahkan produk favoritmu ke keranjang untuk checkout.
                 </p>
 
                 <button
                   onClick={() => {
-
                     setShowCart(false);
 
-                    document
-                      .getElementById("products")
-                      ?.scrollIntoView({
-                        behavior: "smooth",
-                      });
-
+                    document.getElementById("products")?.scrollIntoView({
+                      behavior: "smooth",
+                    });
                   }}
                   className="
                     mt-8
@@ -758,16 +582,12 @@ function Home() {
                 >
                   Belanja Sekarang
                 </button>
-
               </div>
-
             )}
 
             {/* LIST */}
             <div className="space-y-4">
-
               {cartItems.map((item) => (
-
                 <div
                   key={item.id}
                   className="
@@ -779,7 +599,6 @@ function Home() {
                     bg-white
                   "
                 >
-
                   <img
                     src={item.image}
                     alt={item.name}
@@ -792,7 +611,6 @@ function Home() {
                   />
 
                   <div className="flex-1">
-
                     <h3
                       className="
                         font-black
@@ -809,28 +627,18 @@ function Home() {
                         mt-2
                       "
                     >
-                      Rp{" "}
-                      {item.price.toLocaleString(
-                        "id-ID"
-                      )}
+                      Rp {item.price.toLocaleString("id-ID")}
                     </p>
 
                     <button
                       onClick={() => {
-
-                        const updated =
-                          cartItems.filter(
-                            (cartItem) =>
-                              cartItem.id !== item.id
-                          );
+                        const updated = cartItems.filter(
+                          (cartItem) => cartItem.id !== item.id,
+                        );
 
                         setCartItems(updated);
 
-                        localStorage.setItem(
-                          "cart",
-                          JSON.stringify(updated)
-                        );
-
+                        localStorage.setItem(cartKey, JSON.stringify(updated));
                       }}
                       className="
                         mt-4
@@ -844,18 +652,13 @@ function Home() {
                     >
                       Hapus
                     </button>
-
                   </div>
-
                 </div>
-
               ))}
-
             </div>
 
             {/* TOTAL */}
             {cartItems.length > 0 && (
-
               <div
                 className="
                   mt-8
@@ -863,31 +666,22 @@ function Home() {
                   pt-6
                 "
               >
-
                 <div className="flex justify-between mb-3">
-
-                  <span className="text-slate-500 font-semibold">
-                    Subtotal
-                  </span>
+                  <span className="text-slate-500 font-semibold">Subtotal</span>
 
                   <span className="font-black">
-                    Rp{" "}
-                    {subtotal.toLocaleString("id-ID")}
+                    Rp {subtotal.toLocaleString("id-ID")}
                   </span>
-
                 </div>
 
                 <div className="flex justify-between mb-5">
-
                   <span className="text-slate-500 font-semibold">
                     Biaya Layanan
                   </span>
 
                   <span className="font-black">
-                    Rp{" "}
-                    {serviceFee.toLocaleString("id-ID")}
+                    Rp {serviceFee.toLocaleString("id-ID")}
                   </span>
-
                 </div>
 
                 <div
@@ -898,7 +692,6 @@ function Home() {
                     mb-6
                   "
                 >
-
                   <span
                     className="
                       text-2xl
@@ -915,19 +708,15 @@ function Home() {
                       text-blue-600
                     "
                   >
-                    Rp{" "}
-                    {total.toLocaleString("id-ID")}
+                    Rp {total.toLocaleString("id-ID")}
                   </span>
-
                 </div>
 
                 <button
                   onClick={() => {
-
                     setShowCart(false);
 
                     navigate("/customer/checkout");
-
                   }}
                   className="
                     w-full
@@ -946,23 +735,14 @@ function Home() {
                     gap-3
                   "
                 >
-
                   Lanjut ke Pembayaran
-
                   <ArrowRight size={22} />
-
                 </button>
-
               </div>
-
             )}
-
           </div>
-
         </>
-
       )}
-
     </div>
   );
 }
