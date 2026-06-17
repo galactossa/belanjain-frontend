@@ -26,15 +26,11 @@ import StoreProfile from "./pages/seller/StoreProfile";
 import AddProduct from "./pages/seller/AddProduct";
 /* ================= CUSTOMER ================= */
 import Home from "./pages/customer/Home";
-import ProductsCustomer from "./pages/customer/Products";
-import CategoriesCustomer from "./pages/customer/Categories";
-import Cart from "./pages/customer/Cart";
 import Orders from "./pages/customer/Orders";
 import Chat from "./pages/customer/Chat";
 import Checkout from "./pages/customer/Checkout";
 import CustomerProductDetail from "./pages/customer/ProductDetail";
 import Profile from "./pages/customer/Profile";
-import Wishlist from "./pages/customer/Wishlist";
 import StoreDetail from "./pages/customer/StoreDetail";
 function App() {
   return (
@@ -70,24 +66,14 @@ function App() {
       <Route path="/seller/store-profile" element={<StoreProfile />} />
       <Route path="/seller/add-product" element={<AddProduct />} />
       <Route path="/customer" element={<Home />} />
-
-      <Route path="/customer/products" element={<ProductsCustomer />} />
-
-      <Route path="/customer/categories" element={<CategoriesCustomer />} />
-
-      <Route path="/customer/cart" element={<Cart />} />
-
       <Route path="/customer/orders" element={<Orders />} />
       <Route path="/customer/chat/:id" element={<Chat />} />
       <Route path="/customer/chat" element={<Chat />} />
       <Route path="/customer/checkout" element={<Checkout />} />
-      <Route
-        path="/customer/product-detail/:id"
-        element={<CustomerProductDetail />}
+      <Route path="/customer/product-detail/:id" element={<CustomerProductDetail />}
       />
       <Route path="/customer/store/:id" element={<StoreDetail />} />
       <Route path="/customer/profile" element={<Profile />} />
-      <Route path="/customer/wishlist" element={<Wishlist />} />
     </Routes>
   );
 }

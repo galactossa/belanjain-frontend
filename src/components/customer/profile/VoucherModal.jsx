@@ -6,12 +6,10 @@ function VoucherModal({ show, onClose, vouchers }) {
   const navigate = useNavigate();
   console.log(vouchers);
   console.log("MY VOUCHER", vouchers);
-  const [selectedVoucher, setSelectedVoucher] = useState(vouchers?.[0] || null);
-  useEffect(() => {
-    if (vouchers?.length > 0) {
-      setSelectedVoucher(vouchers[0]);
-    }
-  }, [vouchers]);
+  const [selectedVoucher, setSelectedVoucher] = useState(
+    () => vouchers?.[0] || null,
+  );
+
   if (!show) return null;
   console.log("selectedVoucher =", JSON.stringify(selectedVoucher, null, 2));
   const recommendedProducts = products

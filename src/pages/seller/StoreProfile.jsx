@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Camera, Trash2, Save, Bell, Search } from "lucide-react";
 
 import SellerLayout from "../../layouts/SellerLayout";
@@ -8,65 +8,91 @@ import { notifications as defaultNotifications } from "../../data/notifications"
 
 function StoreProfile() {
   const [showNotif, setShowNotif] = useState(false);
-  const savedProfile = JSON.parse(localStorage.getItem("storeProfile")) || {};
+  const [currentUser, setCurrentUser] = useState(null);
+  const [savedProfile, setSavedProfile] = useState(null);
   const [language, setLanguage] = useState(
     localStorage.getItem("language") || "en",
   );
-  const currentUser = JSON.parse(localStorage.getItem("currentUser")) || {};
 
-  const sellerNotifications =
-    JSON.parse(
-      localStorage.getItem(`sellerNotifications_${currentUser?.id}`),
-    ) ??
-    defaultNotifications.filter((notif) => notif.sellerId === currentUser?.id);
+  // Load data once on mount
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("currentUser")) || {};
+    setCurrentUser(user);
 
-  const sellerCategory =
-    products.find((product) => product.sellerId === currentUser.id)?.category ||
-    "Umum";
+    const profile = JSON.parse(localStorage.getItem("storeProfile")) || {};
+    setSavedProfile(profile);
+  }, []);
 
-  const [banner, setBanner] = useState(
-    savedProfile.banner || currentUser.banner || "",
-  );
+  const sellerNotifications = useMemo(() => {
+    if (!currentUser?.id) return defaultNotifications;
+    return (
+      JSON.parse(
+        localStorage.getItem(`sellerNotifications_${currentUser.id}`),
+      ) ??
+      defaultNotifications.filter((notif) => notif.sellerId === currentUser.id)
+    );
+  }, [currentUser?.id]);
 
-  const [logo, setLogo] = useState(
-    savedProfile.logo || currentUser.avatar || "",
-  );
+  const sellerCategory = useMemo(() => {
+    if (!currentUser?.id) return "Umum";
+    return (
+      products.find((product) => product.sellerId === currentUser.id)
+        ?.category || "Umum"
+    );
+  }, [currentUser?.id]);
 
+  const initialStoreData = useMemo(() => {
+    if (!currentUser || !savedProfile) return null;
+    return {
+      storeName:
+        savedProfile.storeName ||
+        currentUser.storeName ||
+        currentUser.name ||
+        "Toko Hamid Jaya",
+      category:
+        savedProfile.category ||
+        currentUser.category ||
+        sellerCategory ||
+        "Elektronik",
+      description:
+        savedProfile.description ||
+        currentUser.description ||
+        "Penyedia produk e-commerce lokal berkualitas tinggi terpilih.",
+      policy:
+        savedProfile.policy ||
+        "Garansi resmi 1 tahun. Pelayanan prima, packing aman, pengiriman jam 15:00 WIB.",
+      address:
+        savedProfile.address ||
+        currentUser.address ||
+        "Jl. Sudirman No.123, Jakarta Pusat",
+      owner:
+        savedProfile.owner ||
+        currentUser.ownerName ||
+        currentUser.name ||
+        "Toko Hamid Jaya",
+      email: savedProfile.email || currentUser.email || "seller@example.com",
+    };
+  }, [currentUser, savedProfile, sellerCategory]);
+
+  const [banner, setBanner] = useState("");
+  const [logo, setLogo] = useState("");
   const [storeData, setStoreData] = useState({
-    storeName:
-      savedProfile.storeName ||
-      currentUser.storeName ||
-      currentUser.name ||
-      "Toko Hamid Jaya",
-
-    category:
-      savedProfile.category ||
-      currentUser.category ||
-      sellerCategory ||
-      "Elektronik",
-
-    description:
-      savedProfile.description ||
-      currentUser.description ||
-      "Penyedia produk e-commerce lokal berkualitas tinggi terpilih.",
-
-    policy:
-      savedProfile.policy ||
-      "Garansi resmi 1 tahun. Pelayanan prima, packing aman, pengiriman jam 15:00 WIB.",
-
-    address:
-      savedProfile.address ||
-      currentUser.address ||
-      "Jl. Sudirman No.123, Jakarta Pusat",
-
-    owner:
-      savedProfile.owner ||
-      currentUser.ownerName ||
-      currentUser.name ||
-      "Toko Hamid Jaya",
-
-    email: savedProfile.email || currentUser.email || "seller@example.com",
+    storeName: "",
+    category: "",
+    description: "",
+    policy: "",
+    address: "",
+    owner: "",
+    email: "",
   });
+
+  // Initialize store data and media
+  useEffect(() => {
+    if (!initialStoreData) return;
+    setStoreData(initialStoreData);
+    setBanner(savedProfile?.banner || currentUser?.banner || "");
+    setLogo(savedProfile?.logo || currentUser?.avatar || "");
+  }, [initialStoreData, currentUser, savedProfile]);
 
   const handleBannerUpload = (e) => {
     const file = e.target.files[0];
@@ -97,6 +123,8 @@ function StoreProfile() {
   };
 
   const saveProfile = () => {
+    if (!currentUser) return;
+
     const nextProfile = {
       ...storeData,
       banner,
@@ -105,7 +133,7 @@ function StoreProfile() {
 
     localStorage.setItem("storeProfile", JSON.stringify(nextProfile));
 
-    if (currentUser.role === "seller") {
+    if (currentUser?.role === "seller") {
       const updatedUser = {
         ...currentUser,
         storeName: nextProfile.storeName,
@@ -408,7 +436,7 @@ function StoreProfile() {
 
                 <input
                   type="text"
-                  value={storeData.storeName}
+                  value={storeData.storeName ?? ""}
                   onChange={(e) =>
                     setStoreData({
                       ...storeData,
@@ -426,7 +454,7 @@ function StoreProfile() {
 
                 <input
                   type="text"
-                  value={storeData.category}
+                  value={storeData.category ?? ""}
                   onChange={(e) =>
                     setStoreData({
                       ...storeData,
@@ -444,7 +472,7 @@ function StoreProfile() {
 
                 <textarea
                   rows={4}
-                  value={storeData.description}
+                  value={storeData.description ?? ""}
                   onChange={(e) =>
                     setStoreData({
                       ...storeData,
@@ -462,7 +490,7 @@ function StoreProfile() {
 
                 <textarea
                   rows={3}
-                  value={storeData.policy}
+                  value={storeData.policy ?? ""}
                   onChange={(e) =>
                     setStoreData({
                       ...storeData,
@@ -480,7 +508,7 @@ function StoreProfile() {
 
                 <input
                   type="text"
-                  value={storeData.address}
+                  value={storeData.address ?? ""}
                   onChange={(e) =>
                     setStoreData({
                       ...storeData,
@@ -544,7 +572,7 @@ function StoreProfile() {
 
                 <input
                   type="text"
-                  value={storeData.owner}
+                  value={storeData.owner ?? ""}
                   onChange={(e) =>
                     setStoreData({
                       ...storeData,
@@ -562,7 +590,7 @@ function StoreProfile() {
 
                 <input
                   type="email"
-                  value={storeData.email}
+                  value={storeData.email ?? ""}
                   onChange={(e) =>
                     setStoreData({
                       ...storeData,

@@ -1,10 +1,5 @@
 import React, { useMemo, useState } from "react";
-import {
-  Star,
-  X,
-  ThumbsUp,
-  CheckCircle,
-} from "lucide-react";
+import { Star, X, ThumbsUp, CheckCircle } from "lucide-react";
 
 export default function ViewAllReviewsModal({
   isOpen,
@@ -16,19 +11,20 @@ export default function ViewAllReviewsModal({
   const [reviewSort, setReviewSort] = useState("terbaru");
   const [photoOnly, setPhotoOnly] = useState(false);
 
+  // Validate image URL
+  const isValidImageUrl = (url) => {
+    return url && typeof url === "string" && url.trim().length > 0;
+  };
+
   const filteredReviews = useMemo(() => {
     let data = [...productReviews];
 
     if (reviewFilter !== null) {
-      data = data.filter(
-        (r) => Math.round(r.rating) === reviewFilter
-      );
+      data = data.filter((r) => Math.round(r.rating) === reviewFilter);
     }
 
     if (photoOnly) {
-      data = data.filter(
-        (r) => r.images && r.images.length > 0
-      );
+      data = data.filter((r) => r.images && r.images.length > 0);
     }
 
     switch (reviewSort) {
@@ -46,17 +42,10 @@ export default function ViewAllReviewsModal({
     }
 
     return data;
-  }, [
-    productReviews,
-    reviewFilter,
-    reviewSort,
-    photoOnly,
-  ]);
+  }, [productReviews, reviewFilter, reviewSort, photoOnly]);
 
   const handleHelpful = (review) => {
-    alert(
-      `Anda menandai ulasan ${review.reviewerName} sebagai membantu`
-    );
+    alert(`Anda menandai ulasan ${review.reviewerName} sebagai membantu`);
   };
 
   if (!isOpen) return null;
@@ -69,10 +58,7 @@ export default function ViewAllReviewsModal({
           <div className="flex justify-between items-start">
             <div className="flex gap-3">
               <div className="w-10 h-10 rounded-full bg-yellow-50 flex items-center justify-center">
-                <Star
-                  size={18}
-                  className="fill-yellow-400 text-yellow-400"
-                />
+                <Star size={18} className="fill-yellow-400 text-yellow-400" />
               </div>
 
               <div>
@@ -81,8 +67,8 @@ export default function ViewAllReviewsModal({
                 </h2>
 
                 <p className="text-[10px] uppercase tracking-[2px] text-slate-400 mt-1">
-                  Ulasan asli dari pembeli terverifikasi (
-                  {totalReviewCount} total)
+                  Ulasan asli dari pembeli terverifikasi ({totalReviewCount}{" "}
+                  total)
                 </p>
               </div>
             </div>
@@ -119,9 +105,7 @@ export default function ViewAllReviewsModal({
                 {[5, 4, 3, 2, 1].map((star) => (
                   <button
                     key={star}
-                    onClick={() =>
-                      setReviewFilter(star)
-                    }
+                    onClick={() => setReviewFilter(star)}
                     className={`h-9 px-4 rounded-xl flex items-center gap-1 text-xs font-bold transition ${
                       reviewFilter === star
                         ? "bg-blue-600 text-white"
@@ -170,9 +154,7 @@ export default function ViewAllReviewsModal({
                   Dengan Foto (
                   {
                     productReviews.filter(
-                      (r) =>
-                        r.images &&
-                        r.images.length > 0
+                      (r) => r.images && r.images.length > 0,
                     ).length
                   }
                   )
@@ -186,22 +168,14 @@ export default function ViewAllReviewsModal({
 
                 <select
                   value={reviewSort}
-                  onChange={(e) =>
-                    setReviewSort(e.target.value)
-                  }
+                  onChange={(e) => setReviewSort(e.target.value)}
                   className="h-9 px-3 rounded-xl border border-slate-200 text-xs font-semibold"
                 >
-                  <option value="terbaru">
-                    Paling Membantu
-                  </option>
+                  <option value="terbaru">Paling Membantu</option>
 
-                  <option value="tertinggi">
-                    Rating Tertinggi
-                  </option>
+                  <option value="tertinggi">Rating Tertinggi</option>
 
-                  <option value="terendah">
-                    Rating Terendah
-                  </option>
+                  <option value="terendah">Rating Terendah</option>
                 </select>
               </div>
             </div>
@@ -212,10 +186,7 @@ export default function ViewAllReviewsModal({
         <div className="flex-1 overflow-y-auto px-6">
           {filteredReviews.length > 0 ? (
             filteredReviews.map((review) => (
-              <div
-                key={review.id}
-                className="py-6 border-b"
-              >
+              <div key={review.id} className="py-6 border-b">
                 <div className="flex justify-between items-start">
                   <div className="flex gap-3">
                     <div className="w-10 h-10 rounded-full bg-slate-100 border flex items-center justify-center font-bold text-slate-600">
@@ -229,22 +200,17 @@ export default function ViewAllReviewsModal({
 
                       <div className="flex items-center gap-2 mt-1">
                         <div className="flex">
-                          {[...Array(5)].map(
-                            (_, index) => (
-                              <Star
-                                key={index}
-                                size={13}
-                                className={
-                                  index <
-                                  Math.round(
-                                    review.rating
-                                  )
-                                    ? "fill-yellow-400 text-yellow-400"
-                                    : "text-slate-200"
-                                }
-                              />
-                            )
-                          )}
+                          {[...Array(5)].map((_, index) => (
+                            <Star
+                              key={index}
+                              size={13}
+                              className={
+                                index < Math.round(review.rating)
+                                  ? "fill-yellow-400 text-yellow-400"
+                                  : "text-slate-200"
+                              }
+                            />
+                          ))}
                         </div>
 
                         <span className="text-xs text-slate-400">
@@ -268,11 +234,11 @@ export default function ViewAllReviewsModal({
                   {review.comment}
                 </p>
 
-                {review.images &&
-                  review.images.length > 0 && (
-                    <div className="flex gap-2 mt-4">
-                      {review.images.map(
-                        (img, index) => (
+                {review.images && review.images.length > 0 && (
+                  <div className="flex gap-2 mt-4">
+                    {review.images.map(
+                      (img, index) =>
+                        isValidImageUrl(img) && (
                           <a
                             key={index}
                             href={img}
@@ -285,15 +251,13 @@ export default function ViewAllReviewsModal({
                               className="w-20 h-20 rounded-xl border object-cover hover:opacity-80"
                             />
                           </a>
-                        )
-                      )}
-                    </div>
-                  )}
+                        ),
+                    )}
+                  </div>
+                )}
 
                 <button
-                  onClick={() =>
-                    handleHelpful(review)
-                  }
+                  onClick={() => handleHelpful(review)}
                   className="mt-4 px-3 py-1.5 rounded-full border border-slate-200 text-xs font-semibold text-slate-500 hover:bg-slate-50 flex items-center gap-2"
                 >
                   <ThumbsUp size={13} />

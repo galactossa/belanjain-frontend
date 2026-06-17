@@ -1,15 +1,15 @@
 import { useState } from "react";
 import { X, Star, Camera } from "lucide-react";
 
-export default function ReviewModal({
-  show,
-  onClose,
-  order,
-  onSubmit,
-}) {
+export default function ReviewModal({ show, onClose, order, onSubmit }) {
   const [rating, setRating] = useState(5);
   const [review, setReview] = useState("");
   const [photos, setPhotos] = useState([]);
+
+  // Validate image URL
+  const isValidImageUrl = (url) => {
+    return url && typeof url === "string" && url.trim().length > 0;
+  };
 
   if (!show || !order) return null;
 
@@ -100,22 +100,19 @@ export default function ReviewModal({
         <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
           {/* PRODUK */}
           <div className="bg-slate-50 border rounded-2xl p-4 flex items-center gap-4">
-            <img
-              src={product?.image}
-              alt={product?.name}
-              className="w-20 h-20 rounded-xl object-cover border"
-            />
+            {isValidImageUrl(product?.image) && (
+              <img
+                src={product?.image}
+                alt={product?.name}
+                className="w-20 h-20 rounded-xl object-cover border"
+              />
+            )}
 
             <div>
-              <h3 className="font-black text-sm">
-                {product?.name}
-              </h3>
+              <h3 className="font-black text-sm">{product?.name}</h3>
 
               <p className="text-blue-600 font-bold text-sm mt-1">
-                Rp{" "}
-                {Number(product?.price).toLocaleString(
-                  "id-ID"
-                )}
+                Rp {Number(product?.price).toLocaleString("id-ID")}
               </p>
             </div>
           </div>
@@ -128,10 +125,7 @@ export default function ReviewModal({
 
             <div className="flex justify-center gap-3 mb-4">
               {[1, 2, 3, 4, 5].map((star) => (
-                <button
-                  key={star}
-                  onClick={() => setRating(star)}
-                >
+                <button key={star} onClick={() => setRating(star)}>
                   <Star
                     size={42}
                     className={
@@ -144,9 +138,7 @@ export default function ReviewModal({
               ))}
             </div>
 
-            <h4 className="font-black text-orange-500 text-lg">
-              {getLabel()}
-            </h4>
+            <h4 className="font-black text-orange-500 text-lg">{getLabel()}</h4>
 
             <div className="flex justify-center mt-2">
               {[1, 2, 3, 4, 5].map((star) => (
@@ -214,14 +206,9 @@ export default function ReviewModal({
               />
 
               <div className="text-center">
-                <Camera
-                  size={32}
-                  className="mx-auto text-slate-400 mb-3"
-                />
+                <Camera size={32} className="mx-auto text-slate-400 mb-3" />
 
-                <p className="font-bold text-slate-600">
-                  Pilih Aset Foto Anda
-                </p>
+                <p className="font-bold text-slate-600">Pilih Aset Foto Anda</p>
 
                 <label
                   htmlFor="review-photo"
@@ -245,10 +232,7 @@ export default function ReviewModal({
               {photos.length > 0 && (
                 <div className="grid grid-cols-3 md:grid-cols-5 gap-3 mt-6">
                   {photos.map((photo, index) => (
-                    <div
-                      key={index}
-                      className="relative"
-                    >
+                    <div key={index} className="relative">
                       <img
                         src={photo.preview}
                         alt=""
@@ -263,9 +247,7 @@ export default function ReviewModal({
 
                       <button
                         type="button"
-                        onClick={() =>
-                          removePhoto(index)
-                        }
+                        onClick={() => removePhoto(index)}
                         className="
                           absolute
                           top-1

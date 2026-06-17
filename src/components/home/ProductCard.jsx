@@ -19,75 +19,57 @@ function ProductCard({
   setShowCart,
   setAuthModal,
 }) {
-
   const navigate = useNavigate();
 
-const currentUser = JSON.parse(
-  localStorage.getItem("currentUser")
-);
+  // Validate image URL
+  const isValidImageUrl = (url) => {
+    return url && typeof url === "string" && url.trim().length > 0;
+  };
 
-const wishlistKey = currentUser
-  ? `wishlist_${currentUser.id}`
-  : "wishlist";
+  const currentUser = JSON.parse(localStorage.getItem("currentUser"));
 
-const cartKey = currentUser
-  ? `cart_${currentUser.id}`
-  : "cart";
+  const wishlistKey = currentUser ? `wishlist_${currentUser.id}` : "wishlist";
+
+  const cartKey = currentUser ? `cart_${currentUser.id}` : "cart";
 
   /* =========================
      FORMAT PRICE
   ========================= */
   const formatPrice = (price) => {
-    return new Intl.NumberFormat(
-      "id-ID",
-      {
-        style: "currency",
-        currency: "IDR",
-        maximumFractionDigits: 0,
-      }
-    ).format(price);
+    return new Intl.NumberFormat("id-ID", {
+      style: "currency",
+      currency: "IDR",
+      maximumFractionDigits: 0,
+    }).format(price);
   };
 
   /* =========================
      DETAIL
   ========================= */
- const handleDetail = () => {
-  navigate(
-    isCustomer
-      ? `/customer/product-detail/${item.id}`
-      : `/product-detail/${item.id}`
-  );
-};
+  const handleDetail = () => {
+    navigate(
+      isCustomer
+        ? `/customer/product-detail/${item.id}`
+        : `/product-detail/${item.id}`,
+    );
+  };
 
   /* =========================
      WISHLIST
   ========================= */
   const handleWishlist = () => {
-
     /* JIKA SUDAH LOGIN */
     if (isCustomer) {
-
-      const oldWishlist =
-  JSON.parse(
-    localStorage.getItem(wishlistKey)
-  ) || [];
+      const oldWishlist = JSON.parse(localStorage.getItem(wishlistKey)) || [];
 
       const isExist = oldWishlist.find(
-        (wishlistItem) =>
-          wishlistItem.id === item.id
+        (wishlistItem) => wishlistItem.id === item.id,
       );
 
       if (!isExist) {
+        const updatedWishlist = [...oldWishlist, item];
 
-        const updatedWishlist = [
-          ...oldWishlist,
-          item,
-        ];
-
-        localStorage.setItem(
-          "wishlist",
-          JSON.stringify(updatedWishlist)
-        );
+        localStorage.setItem("wishlist", JSON.stringify(updatedWishlist));
 
         if (setWishlistItems) {
           setWishlistItems(updatedWishlist);
@@ -114,44 +96,26 @@ const cartKey = currentUser
      CART
   ========================= */
   const handleCart = () => {
-
     /* JIKA SUDAH LOGIN */
     if (isCustomer) {
-
-     const oldCart =
-  JSON.parse(
-    localStorage.getItem(cartKey)
-  ) || [];
-      const isExist = oldCart.find(
-        (cartItem) =>
-          cartItem.id === item.id
-      );
+      const oldCart = JSON.parse(localStorage.getItem(cartKey)) || [];
+      const isExist = oldCart.find((cartItem) => cartItem.id === item.id);
 
       let updatedCart = [];
 
       /* JIKA SUDAH ADA */
       if (isExist) {
-
-        updatedCart = oldCart.map(
-          (cartItem) => {
-
-            if (
-              cartItem.id === item.id
-            ) {
-
-              return {
-                ...cartItem,
-                qty:
-                  (cartItem.qty || 1) + 1,
-              };
-            }
-
-            return cartItem;
+        updatedCart = oldCart.map((cartItem) => {
+          if (cartItem.id === item.id) {
+            return {
+              ...cartItem,
+              qty: (cartItem.qty || 1) + 1,
+            };
           }
-        );
 
+          return cartItem;
+        });
       } else {
-
         updatedCart = [
           ...oldCart,
           {
@@ -160,29 +124,25 @@ const cartKey = currentUser
           },
         ];
       }
-      
-   /* SAVE LOCAL */
-   localStorage.setItem(
-  cartKey,
-  JSON.stringify(updatedCart)
-);
 
-    /* UPDATE STATE */
-    if (setCartItems) {
-      setCartItems(updatedCart);
+      /* SAVE LOCAL */
+      localStorage.setItem(cartKey, JSON.stringify(updatedCart));
+
+      /* UPDATE STATE */
+      if (setCartItems) {
+        setCartItems(updatedCart);
+      }
+
+      /* OPEN DRAWER */
+      if (setShowCart) {
+        setShowCart(true);
+      }
+
+      return;
     }
-
-    /* OPEN DRAWER */
-    if (setShowCart) {
-      setShowCart(true);
-    }
-
-    return;
-  }
 
     /* BELUM LOGIN */
     if (setAuthModal) {
-
       setAuthModal("login");
       return;
     }
@@ -212,39 +172,35 @@ const cartKey = currentUser
         }
       `}
     >
-
       {/* IMAGE */}
       <div
         className={`
           relative
           overflow-hidden
           shrink-0
-          ${
-            viewMode === "grid"
-              ? "w-full"
-              : "w-full md:w-[180px]"
-          }
+          ${viewMode === "grid" ? "w-full" : "w-full md:w-[180px]"}
         `}
       >
-
         {/* IMAGE */}
-        <img
-          src={item.image}
-          alt={item.name}
-          onClick={handleDetail}
-          className={`
-            object-cover
-            cursor-pointer
-            transition-transform
-            duration-500
-            group-hover:scale-105
-            ${
-              viewMode === "grid"
-                ? "w-full h-[170px]"
-                : "w-full md:w-[180px] h-[220px] md:h-[180px] rounded-2xl"
-            }
-          `}
-        />
+        {isValidImageUrl(item.image) && (
+          <img
+            src={item.image}
+            alt={item.name}
+            onClick={handleDetail}
+            className={`
+              object-cover
+              cursor-pointer
+              transition-transform
+              duration-500
+              group-hover:scale-105
+              ${
+                viewMode === "grid"
+                  ? "w-full h-[170px]"
+                  : "w-full md:w-[180px] h-[220px] md:h-[180px] rounded-2xl"
+              }
+            `}
+          />
+        )}
 
         {/* OVERLAY */}
         <div
@@ -259,10 +215,8 @@ const cartKey = currentUser
 
         {/* BADGES */}
         <div className="absolute top-3 left-3 right-3 flex items-start justify-between gap-2 z-10">
-
           {/* LEFT */}
           <div className="flex gap-2 flex-wrap">
-
             {item.mode === "PREMIUM" && (
               <span
                 className="
@@ -316,7 +270,6 @@ const cartKey = currentUser
                 HEMAT
               </span>
             )}
-
           </div>
 
           {/* RIGHT */}
@@ -336,13 +289,9 @@ const cartKey = currentUser
               whitespace-nowrap
             "
           >
-
             <Sparkles size={10} />
-
             TERBAIK
-
           </span>
-
         </div>
 
         {/* ACTION BUTTON */}
@@ -360,7 +309,6 @@ const cartKey = currentUser
             z-10
           "
         >
-
           {/* DETAIL */}
           <button
             onClick={handleDetail}
@@ -377,12 +325,7 @@ const cartKey = currentUser
               duration-300
             "
           >
-
-            <Eye
-              size={22}
-              className="text-slate-700"
-            />
-
+            <Eye size={22} className="text-slate-700" />
           </button>
 
           {/* WISHLIST */}
@@ -401,7 +344,6 @@ const cartKey = currentUser
               duration-300
             "
           >
-
             <Heart
               size={22}
               className="
@@ -411,19 +353,14 @@ const cartKey = currentUser
               "
               strokeWidth={2.2}
             />
-
           </button>
-
         </div>
-
       </div>
 
       {/* CONTENT */}
       <div className="p-3 flex flex-col flex-1 w-full min-w-0">
-
         {/* CATEGORY */}
         <div className="flex items-center gap-2 flex-wrap min-w-0">
-
           <span
             className="
               text-[10px]
@@ -437,16 +374,11 @@ const cartKey = currentUser
             {item.category}
           </span>
 
-          <span className="text-slate-300">
-            •
-          </span>
+          <span className="text-slate-300">•</span>
 
           <div className="flex items-center gap-1 min-w-0">
-
             <div className="w-4 h-4 rounded-full border border-blue-500 flex items-center justify-center shrink-0">
-
               <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-
             </div>
 
             <span
@@ -461,9 +393,7 @@ const cartKey = currentUser
             >
               {item.store}
             </span>
-
           </div>
-
         </div>
 
         {/* TITLE */}
@@ -479,11 +409,7 @@ const cartKey = currentUser
             duration-300
             break-words
             cursor-pointer
-            ${
-              viewMode === "grid"
-                ? "text-[13px] min-h-[48px]"
-                : "text-[14px]"
-            }
+            ${viewMode === "grid" ? "text-[13px] min-h-[48px]" : "text-[14px]"}
           `}
         >
           {item.name}
@@ -491,9 +417,7 @@ const cartKey = currentUser
 
         {/* RATING */}
         <div className="flex items-center gap-1 mt-4">
-
           {[1, 2, 3, 4, 5].map((star) => (
-
             <span
               key={star}
               className={`text-[15px] ${
@@ -504,18 +428,15 @@ const cartKey = currentUser
             >
               ★
             </span>
-
           ))}
 
           <span className="text-sm font-bold text-slate-700 ml-1">
             {item.rating}
           </span>
-
         </div>
 
         {/* INFO */}
         <div className="flex flex-wrap items-center justify-between mt-5 gap-3">
-
           <div
             className="
               px-3
@@ -531,11 +452,8 @@ const cartKey = currentUser
               whitespace-nowrap
             "
           >
-
             <ShieldCheck size={13} />
-
             {item.trust} TRUST
-
           </div>
 
           <div
@@ -550,18 +468,10 @@ const cartKey = currentUser
               min-w-0
             "
           >
+            <MapPin size={13} className="shrink-0" />
 
-            <MapPin
-              size={13}
-              className="shrink-0"
-            />
-
-            <span className="truncate">
-              {item.city}
-            </span>
-
+            <span className="truncate">{item.city}</span>
           </div>
-
         </div>
 
         {/* PRICE */}
@@ -575,10 +485,8 @@ const cartKey = currentUser
             gap-3
           "
         >
-
           {/* PRICE */}
           <div className="flex-1 min-w-0">
-
             <h4
               className={`
                 font-black
@@ -586,16 +494,11 @@ const cartKey = currentUser
                 leading-none
                 tracking-[-0.5px]
                 truncate
-                ${
-                  viewMode === "grid"
-                    ? "text-[18px]"
-                    : "text-[24px]"
-                }
+                ${viewMode === "grid" ? "text-[18px]" : "text-[24px]"}
               `}
             >
               {formatPrice(item.price)}
             </h4>
-
           </div>
 
           {/* CART */}
@@ -616,15 +519,10 @@ const cartKey = currentUser
               duration-300
             "
           >
-
             <ShoppingCart size={18} />
-
           </button>
-
         </div>
-
       </div>
-
     </div>
   );
 }

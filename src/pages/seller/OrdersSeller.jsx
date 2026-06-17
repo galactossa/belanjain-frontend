@@ -16,13 +16,22 @@ function OrdersSeller() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [resiValue, setResiValue] = useState("");
   const [orders, setOrders] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
 
-  const currentUser = JSON.parse(localStorage.getItem("currentUser") || "null");
-  const sellerNotifications =
-    JSON.parse(
-      localStorage.getItem(`sellerNotifications_${currentUser?.id}`),
-    ) ??
-    defaultNotifications.filter((notif) => notif.sellerId === currentUser?.id);
+  const sellerNotifications = useMemo(() => {
+    if (!currentUser?.id) return defaultNotifications;
+    return (
+      JSON.parse(
+        localStorage.getItem(`sellerNotifications_${currentUser.id}`),
+      ) ??
+      defaultNotifications.filter((notif) => notif.sellerId === currentUser.id)
+    );
+  }, [currentUser?.id]);
+
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("currentUser") || "null");
+    setCurrentUser(user);
+  }, []);
 
   const getProductInfo = (productId) =>
     products.find((product) => product.id === productId) || {};
@@ -69,7 +78,7 @@ function OrdersSeller() {
         : normalized;
 
     setOrders(sellerOrders);
-  }, [currentUser]);
+  }, [currentUser?.id]);
 
   const saveOrders = (nextOrders) => {
     setOrders(nextOrders);

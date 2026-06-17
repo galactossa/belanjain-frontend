@@ -20,6 +20,11 @@ function Products() {
 
   const notifRef = useRef();
 
+  // Validate image URL
+  const isValidImageUrl = (url) => {
+    return url && typeof url === "string" && url.trim().length > 0;
+  };
+
   const [notifications, setNotifications] = useState(() =>
     defaultNotifications
       .filter((item) => item.role === "admin")
@@ -181,11 +186,13 @@ function Products() {
             >
               {/* PRODUCT */}
               <div className="flex items-center gap-4">
-                <img
-                  src={item.image}
-                  alt={item.name}
-                  className="w-14 h-14 rounded-2xl object-cover border"
-                />
+                {isValidImageUrl(item.image) && (
+                  <img
+                    src={item.image}
+                    alt={item.name}
+                    className="w-14 h-14 rounded-2xl object-cover border"
+                  />
+                )}
 
                 <div>
                   <h3 className="font-black text-slate-900 text-[15px] uppercase leading-none break-words max-w-[220px] whitespace-normal">

@@ -11,63 +11,83 @@ import {
 } from "lucide-react";
 
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import logo from "../../assets/Logo.png";
 
 function SidebarSeller() {
   const location = useLocation();
   const navigate = useNavigate();
-  const currentUser = JSON.parse(localStorage.getItem("currentUser")) || {};
+  const [currentUser, setCurrentUser] = useState(() => {
+    const user = localStorage.getItem("currentUser");
+    return user ? JSON.parse(user) : {};
+  });
+  const [avatarError, setAvatarError] = useState(false);
 
-  const handleLogout = () => {
+  useEffect(() => {
+    // Avatar error state management only
+  }, []);
+
+  const handleLogout = useCallback(() => {
     localStorage.removeItem("token");
     localStorage.removeItem("currentUser");
     localStorage.removeItem("user");
     sessionStorage.clear();
     navigate("/");
-  };
+  }, [navigate]);
 
-  const menus = [
-    {
-      title: "Dashboard",
-      icon: <LayoutDashboard size={22} />,
-      path: "/seller",
-    },
-    {
-      title: "My Products",
-      icon: <Boxes size={22} />,
-      path: "/seller/products",
-    },
-    {
-      title: "Add Product",
-      icon: <PlusCircle size={22} />,
-      path: "/seller/add-product",
-    },
-    {
-      title: "Orders",
-      icon: <ShoppingCart size={22} />,
-      path: "/seller/orders",
-    },
-    {
-      title: "Store Profile",
-      icon: <Store size={22} />,
-      path: "/seller/store-profile",
-    },
-    {
-      title: "Sales Analytics",
-      icon: <BarChart3 size={22} />,
-      path: "/seller/analystics",
-    },
-    {
-      title: "Obrolan",
-      icon: <MessageSquare size={22} />,
-      path: "/seller/chat",
-    },
-    {
-      title: "Pengaturan",
-      icon: <Settings size={22} />,
-      path: "/seller/settings",
-    },
-  ];
+  const renderIcon = useCallback((iconType) => {
+    const iconProps = { size: 22 };
+    switch (iconType) {
+      case "dashboard":
+        return <LayoutDashboard {...iconProps} />;
+      case "boxes":
+        return <Boxes {...iconProps} />;
+      case "plus":
+        return <PlusCircle {...iconProps} />;
+      case "cart":
+        return <ShoppingCart {...iconProps} />;
+      case "store":
+        return <Store {...iconProps} />;
+      case "chart":
+        return <BarChart3 {...iconProps} />;
+      case "message":
+        return <MessageSquare {...iconProps} />;
+      case "settings":
+        return <Settings {...iconProps} />;
+      default:
+        return null;
+    }
+  }, []);
+
+  const menus = useMemo(
+    () => [
+      { title: "Dashboard", iconType: "dashboard", path: "/seller" },
+      { title: "My Products", iconType: "boxes", path: "/seller/products" },
+      { title: "Add Product", iconType: "plus", path: "/seller/add-product" },
+      { title: "Orders", iconType: "cart", path: "/seller/orders" },
+      {
+        title: "Store Profile",
+        iconType: "store",
+        path: "/seller/store-profile",
+      },
+      {
+        title: "Sales Analytics",
+        iconType: "chart",
+        path: "/seller/analystics",
+      },
+      { title: "Obrolan", iconType: "message", path: "/seller/chat" },
+      { title: "Pengaturan", iconType: "settings", path: "/seller/settings" },
+    ],
+    [],
+  );
+
+  const handleAvatarError = useCallback(() => {
+    setAvatarError(true);
+  }, []);
+
+  const isValidAvatarUrl = (url) => {
+    return url && typeof url === "string" && url.trim().length > 0;
+  };
 
   return (
     <>
@@ -121,11 +141,12 @@ function SidebarSeller() {
           <div className="bg-[#EEF3FF] rounded-[20px] p-4 flex items-center gap-3">
             {/* AVATAR */}
             <div className="w-[48px] h-[48px] rounded-full bg-[#2563FF] flex items-center justify-center overflow-hidden flex-shrink-0 text-white font-black text-[18px]">
-              {currentUser?.avatar ? (
+              {isValidAvatarUrl(currentUser?.avatar) && !avatarError ? (
                 <img
                   src={currentUser.avatar}
                   alt={currentUser.storeName || currentUser.name || "Seller"}
                   className="w-full h-full object-cover"
+                  onError={handleAvatarError}
                 />
               ) : (
                 <span>
@@ -157,12 +178,12 @@ function SidebarSeller() {
           }}
         >
           <div className="space-y-2 pr-2 pb-6">
-            {menus.map((menu, index) => {
+            {menus.map((menu) => {
               const active = location.pathname === menu.path;
 
               return (
                 <Link
-                  key={index}
+                  key={menu.path}
                   to={menu.path}
                   className={`
                     h-[56px]
@@ -184,7 +205,7 @@ function SidebarSeller() {
                 >
                   {/* ICON */}
                   <div className={active ? "text-[#2563FF]" : "text-[#94A3B8]"}>
-                    {menu.icon}
+                    {renderIcon(menu.iconType)}
                   </div>
 
                   {/* TITLE */}

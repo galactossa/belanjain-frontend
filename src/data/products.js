@@ -134,7 +134,7 @@ export const products = [
     sold: 1320,
     stock: 12,
     image:
-      "https://images.unsplash.com/photo-1514228742587-6b1558fcf93a?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1459755486867-b55449bb39ff?auto=format&fit=crop&w=800&q=80",
     mode: "FLASH",
     description: "Set mug keramik aesthetic untuk kopi dan teh.",
     infoPenting: "Bisa masuk microwave.",

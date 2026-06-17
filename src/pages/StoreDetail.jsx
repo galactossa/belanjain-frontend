@@ -15,107 +15,90 @@ import Login from "./Login";
 import Register from "./Register";
 import ForgotPassword from "./ForgotPassword";
 function StoreDetail() {
-    const handleChat = () => {
-  const currentUser = JSON.parse(
-    localStorage.getItem("currentUser")
-  );
+  const handleChat = () => {
+    const currentUser = JSON.parse(localStorage.getItem("currentUser"));
 
-  if (!currentUser) {
-    setAuthModal("login");
-    return;
-  }
+    if (!currentUser) {
+      setAuthModal("login");
+      return;
+    }
 
-  navigate("/customer/chat");
-};
-    const [authModal, setAuthModal] = useState(null);
+    navigate("/customer/chat");
+  };
+  const [authModal, setAuthModal] = useState(null);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("latest");
   const [viewMode, setViewMode] = useState("grid");
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [isFollowing, setIsFollowing] = useState(false);
-  useEffect(() => {
+  const [isFollowing, setIsFollowing] = useState(() => {
     const currentUser = JSON.parse(localStorage.getItem("currentUser"));
-
     const followedStores =
       (currentUser &&
         JSON.parse(localStorage.getItem(`followedStores_${currentUser.id}`))) ||
       [];
+    return followedStores.includes(Number(id));
+  });
 
-    setIsFollowing(followedStores.includes(Number(id)));
+  useEffect(() => {
+    // Component mounted - no setState needed
   }, [id]);
 
-  const seller = sellers.find(
-  (item) => String(item.id) === String(id)
-);
-const handleFollow = () => {
-  const currentUser = JSON.parse(
-    localStorage.getItem("currentUser")
-  );
+  const seller = sellers.find((item) => String(item.id) === String(id));
+  const handleFollow = () => {
+    const currentUser = JSON.parse(localStorage.getItem("currentUser"));
 
-  if (!currentUser) {
-    setAuthModal("login");
-    return;
-  }
+    if (!currentUser) {
+      setAuthModal("login");
+      return;
+    }
 
-  const followedStores =
-    JSON.parse(
-      localStorage.getItem(
-        `followedStores_${currentUser.id}`
-      )
-    ) || [];
+    const followedStores =
+      JSON.parse(localStorage.getItem(`followedStores_${currentUser.id}`)) ||
+      [];
 
-  let updated = [];
+    let updated = [];
 
-  if (isFollowing) {
-    updated = followedStores.filter(
-      (storeId) => storeId !== seller.id
+    if (isFollowing) {
+      updated = followedStores.filter((storeId) => storeId !== seller.id);
+    } else {
+      updated = [...followedStores, seller.id];
+    }
+
+    localStorage.setItem(
+      `followedStores_${currentUser.id}`,
+      JSON.stringify(updated),
     );
-  } else {
-    updated = [...followedStores, seller.id];
-  }
 
-  localStorage.setItem(
-    `followedStores_${currentUser.id}`,
-    JSON.stringify(updated)
+    setIsFollowing(!isFollowing);
+  };
+  const localProducts = [];
+
+  Object.keys(localStorage).forEach((key) => {
+    if (key.startsWith("sellerProducts_")) {
+      const sellerProducts = JSON.parse(localStorage.getItem(key)) || [];
+
+      localProducts.push(...sellerProducts);
+    }
+  });
+
+  const allProducts = [...products, ...localProducts];
+
+  const storeProducts = allProducts.filter(
+    (item) => String(item.sellerId) === String(id),
   );
-
-  setIsFollowing(!isFollowing);
-};
-const localProducts = [];
-
-Object.keys(localStorage).forEach((key) => {
-  if (key.startsWith("sellerProducts_")) {
-    const sellerProducts =
-      JSON.parse(localStorage.getItem(key)) || [];
-
-    localProducts.push(...sellerProducts);
+  console.log("Seller :", seller);
+  console.log("Local Products :", localProducts);
+  console.log("Store Products :", storeProducts);
+  if (!seller) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <h1 className="text-3xl font-black">Toko Tidak Ditemukan</h1>
+      </div>
+    );
   }
-});
-
-const allProducts = [
-  ...products,
-  ...localProducts,
-];
-
-const storeProducts = allProducts.filter(
-  (item) =>
-    String(item.sellerId) === String(id)
-);
-console.log("Seller :", seller);
-console.log("Local Products :", localProducts);
-console.log("Store Products :", storeProducts);
-if (!seller) {
-  return (
-    <div className="min-h-screen flex items-center justify-center">
-      <h1 className="text-3xl font-black">
-        Toko Tidak Ditemukan
-      </h1>
-    </div>
-  );
-}
-console.log("AUTH MODAL =", authModal);
+  console.log("AUTH MODAL =", authModal);
   const filteredProducts = [...storeProducts]
     .filter((product) =>
       product.name.toLowerCase().includes(search.toLowerCase()),
@@ -129,10 +112,10 @@ console.log("AUTH MODAL =", authModal);
 
       return b.id - a.id;
     });
-    console.log("Store ID :", id);
-console.log("Seller :", seller);
-console.log("All Products :", allProducts);
-console.log("Store Products :", storeProducts);
+  console.log("Store ID :", id);
+  console.log("Seller :", seller);
+  console.log("All Products :", allProducts);
+  console.log("Store Products :", storeProducts);
   return (
     <div className="bg-slate-50 min-h-screen pb-20">
       {/* BANNER */}
@@ -205,9 +188,7 @@ console.log("Store Products :", storeProducts);
                 </div>
               </div>
 
-              <div className="flex gap-3">
-
-</div>
+              <div className="flex gap-3"></div>
             </div>
           </div>
         </div>
@@ -456,20 +437,18 @@ ${viewMode === "grid" ? "rounded-[28px]" : "flex rounded-2xl min-h-[190px]"}
             </div>
           ))}
           {authModal && (
-  <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50">
-    {authModal === "login" && (
-      <Login setAuthModal={setAuthModal} />
-    )}
+            <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50">
+              {authModal === "login" && <Login setAuthModal={setAuthModal} />}
 
-    {authModal === "register" && (
-      <Register setAuthModal={setAuthModal} />
-    )}
+              {authModal === "register" && (
+                <Register setAuthModal={setAuthModal} />
+              )}
 
-    {authModal === "forgot" && (
-      <ForgotPassword setAuthModal={setAuthModal} />
-    )}
-  </div>
-)}
+              {authModal === "forgot" && (
+                <ForgotPassword setAuthModal={setAuthModal} />
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

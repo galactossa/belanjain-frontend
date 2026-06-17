@@ -78,6 +78,12 @@ function ProductDetail() {
   }, []);
   const { id } = useParams();
   const navigate = useNavigate();
+
+  // Validate image URL
+  const isValidImageUrl = (url) => {
+    return url && typeof url === "string" && url.trim().length > 0;
+  };
+
   const localProducts = [];
 
   Object.keys(localStorage).forEach((key) => {
@@ -348,10 +354,12 @@ function ProductDetail() {
           {/* ================= LEFT IMAGE ================= */}
           <div className="sticky top-28">
             <div className="border rounded-2xl p-3 shadow-sm">
-              <img
-                src={product.image}
-                className="w-full h-[380px] object-cover rounded-xl"
-              />
+              {isValidImageUrl(product.image) && (
+                <img
+                  src={product.image}
+                  className="w-full h-[380px] object-cover rounded-xl"
+                />
+              )}
             </div>
 
             <div className="flex gap-2 mt-3">
@@ -360,10 +368,12 @@ function ProductDetail() {
                   key={i}
                   className="w-16 h-16 border rounded-lg overflow-hidden"
                 >
-                  <img
-                    src={product.image}
-                    className="w-full h-full object-cover"
-                  />
+                  {isValidImageUrl(product.image) && (
+                    <img
+                      src={product.image}
+                      className="w-full h-full object-cover"
+                    />
+                  )}
                 </div>
               ))}
             </div>
@@ -763,11 +773,13 @@ function ProductDetail() {
         "
               >
                 <div className="relative">
-                  <img
-                    src={item.image}
-                    alt={item.name}
-                    className="w-full h-64 object-cover"
-                  />
+                  {isValidImageUrl(item.image) && (
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      className="w-full h-64 object-cover"
+                    />
+                  )}
 
                   <span
                     className="
@@ -944,16 +956,18 @@ function ProductDetail() {
                     bg-white
                   "
                   >
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      className="
-                      w-24
-                      h-24
-                      rounded-2xl
+                    {isValidImageUrl(item.image) && (
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        className="
+                        w-24
+                        h-24
+                        rounded-2xl
                       object-cover
                     "
-                    />
+                      />
+                    )}
 
                     <div className="flex-1">
                       <h3

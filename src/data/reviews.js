@@ -14,8 +14,7 @@ export const reviews = [
     helpful: 24,
     variant: "WARNA PUTIH",
     images: [
-      "https://via.placeholder.com/100",
-      "https://via.placeholder.com/100",
+      "https://images.unsplash.com/photo-1576566588028-4147f3842f27?auto=format&fit=crop&w=800&q=80",
     ],
   },
   {
@@ -32,7 +31,7 @@ export const reviews = [
     date: "4 Mar 2025",
     helpful: 16,
     variant: "WARNA HITAM",
-    images: ["https://via.placeholder.com/100"],
+    images: ["https://images.unsplash.com/photo-1576566588028-4147f3842f27?auto=format&fit=crop&w=800&q=80"],
   },
   {
     id: 3,
@@ -49,8 +48,8 @@ export const reviews = [
     helpful: 12,
     variant: "WARNA HITAM",
     images: [
-      "https://via.placeholder.com/100",
-      "https://via.placeholder.com/100",
+      "https://images.unsplash.com/photo-1576566588028-4147f3842f27?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1576566588028-4147f3842f27?auto=format&fit=crop&w=800&q=80",
     ],
   },
   {

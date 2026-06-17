@@ -30,6 +30,11 @@ function Vouchers() {
     localStorage.setItem("vouchers_global", JSON.stringify(updated));
   };
 
+  // Validate image URL
+  const isValidImageUrl = (url) => {
+    return url && typeof url === "string" && url.trim().length > 0;
+  };
+
   /* ================= SEARCH ================= */
   const [search, setSearch] = useState("");
 
@@ -479,7 +484,7 @@ function Vouchers() {
                       className="w-full mt-5 h-14 rounded-2xl border border-slate-200 px-5 outline-none font-bold"
                     />
 
-                    {form.image && (
+                    {isValidImageUrl(form.image) && (
                       <img
                         src={form.image}
                         alt="preview voucher"

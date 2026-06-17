@@ -17,6 +17,11 @@ import { products as allProducts } from "../../data/products";
 import { useNavigate } from "react-router-dom";
 import { notifications as defaultNotifications } from "../../data/notifications";
 import ModalNotifications from "../../components/seller/ModalNotifications";
+
+const isValidImageUrl = (url) => {
+  return url && typeof url === "string" && url.trim().length > 0;
+};
+
 function ProductsSeller() {
   const navigate = useNavigate();
   const currentUser = JSON.parse(localStorage.getItem("currentUser")) || {};
@@ -397,7 +402,7 @@ function ProductsSeller() {
                     </label>
                   </div>
 
-                  {productForm.image && (
+                  {isValidImageUrl(productForm.image) && (
                     <div className="relative w-fit mt-4">
                       <img
                         src={productForm.image}
@@ -637,11 +642,13 @@ function ProductsSeller() {
                   >
                     <td className="px-6 py-5">
                       <div className="flex items-center gap-4">
-                        <img
-                          src={item.image}
-                          alt={item.name}
-                          className="w-14 h-14 rounded-2xl object-cover border"
-                        />
+                        {isValidImageUrl(item.image) && (
+                          <img
+                            src={item.image}
+                            alt={item.name}
+                            className="w-14 h-14 rounded-2xl object-cover border"
+                          />
+                        )}
 
                         <div>
                           <h3 className="text-[13px] font-black uppercase text-slate-900 max-w-[260px]">

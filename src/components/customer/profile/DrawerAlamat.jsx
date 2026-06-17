@@ -1,45 +1,26 @@
-import {
-  X,
-  ArrowLeft,
-  MapPin,
-  Plus,
-  Pencil,
-  Trash2,
-} from "lucide-react";
+import { X, ArrowLeft, MapPin, Plus, Pencil, Trash2 } from "lucide-react";
 
 import { useState, useEffect } from "react";
 
-function DrawerAlamat({
-  show,
-  onClose,
-}) {
-  const [alamat, setAlamat] =
-    useState([]);
+function DrawerAlamat({ show, onClose }) {
+  const [alamat, setAlamat] = useState(
+    () => JSON.parse(localStorage.getItem("alamatUser")) || [],
+  );
 
-  const [showForm, setShowForm] =
-    useState(false);
+  const [showForm, setShowForm] = useState(false);
 
-  const [form, setForm] =
-    useState({
-      label: "",
-      penerima: "",
-      telepon: "",
-      alamat: "",
-      utama: false,
-    });
+  const [form, setForm] = useState({
+    label: "",
+    penerima: "",
+    telepon: "",
+    alamat: "",
+    utama: false,
+  });
 
-  const [editId, setEditId] =
-    useState(null);
+  const [editId, setEditId] = useState(null);
 
   useEffect(() => {
-    const saved =
-      JSON.parse(
-        localStorage.getItem(
-          "alamatUser"
-        )
-      ) || [];
-
-    setAlamat(saved);
+    // Empty effect - initialization happens in useState
   }, []);
 
   const resetForm = () => {
@@ -66,7 +47,7 @@ function DrawerAlamat({
               ...item,
               ...form,
             }
-          : item
+          : item,
       );
     } else {
       updated = [
@@ -78,10 +59,7 @@ function DrawerAlamat({
       ];
     }
 
-    localStorage.setItem(
-      "alamatUser",
-      JSON.stringify(updated)
-    );
+    localStorage.setItem("alamatUser", JSON.stringify(updated));
 
     setAlamat(updated);
 
@@ -105,24 +83,17 @@ function DrawerAlamat({
   };
 
   if (!show) return null;
-const hapusAlamat = (id) => {
-  const confirmDelete = window.confirm(
-    "Yakin ingin menghapus alamat ini?"
-  );
+  const hapusAlamat = (id) => {
+    const confirmDelete = window.confirm("Yakin ingin menghapus alamat ini?");
 
-  if (!confirmDelete) return;
+    if (!confirmDelete) return;
 
-  const updated = alamat.filter(
-    (item) => item.id !== id
-  );
+    const updated = alamat.filter((item) => item.id !== id);
 
-  setAlamat(updated);
+    setAlamat(updated);
 
-  localStorage.setItem(
-    "alamatUser",
-    JSON.stringify(updated)
-  );
-};
+    localStorage.setItem("alamatUser", JSON.stringify(updated));
+  };
   return (
     <>
       {/* BACKDROP */}
@@ -228,10 +199,7 @@ const hapusAlamat = (id) => {
                   justify-center
                 "
               >
-                <MapPin
-                  size={50}
-                  className="text-slate-300"
-                />
+                <MapPin size={50} className="text-slate-300" />
               </div>
 
               <h3
@@ -246,9 +214,7 @@ const hapusAlamat = (id) => {
               </h3>
 
               <button
-                onClick={() =>
-                  setShowForm(true)
-                }
+                onClick={() => setShowForm(true)}
                 className="
                   mt-3
                   text-blue-600
@@ -274,9 +240,7 @@ const hapusAlamat = (id) => {
                   <div className="flex justify-between">
                     <div>
                       <div className="flex gap-2 items-center">
-                        <h3 className="font-black text-xl">
-                          {item.label}
-                        </h3>
+                        <h3 className="font-black text-xl">{item.label}</h3>
 
                         {item.utama && (
                           <span
@@ -295,25 +259,17 @@ const hapusAlamat = (id) => {
                         )}
                       </div>
 
-                      <p className="font-bold mt-3">
-                        {item.penerima}
-                      </p>
+                      <p className="font-bold mt-3">{item.penerima}</p>
 
-                      <p className="text-slate-500">
-                        {item.telepon}
-                      </p>
+                      <p className="text-slate-500">{item.telepon}</p>
 
-                      <p className="mt-3 text-slate-600">
-                        {item.alamat}
-                      </p>
+                      <p className="mt-3 text-slate-600">{item.alamat}</p>
                     </div>
 
                     <div className="flex gap-2">
-  <button
-    onClick={() =>
-      editAlamat(item)
-    }
-    className="
+                      <button
+                        onClick={() => editAlamat(item)}
+                        className="
       w-10
       h-10
       rounded-xl
@@ -323,15 +279,13 @@ const hapusAlamat = (id) => {
       justify-center
       hover:bg-slate-200
     "
-  >
-    <Pencil size={18} />
-  </button>
+                      >
+                        <Pencil size={18} />
+                      </button>
 
-  <button
-    onClick={() =>
-      hapusAlamat(item.id)
-    }
-    className="
+                      <button
+                        onClick={() => hapusAlamat(item.id)}
+                        className="
       w-10
       h-10
       rounded-xl
@@ -342,10 +296,10 @@ const hapusAlamat = (id) => {
       justify-center
       hover:bg-red-100
     "
-  >
-    <Trash2 size={18} />
-  </button>
-</div>
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -379,17 +333,10 @@ const hapusAlamat = (id) => {
             >
               <div className="flex justify-between mb-8">
                 <h2 className="text-4xl font-black">
-                  {editId
-                    ? "Edit Alamat"
-                    : "Tambah Alamat"}
+                  {editId ? "Edit Alamat" : "Tambah Alamat"}
                 </h2>
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    setShowForm(false)
-                  }
-                >
+                <button type="button" onClick={() => setShowForm(false)}>
                   <X />
                 </button>
               </div>
@@ -402,8 +349,7 @@ const hapusAlamat = (id) => {
                   onChange={(e) =>
                     setForm({
                       ...form,
-                      label:
-                        e.target.value,
+                      label: e.target.value,
                     })
                   }
                   className="
@@ -421,8 +367,7 @@ const hapusAlamat = (id) => {
                   onChange={(e) =>
                     setForm({
                       ...form,
-                      penerima:
-                        e.target.value,
+                      penerima: e.target.value,
                     })
                   }
                   className="
@@ -441,8 +386,7 @@ const hapusAlamat = (id) => {
                 onChange={(e) =>
                   setForm({
                     ...form,
-                    telepon:
-                      e.target.value,
+                    telepon: e.target.value,
                   })
                 }
                 className="
@@ -463,8 +407,7 @@ const hapusAlamat = (id) => {
                 onChange={(e) =>
                   setForm({
                     ...form,
-                    alamat:
-                      e.target.value,
+                    alamat: e.target.value,
                   })
                 }
                 className="
@@ -490,12 +433,10 @@ const hapusAlamat = (id) => {
                   onChange={(e) =>
                     setForm({
                       ...form,
-                      utama:
-                        e.target.checked,
+                      utama: e.target.checked,
                     })
                   }
                 />
-
                 Jadikan Alamat Utama
               </label>
 
