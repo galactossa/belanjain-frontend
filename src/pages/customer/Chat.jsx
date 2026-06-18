@@ -35,6 +35,27 @@ function Chat() {
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
 
+  // 🔥 FUNGSI UNTUK GET NAMA TOKO (FALLBACK)
+  const getDisplayName = async (userId, role) => {
+    if (role === "penjual") {
+      try {
+        const res = await api.get(`/toko/user/${userId}`);
+        if (res.data.data?.nama_toko) {
+          return res.data.data.nama_toko;
+        }
+      } catch (e) {
+        console.warn("Gagal ambil nama toko, pakai nama user:", e);
+      }
+    }
+    // Fallback: ambil nama user
+    try {
+      const res = await api.get(`/pengguna/${userId}`);
+      return res.data.data?.nama || "User";
+    } catch (e) {
+      return "User";
+    }
+  };
+
   useEffect(() => {
     const fetchChatRooms = async () => {
       if (!userId) {
@@ -43,28 +64,63 @@ function Chat() {
       }
       try {
         const response = await api.get(`/chat/rooms/${userId}`);
-        const rooms = response.data.data || [];
-        setChatRooms(rooms);
+        let rooms = response.data.data || [];
 
-        // 🔥 JIKA ADA PARAMETER ID, LANGSUNG PILIH CHAT ROOM TERSEBUT
+        // 🔥 PERBAIKAN: Format ulang nama untuk penjual
+        const formattedRooms = await Promise.all(
+          rooms.map(async (room) => {
+            let displayName = room.other_user_name;
+            if (room.other_user_role === "penjual") {
+              try {
+                const tokoRes = await api.get(
+                  `/toko/user/${room.other_user_id}`,
+                );
+                if (tokoRes.data.data?.nama_toko) {
+                  displayName = tokoRes.data.data.nama_toko;
+                }
+              } catch (e) {
+                // Tetap pakai nama user
+              }
+            }
+            return {
+              ...room,
+              other_user_name: displayName,
+            };
+          }),
+        );
+
+        setChatRooms(formattedRooms);
+
         if (id) {
-          const room = rooms.find((r) => r.other_user_id === parseInt(id));
+          const room = formattedRooms.find(
+            (r) => r.other_user_id === parseInt(id),
+          );
           if (room) {
             setActiveChat(room);
-            // Ambil pesan untuk room tersebut
             const messagesRes = await api.get(
               `/chat/history/${userId}/${room.other_user_id}`,
             );
             setMessages(messagesRes.data.data.data || []);
           } else {
-            // 🔥 KALAU BELUM ADA ROOM, BUAT ROOM BARU (TAPI CHAT BELUM BISA KIRIM SAMPAI ADA PESAN)
-            // Tapi set active chat dengan data user dari id
+            // 🔥 BUAT ROOM BARU DARI ID
             try {
               const userRes = await api.get(`/pengguna/${id}`);
               const userData = userRes.data.data;
+              let displayName = userData.nama || "User";
+
+              // Cek apakah user ini penjual, ambil nama toko
+              if (userData.role === "penjual") {
+                try {
+                  const tokoRes = await api.get(`/toko/user/${id}`);
+                  if (tokoRes.data.data?.nama_toko) {
+                    displayName = tokoRes.data.data.nama_toko;
+                  }
+                } catch (e) {}
+              }
+
               setActiveChat({
                 other_user_id: parseInt(id),
-                other_user_name: userData.nama || "User",
+                other_user_name: displayName,
                 other_user_role: userData.role,
                 other_user_avatar: userData.url_foto,
                 last_message: "Mulai percakapan",
@@ -75,11 +131,10 @@ function Chat() {
               console.error("Error fetching user:", userError);
             }
           }
-        } else if (rooms.length > 0) {
-          setActiveChat(rooms[0]);
-          // Ambil pesan untuk room pertama
+        } else if (formattedRooms.length > 0) {
+          setActiveChat(formattedRooms[0]);
           const messagesRes = await api.get(
-            `/chat/history/${userId}/${rooms[0].other_user_id}`,
+            `/chat/history/${userId}/${formattedRooms[0].other_user_id}`,
           );
           setMessages(messagesRes.data.data.data || []);
         }
@@ -152,7 +207,23 @@ function Chat() {
     if (!userId) return;
     try {
       const response = await api.get(`/chat/rooms/${userId}`);
-      setChatRooms(response.data.data || []);
+      let rooms = response.data.data || [];
+      // Format ulang nama
+      const formattedRooms = await Promise.all(
+        rooms.map(async (room) => {
+          let displayName = room.other_user_name;
+          if (room.other_user_role === "penjual") {
+            try {
+              const tokoRes = await api.get(`/toko/user/${room.other_user_id}`);
+              if (tokoRes.data.data?.nama_toko) {
+                displayName = tokoRes.data.data.nama_toko;
+              }
+            } catch (e) {}
+          }
+          return { ...room, other_user_name: displayName };
+        }),
+      );
+      setChatRooms(formattedRooms);
     } catch (error) {
       console.error("Error refreshing chat rooms:", error);
     }
