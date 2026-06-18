@@ -20,23 +20,25 @@ function ProductDetail() {
   const currentUser = JSON.parse(localStorage.getItem("currentUser"));
 
   const [product, setProduct] = useState(null);
+  const [seller, setSeller] = useState(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState("deskripsi");
-  const [showWishlist, setShowWishlist] = useState(false);
-  const [showCart, setShowCart] = useState(false);
-  const [showReport, setShowReport] = useState(false);
-  const [reportReason, setReportReason] = useState("");
+  const [isFollowing, setIsFollowing] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [productReviews, setProductReviews] = useState([]);
   const [cartItems, setCartItems] = useState([]);
   const [wishlistItems, setWishlistItems] = useState([]);
   const [search, setSearch] = useState("");
+  const [showWishlist, setShowWishlist] = useState(false);
+  const [showCart, setShowCart] = useState(false);
   const [timeLeft, setTimeLeft] = useState({
     hours: 12,
     minutes: 17,
     seconds: 35,
   });
+  const [showReport, setShowReport] = useState(false);
+  const [reportReason, setReportReason] = useState("");
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -63,7 +65,33 @@ function ProductDetail() {
       setLoading(true);
       try {
         const response = await api.get(`/produk/${id}`);
-        setProduct(response.data.data);
+        const prod = response.data.data;
+        setProduct(prod);
+
+        // Fetch seller
+        if (prod.id_toko) {
+          try {
+            const sellerRes = await api.get(`/toko/${prod.id_toko}`);
+            setSeller(sellerRes.data.data);
+            // Cek follow status
+            if (currentUser?.id_pengguna) {
+              try {
+                const followRes = await api.get(
+                  `/follow/cek/${currentUser.id_pengguna}/${prod.id_toko}`,
+                );
+                setIsFollowing(followRes.data.data.is_following || false);
+              } catch (followError) {
+                console.error("Error checking follow:", followError);
+              }
+            }
+          } catch (sellerError) {
+            console.error("Error fetching seller:", sellerError);
+          }
+        }
+
+        // Fetch reviews
+        const reviewRes = await api.get(`/ulasan/produk/${id}`);
+        setProductReviews(reviewRes.data.data.ulasan || []);
       } catch (error) {
         console.error("Error fetching product:", error);
       } finally {
@@ -71,22 +99,9 @@ function ProductDetail() {
       }
     };
     fetchProduct();
-  }, [id]);
+  }, [id, currentUser?.id_pengguna]);
 
-  // Fetch reviews
-  useEffect(() => {
-    const fetchReviews = async () => {
-      try {
-        const response = await api.get(`/ulasan/produk/${id}`);
-        setProductReviews(response.data.data.ulasan || []);
-      } catch (error) {
-        console.error("Error fetching reviews:", error);
-      }
-    };
-    fetchReviews();
-  }, [id]);
-
-  // Load cart from API
+  // Load cart
   useEffect(() => {
     const loadCart = async () => {
       if (!currentUser?.id_pengguna) return;
@@ -102,27 +117,66 @@ function ProductDetail() {
     loadCart();
   }, [currentUser?.id_pengguna]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
-  if (!product) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-2xl font-black">
-        Produk Tidak Ditemukan
-      </div>
-    );
-  }
-
   const totalReviewCount = productReviews.length;
-  const averageRating = totalReviewCount
-    ? productReviews.reduce((sum, r) => sum + (r.rating || 0), 0) /
-      totalReviewCount
-    : 0;
+  const averageRating =
+    totalReviewCount > 0
+      ? productReviews.reduce((sum, r) => sum + (r.rating || 0), 0) /
+        totalReviewCount
+      : 0;
+
+  // ================= 🔥 FOLLOW TOKO =================
+  const handleFollow = async () => {
+    if (!currentUser) {
+      alert("Silakan login terlebih dahulu");
+      navigate("/");
+      return;
+    }
+    if (!seller?.id_toko) return;
+
+    try {
+      if (isFollowing) {
+        await api.delete(
+          `/follow/${currentUser.id_pengguna}/${seller.id_toko}`,
+        );
+        setIsFollowing(false);
+        alert("Berhenti mengikuti toko");
+      } else {
+        await api.post("/follow", {
+          id_pengguna: currentUser.id_pengguna,
+          id_toko: seller.id_toko,
+        });
+        setIsFollowing(true);
+        alert("Berhasil mengikuti toko!");
+      }
+    } catch (error) {
+      console.error("Error toggling follow:", error);
+      alert(error.response?.data?.message || "Gagal mengikuti toko");
+    }
+  };
+
+  // ================= 🔥 CHAT DENGAN PENJUAL =================
+  const handleChat = () => {
+    if (!currentUser) {
+      alert("Silakan login terlebih dahulu");
+      navigate("/");
+      return;
+    }
+    if (!seller?.id_pengguna) {
+      alert("Toko tidak memiliki data penjual");
+      return;
+    }
+    // 🔥 LANGSUNG KE CHAT DENGAN ID PENJUAL
+    navigate(`/customer/chat/${seller.id_pengguna}`);
+  };
+
+  // ================= 🔥 BUKA PROFIL TOKO =================
+  const handleStoreProfile = () => {
+    if (!seller?.id_toko) {
+      alert("Toko tidak ditemukan");
+      return;
+    }
+    navigate(`/customer/store/${seller.id_toko}`);
+  };
 
   // ================= HANDLE CART =================
   const handleCart = async () => {
@@ -148,15 +202,13 @@ function ProductDetail() {
     }
   };
 
-  // ================= HANDLE BUY NOW (LANGSUNG CHECKOUT) =================
+  // ================= HANDLE BUY NOW =================
   const handleBuyNow = async () => {
     if (!currentUser) {
       alert("Silakan login terlebih dahulu");
       navigate("/");
       return;
     }
-
-    // Simpan produk yang akan dibeli langsung ke localStorage
     const directCheckoutItem = {
       id_produk: product.id_produk,
       nama_produk: product.nama_produk,
@@ -165,13 +217,10 @@ function ProductDetail() {
       jumlah: quantity,
       is_direct_checkout: true,
     };
-
     localStorage.setItem(
       "directCheckoutItem",
       JSON.stringify(directCheckoutItem),
     );
-
-    // Navigate ke checkout
     navigate("/customer/checkout");
   };
 
@@ -198,6 +247,7 @@ function ProductDetail() {
     }
   };
 
+  // ================= HANDLE REPORT =================
   const handleReport = () => {
     if (!reportReason.trim()) {
       alert("Alasan laporan wajib diisi");
@@ -207,6 +257,42 @@ function ProductDetail() {
     setReportReason("");
     setShowReport(false);
   };
+
+  const handleShare = async () => {
+    const url = window.location.href;
+    if (navigator.share) {
+      await navigator.share({
+        title: product.nama_produk,
+        text: product.nama_produk,
+        url,
+      });
+    } else {
+      navigator.clipboard.writeText(url);
+      alert("Link disalin!");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (!product) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <h1 className="text-2xl font-black">Produk Tidak Ditemukan</h1>
+      </div>
+    );
+  }
+
+  const ratingSummary = [5, 4, 3, 2, 1].map((star) => ({
+    star,
+    count: productReviews.filter((r) => Math.round(r.rating || 0) === star)
+      .length,
+  }));
 
   const subtotal = cartItems.reduce(
     (acc, item) => acc + (item.harga_produk || 0) * (item.jumlah || 1),
@@ -228,6 +314,7 @@ function ProductDetail() {
       />
 
       <main className="max-w-[1200px] mx-auto px-4 py-6">
+        {/* BREADCRUMB */}
         <div className="text-xs text-slate-400 flex gap-2 mb-6">
           <span
             onClick={() => navigate("/customer")}
@@ -251,6 +338,22 @@ function ProductDetail() {
                 alt={product.nama_produk}
               />
             </div>
+            <div className="flex gap-2 mt-3">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="w-16 h-16 border rounded-lg overflow-hidden"
+                >
+                  <img
+                    src={
+                      product.url_gambar || "https://via.placeholder.com/100"
+                    }
+                    className="w-full h-full object-cover"
+                    alt=""
+                  />
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* CENTER INFO */}
@@ -258,35 +361,74 @@ function ProductDetail() {
             <h1 className="text-2xl font-black leading-snug">
               {product.nama_produk}
             </h1>
+
             <div className="flex items-center gap-3 text-sm text-slate-500 mt-2">
               <span>Terjual {product.total_terjual || 0}</span>
               <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
               <span className="font-bold text-black">
                 {product.rata_rating || 0}
               </span>
+              <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">
+                Trust {Math.round(((product.rata_rating || 0) / 5) * 100)}%
+              </span>
             </div>
+
             <h2 className="text-2xl font-black text-black leading-none mt-6">
               Rp {Number(product.harga).toLocaleString("id-ID")}
             </h2>
 
-            <div className="border rounded-xl p-3 mt-6 shadow-sm">
-              <div className="flex items-center gap-3">
+            {/* ================= 🔥 STORE SECTION ================= */}
+            <div className="flex items-center justify-between border rounded-xl p-3 mt-6 shadow-sm">
+              <div
+                onClick={handleStoreProfile}
+                className="flex items-center gap-3 cursor-pointer hover:opacity-70 transition"
+              >
                 <div className="w-10 h-10 bg-indigo-600 text-white rounded-full flex items-center justify-center font-bold">
-                  {product.nama_toko?.charAt(0) || "T"}
+                  {seller?.nama_toko?.charAt(0) || "T"}
                 </div>
                 <div>
-                  <p className="font-bold">{product.nama_toko || "Toko"}</p>
+                  <p className="font-bold hover:text-indigo-600">
+                    {seller?.nama_toko || "Toko"}
+                  </p>
                   <p className="text-xs text-slate-500">Official Store</p>
                 </div>
               </div>
+
+              <div className="flex gap-2">
+                {/* 🔥 FOLLOW BUTTON */}
+                <button
+                  onClick={handleFollow}
+                  className={`px-4 py-2 rounded-xl font-bold text-sm transition ${
+                    isFollowing
+                      ? "bg-slate-100 text-slate-600 border border-slate-300"
+                      : "bg-indigo-600 text-white hover:bg-indigo-700"
+                  }`}
+                >
+                  {isFollowing ? "✓ Mengikuti" : "+ Ikuti"}
+                </button>
+
+                {/* 🔥 CHAT BUTTON */}
+                <button
+                  onClick={handleChat}
+                  className="px-4 py-2 rounded-xl bg-blue-600 text-white font-bold text-sm hover:bg-blue-700 transition flex items-center gap-1"
+                >
+                  <MessageCircle size={16} />
+                  Chat
+                </button>
+              </div>
             </div>
 
+            {/* TABS */}
             <div className="flex gap-8 border-b mt-8">
               {["deskripsi", "info", "ulasan"].map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`pb-2 text-sm font-semibold ${activeTab === tab ? "text-indigo-600 border-b-2 border-indigo-600" : "text-slate-400"}`}
+                  className={`pb-2 text-sm font-semibold ${
+                    activeTab === tab
+                      ? "text-indigo-600 border-b-2 border-indigo-600"
+                      : "text-slate-400"
+                  }`}
                 >
                   {tab === "deskripsi"
                     ? "Deskripsi Produk"
@@ -297,6 +439,7 @@ function ProductDetail() {
               ))}
             </div>
 
+            {/* CONTENT */}
             <div className="mt-6 text-sm text-slate-600">
               {activeTab === "deskripsi" && (
                 <div className="space-y-2">
@@ -311,6 +454,7 @@ function ProductDetail() {
                   </p>
                 </div>
               )}
+
               {activeTab === "info" && (
                 <div className="space-y-3">
                   <div>
@@ -324,56 +468,92 @@ function ProductDetail() {
                   </div>
                 </div>
               )}
+
               {activeTab === "ulasan" && (
                 <div>
                   {totalReviewCount > 0 ? (
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2">
-                          <Star
-                            size={24}
-                            className="fill-yellow-400 text-yellow-400"
-                          />
-                          <span className="text-3xl font-black">
-                            {averageRating.toFixed(1)}
-                          </span>
-                        </div>
-                        <p className="text-slate-500">
-                          {totalReviewCount} ulasan
-                        </p>
-                      </div>
-                      {productReviews.slice(0, 3).map((review) => (
-                        <div
-                          key={review.id_ulasan}
-                          className="border rounded-xl p-4"
-                        >
-                          <div className="flex justify-between">
-                            <h4 className="font-semibold">
-                              {review.pembeli_nama || "User"}
-                            </h4>
-                            <div className="flex gap-1">
-                              {[...Array(5)].map((_, i) => (
-                                <Star
-                                  key={i}
-                                  size={12}
-                                  className={
-                                    i < (review.rating || 0)
-                                      ? "fill-yellow-400 text-yellow-400"
-                                      : "text-slate-300"
-                                  }
-                                />
-                              ))}
-                            </div>
+                    <div className="space-y-6">
+                      <div>
+                        <div className="flex items-center gap-4 mb-4">
+                          <div className="flex items-center gap-2">
+                            <Star
+                              size={24}
+                              className="fill-yellow-400 text-yellow-400"
+                            />
+                            <span className="text-3xl font-black">
+                              {averageRating.toFixed(1)}
+                            </span>
                           </div>
-                          <p className="text-slate-600 mt-2">
-                            {review.komentar || "-"}
+                          <p className="text-slate-500">
+                            {totalReviewCount} ulasan
                           </p>
                         </div>
-                      ))}
+                        <div className="space-y-2">
+                          {ratingSummary.map(({ star, count }) => (
+                            <div key={star} className="flex items-center gap-2">
+                              <span className="w-8 text-sm font-semibold">
+                                {star}⭐
+                              </span>
+                              <div className="flex-1 h-2 bg-slate-200 rounded-full">
+                                <div
+                                  className="h-full bg-yellow-400 rounded-full"
+                                  style={{
+                                    width: `${totalReviewCount > 0 ? (count / totalReviewCount) * 100 : 0}%`,
+                                  }}
+                                />
+                              </div>
+                              <span className="w-8 text-sm text-slate-500">
+                                {count}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="space-y-4">
+                        {productReviews.slice(0, 3).map((review) => (
+                          <div
+                            key={review.id_ulasan}
+                            className="border rounded-xl p-4"
+                          >
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-semibold text-sm">
+                                    {review.pembeli_nama || "User"}
+                                  </h4>
+                                  <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+                                    ✓
+                                  </span>
+                                </div>
+                                <div className="flex gap-1 mt-1">
+                                  {[...Array(5)].map((_, i) => (
+                                    <Star
+                                      key={i}
+                                      size={12}
+                                      className={
+                                        i < Math.round(review.rating || 0)
+                                          ? "fill-yellow-400 text-yellow-400"
+                                          : "text-slate-300"
+                                      }
+                                    />
+                                  ))}
+                                </div>
+                                <p className="text-slate-600 mt-2 text-xs">
+                                  {review.komentar || "-"}
+                                </p>
+                                <p className="text-slate-400 text-xs mt-2">
+                                  {review.date || "-"}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                       {totalReviewCount > 3 && (
                         <button
+                          type="button"
                           onClick={() => setShowReviewModal(true)}
-                          className="w-full py-2 border rounded-xl font-semibold hover:bg-slate-50"
+                          className="w-full py-4 rounded-3xl border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50"
                         >
                           Lihat Semua Ulasan
                         </button>
@@ -394,16 +574,16 @@ function ProductDetail() {
                 <div className="flex items-center justify-between">
                   <p className="font-black text-sm">✨ Flash Sale</p>
                   <div className="flex items-center gap-1 text-xs">
-                    <span className="font-semibold">Berakhir</span>
-                    <div className="bg-white text-blue-600 px-1.5 py-0.5 rounded font-bold">
+                    <span className="font-semibold">Berakhir Dalam</span>
+                    <div className="bg-white text-blue-600 px-1.5 py-0.5 rounded font-bold text-xs">
                       {String(timeLeft.hours).padStart(2, "0")}
                     </div>
                     :
-                    <div className="bg-white text-blue-600 px-1.5 py-0.5 rounded font-bold">
+                    <div className="bg-white text-blue-600 px-1.5 py-0.5 rounded font-bold text-xs">
                       {String(timeLeft.minutes).padStart(2, "0")}
                     </div>
                     :
-                    <div className="bg-white text-blue-600 px-1.5 py-0.5 rounded font-bold">
+                    <div className="bg-white text-blue-600 px-1.5 py-0.5 rounded font-bold text-xs">
                       {String(timeLeft.seconds).padStart(2, "0")}
                     </div>
                   </div>
@@ -411,6 +591,7 @@ function ProductDetail() {
               </div>
 
               <h3 className="font-black text-sm">Atur jumlah dan catatan</h3>
+
               <div className="flex items-center justify-between mt-4">
                 <div className="flex border rounded-xl overflow-hidden">
                   <button
@@ -435,10 +616,19 @@ function ProductDetail() {
               </div>
 
               <div className="border-t mt-5 pt-4">
+                <div className="text-right">
+                  <p className="text-slate-400 line-through font-semibold">
+                    Rp{" "}
+                    {Number(product.harga * quantity * 1.2).toLocaleString(
+                      "id-ID",
+                    )}
+                  </p>
+                </div>
                 <div className="flex justify-between items-center mt-2">
                   <p className="text-slate-500 font-medium">Subtotal</p>
                   <h2 className="text-3xl font-black">
-                    Rp {(product.harga * quantity).toLocaleString("id-ID")}
+                    Rp{" "}
+                    {Number(product.harga * quantity).toLocaleString("id-ID")}
                   </h2>
                 </div>
               </div>
@@ -458,7 +648,7 @@ function ProductDetail() {
 
               <div className="grid grid-cols-4 gap-3 mt-5 text-xs text-center text-slate-600">
                 <button
-                  onClick={() => navigate("/customer/chat")}
+                  onClick={handleChat}
                   className="flex items-center justify-center gap-1"
                 >
                   <MessageCircle size={18} /> Chat
@@ -476,14 +666,7 @@ function ProductDetail() {
                   <CircleAlert size={18} /> Report
                 </button>
                 <button
-                  onClick={() =>
-                    navigator.share
-                      ? navigator.share({
-                          title: product.nama_produk,
-                          url: window.location.href,
-                        })
-                      : navigator.clipboard.writeText(window.location.href)
-                  }
+                  onClick={handleShare}
                   className="flex items-center justify-center gap-1"
                 >
                   <Share2 size={18} /> Share

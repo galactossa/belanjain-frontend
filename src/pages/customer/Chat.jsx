@@ -24,6 +24,8 @@ function Chat() {
   const navigate = useNavigate();
   const { id } = useParams();
   const currentUser = JSON.parse(localStorage.getItem("currentUser") || "null");
+  const userId = currentUser?.id_pengguna || currentUser?.id;
+
   const [loading, setLoading] = useState(true);
   const [chatRooms, setChatRooms] = useState([]);
   const [activeChat, setActiveChat] = useState(null);
@@ -33,27 +35,53 @@ function Chat() {
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
 
-  // Load chat rooms
   useEffect(() => {
     const fetchChatRooms = async () => {
-      if (!currentUser?.id) {
+      if (!userId) {
         setLoading(false);
         return;
       }
       try {
-        const response = await api.get(`/chat/rooms/${currentUser.id}`);
-        setChatRooms(response.data.data || []);
+        const response = await api.get(`/chat/rooms/${userId}`);
+        const rooms = response.data.data || [];
+        setChatRooms(rooms);
 
-        // Jika ada parameter id, pilih chat room tersebut
+        // 🔥 JIKA ADA PARAMETER ID, LANGSUNG PILIH CHAT ROOM TERSEBUT
         if (id) {
-          const room = response.data.data.find(
-            (r) => r.other_user_id === parseInt(id),
-          );
+          const room = rooms.find((r) => r.other_user_id === parseInt(id));
           if (room) {
             setActiveChat(room);
+            // Ambil pesan untuk room tersebut
+            const messagesRes = await api.get(
+              `/chat/history/${userId}/${room.other_user_id}`,
+            );
+            setMessages(messagesRes.data.data.data || []);
+          } else {
+            // 🔥 KALAU BELUM ADA ROOM, BUAT ROOM BARU (TAPI CHAT BELUM BISA KIRIM SAMPAI ADA PESAN)
+            // Tapi set active chat dengan data user dari id
+            try {
+              const userRes = await api.get(`/pengguna/${id}`);
+              const userData = userRes.data.data;
+              setActiveChat({
+                other_user_id: parseInt(id),
+                other_user_name: userData.nama || "User",
+                other_user_role: userData.role,
+                other_user_avatar: userData.url_foto,
+                last_message: "Mulai percakapan",
+                unread_count: 0,
+              });
+              setMessages([]);
+            } catch (userError) {
+              console.error("Error fetching user:", userError);
+            }
           }
-        } else if (response.data.data.length > 0) {
-          setActiveChat(response.data.data[0]);
+        } else if (rooms.length > 0) {
+          setActiveChat(rooms[0]);
+          // Ambil pesan untuk room pertama
+          const messagesRes = await api.get(
+            `/chat/history/${userId}/${rooms[0].other_user_id}`,
+          );
+          setMessages(messagesRes.data.data.data || []);
         }
       } catch (error) {
         console.error("Error fetching chat rooms:", error);
@@ -62,15 +90,15 @@ function Chat() {
       }
     };
     fetchChatRooms();
-  }, [currentUser?.id, id]);
+  }, [userId, id]);
 
   // Load messages when active chat changes
   useEffect(() => {
     const fetchMessages = async () => {
-      if (!activeChat || !currentUser?.id) return;
+      if (!activeChat || !userId) return;
       try {
         const response = await api.get(
-          `/chat/history/${currentUser.id}/${activeChat.other_user_id}`,
+          `/chat/history/${userId}/${activeChat.other_user_id}`,
         );
         setMessages(response.data.data.data || []);
       } catch (error) {
@@ -78,41 +106,35 @@ function Chat() {
       }
     };
     fetchMessages();
-  }, [activeChat, currentUser?.id]);
+  }, [activeChat, userId]);
 
   // Socket.io setup
   useEffect(() => {
-    if (!currentUser?.id) return;
+    if (!userId) return;
 
     const socket = connectSocket(currentUser);
     socketRef.current = socket;
 
-    // Get online users
     socket.on("online-users", (users) => {
       setOnlineUsers(users);
     });
 
-    // Receive new message
     socket.on("new-message", (message) => {
-      // Check if message belongs to active chat
       if (
         (message.sender_id === activeChat?.other_user_id &&
-          message.receiver_id === currentUser.id) ||
-        (message.sender_id === currentUser.id &&
+          message.receiver_id === userId) ||
+        (message.sender_id === userId &&
           message.receiver_id === activeChat?.other_user_id)
       ) {
         setMessages((prev) => [...prev, message]);
       }
-      // Refresh chat rooms to update last message
       refreshChatRooms();
     });
 
-    // Message sent confirmation
     socket.on("message-sent", (message) => {
       setMessages((prev) => [...prev, message]);
     });
 
-    // Message error
     socket.on("message-error", (error) => {
       console.error("Chat error:", error);
       alert(error.error || "Gagal mengirim pesan");
@@ -124,36 +146,33 @@ function Chat() {
       socket.off("message-sent");
       socket.off("message-error");
     };
-  }, [currentUser, activeChat]);
+  }, [currentUser, activeChat, userId]);
 
-  // Refresh chat rooms
   const refreshChatRooms = async () => {
-    if (!currentUser?.id) return;
+    if (!userId) return;
     try {
-      const response = await api.get(`/chat/rooms/${currentUser.id}`);
+      const response = await api.get(`/chat/rooms/${userId}`);
       setChatRooms(response.data.data || []);
     } catch (error) {
       console.error("Error refreshing chat rooms:", error);
     }
   };
 
-  // Send message
   const handleSendMessage = () => {
-    if (!newMessage.trim() || !activeChat || !currentUser) return;
+    if (!newMessage.trim() || !activeChat || !userId) return;
 
     const messageData = {
-      sender_id: currentUser.id,
+      sender_id: userId,
       receiver_id: activeChat.other_user_id,
       message: newMessage.trim(),
-      sender_name: currentUser.nama || "User",
-      sender_role: currentUser.role || "customer",
+      sender_name: currentUser?.nama || "User",
+      sender_role: currentUser?.role || "customer",
     };
 
     socketRef.current?.emit("send-message", messageData);
     setNewMessage("");
   };
 
-  // Enter key to send
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -161,12 +180,10 @@ function Chat() {
     }
   };
 
-  // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Format date
   const formatDate = (date) => {
     if (!date) return "";
     const d = new Date(date);
@@ -199,7 +216,6 @@ function Chat() {
       <div className="h-screen w-full flex bg-white overflow-hidden">
         {/* SIDEBAR */}
         <div className="w-[420px] bg-white border-r border-slate-200 flex flex-col shrink-0">
-          {/* HEADER */}
           <div className="px-6 py-8 border-b">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
@@ -226,7 +242,6 @@ function Chat() {
             </div>
           </div>
 
-          {/* CHAT LIST */}
           <div className="flex-1 overflow-y-auto">
             {chatRooms.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-slate-400">
@@ -263,7 +278,6 @@ function Chat() {
                           <span className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full" />
                         )}
                       </div>
-
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between">
                           <h3 className="font-black truncate">
@@ -277,7 +291,6 @@ function Chat() {
                               : ""}
                           </span>
                         </div>
-
                         <div className="flex justify-between items-center mt-2">
                           <p
                             className={`text-sm truncate ${isActive ? "text-white/80" : "text-slate-500"}`}
@@ -321,7 +334,6 @@ function Chat() {
           </div>
         ) : (
           <div className="flex-1 flex flex-col">
-            {/* TOP BAR */}
             <div className="h-[105px] bg-white border-b px-7 flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="relative">
@@ -343,7 +355,6 @@ function Chat() {
                   </p>
                 </div>
               </div>
-
               <div className="flex gap-3">
                 <button className="w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center">
                   <Phone size={18} />
@@ -357,7 +368,6 @@ function Chat() {
               </div>
             </div>
 
-            {/* BODY */}
             <div className="flex-1 overflow-y-auto bg-[#F5F6F8] p-8">
               {messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-slate-400">
@@ -372,10 +382,8 @@ function Chat() {
                         : "HARI INI"}
                     </div>
                   </div>
-
                   {messages.map((msg, index) => {
-                    const isSender = msg.sender_id === currentUser?.id;
-
+                    const isSender = msg.sender_id === userId;
                     return (
                       <div
                         key={msg.id || index}
@@ -403,7 +411,6 @@ function Chat() {
               )}
             </div>
 
-            {/* INPUT */}
             <div className="h-[95px] border-t bg-white px-8 flex items-center">
               <button className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mr-2">
                 <Paperclip size={18} />
@@ -411,7 +418,6 @@ function Chat() {
               <button className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mr-4">
                 <ImageIcon size={18} />
               </button>
-
               <input
                 type="text"
                 value={newMessage}
@@ -420,11 +426,9 @@ function Chat() {
                 placeholder="Ketik pesan..."
                 className="flex-1 h-14 bg-[#F3F5F9] rounded-full px-6 outline-none"
               />
-
               <button className="ml-4 w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
                 <Smile size={18} />
               </button>
-
               <button
                 onClick={handleSendMessage}
                 disabled={!newMessage.trim()}

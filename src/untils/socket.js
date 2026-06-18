@@ -19,9 +19,9 @@ export const connectSocket = (user) => {
   if (!socket.connected) {
     socket.connect();
     socket.emit("user-online", {
-      user_id: user.id_pengguna,
+      user_id: user.id_pengguna || user.id,
       role: user.role,
-      name: user.nama,
+      name: user.nama || user.name,
     });
   }
   return socket;
