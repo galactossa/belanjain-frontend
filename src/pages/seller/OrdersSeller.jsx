@@ -64,7 +64,7 @@ function OrdersSeller() {
     return "bg-slate-100 text-slate-500";
   };
 
-  // ================= 🔥 UPDATE STATUS =================
+  // ================= 🔥 UPDATE STATUS (TANPA SELESAI) =================
   const updateOrderStatus = async (orderId, newStatus, resi = null) => {
     try {
       const payload = { status: newStatus };
@@ -285,7 +285,7 @@ function OrdersSeller() {
                 </div>
               </div>
 
-              {/* ================= 🔥 UPDATE STATUS MANUAL ================= */}
+              {/* ================= 🔥 UPDATE STATUS MANUAL (TANPA SELESAI) ================= */}
               <div className="border-t border-slate-200 pt-5">
                 <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400 mb-3">
                   Update Status Pesanan
@@ -331,22 +331,13 @@ function OrdersSeller() {
                     </button>
                   )}
 
-                  {/* DIKIRIM → SELESAI */}
+                  {/* 🔥 HAPUS TOMBOL "SELESAI" - SUDAH DIPINDAH KE CUSTOMER */}
+
+                  {/* DIKIRIM → tidak ada aksi (customer yang selesai) */}
                   {selectedOrder.status === "dikirim" && (
-                    <button
-                      onClick={() => {
-                        if (
-                          window.confirm(
-                            `Ubah pesanan #${selectedOrder.id} menjadi SELESAI?`,
-                          )
-                        ) {
-                          updateOrderStatus(selectedOrder.id, "selesai");
-                        }
-                      }}
-                      className="h-10 px-4 rounded-xl bg-green-600 text-white font-bold text-sm hover:bg-green-700 transition"
-                    >
-                      Selesaikan Pesanan
-                    </button>
+                    <span className="text-sm text-slate-400 italic">
+                      ⏳ Menunggu konfirmasi pembeli
+                    </span>
                   )}
 
                   {/* SELESAI → tidak ada aksi */}

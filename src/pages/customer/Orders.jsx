@@ -116,6 +116,52 @@ function Orders() {
     return "bg-slate-100 text-slate-500";
   };
 
+  // ================= 🔥 UPDATE ORDER STATUS (CUSTOMER) =================
+  const updateOrderStatus = async (orderId, newStatus) => {
+    try {
+      await api.put(`/pesanan/${orderId}/status`, { status: newStatus });
+      // Refresh orders
+      const response = await api.get(
+        `/pesanan/pengguna/${currentUser.id_pengguna}`,
+      );
+      const formattedOrders = (response.data.data || []).map((order) => ({
+        ...order,
+        id: order.id_pesanan,
+        customer: currentUser.name || "User",
+        userId: currentUser.id_pengguna,
+        total: order.harga_akhir || 0,
+        status: order.status || "Menunggu",
+        date:
+          order.created_at?.split("T")[0] ||
+          new Date().toISOString().split("T")[0],
+        address: order.alamat || "-",
+        products:
+          order.items?.map((item) => ({
+            id: item.id_produk,
+            name: item.nama_produk || "Produk",
+            image: item.url_gambar || "https://via.placeholder.com/100",
+            price: item.harga || 0,
+            qty: item.jumlah || 1,
+            sellerId: item.seller_id || null,
+          })) || [],
+        shippingName: order.nama_penerima || currentUser.name,
+        shippingAddress: order.alamat || "-",
+        paymentMethod: order.metode_pembayaran || "-",
+        paymentStatus: order.status_pembayaran || "belum_bayar",
+        resi: order.nomor_resi || null,
+      }));
+      setOrders(formattedOrders);
+      alert(`✅ Pesanan berhasil diupdate ke ${newStatus.toUpperCase()}`);
+    } catch (error) {
+      console.error("❌ Error updating order:", error);
+      if (error.response?.status === 403) {
+        alert("❌ Anda tidak memiliki akses untuk mengubah status ini");
+      } else {
+        alert(error.response?.data?.message || "Gagal update pesanan");
+      }
+    }
+  };
+
   const handleBuyAgain = (order) => {
     const cartKey = currentUser?.id_pengguna
       ? `cart_${currentUser.id_pengguna}`
@@ -287,6 +333,7 @@ function Orders() {
                   </div>
                 </div>
 
+                {/* ================= 🔥 BAGIAN AKSI ================= */}
                 <div className="border-t bg-slate-50 px-6 py-5">
                   <div className="flex items-center justify-between flex-wrap gap-3">
                     <div className="flex items-center gap-4 flex-wrap">
@@ -315,7 +362,6 @@ function Orders() {
                               try {
                                 await api.put(`/pesanan/${order.id}/cancel`);
                                 alert("✅ Pesanan berhasil dibatalkan");
-                                // Refresh orders
                                 const response = await api.get(
                                   `/pesanan/pengguna/${currentUser.id_pengguna}`,
                                 );
@@ -370,6 +416,24 @@ function Orders() {
                         </button>
                       )}
 
+                      {/* 🔥 TOMBOL SELESAI - HANYA UNTUK STATUS DIKIRIM (PEMBELI KONFIRMASI) */}
+                      {(order.status || "").toLowerCase() === "dikirim" && (
+                        <button
+                          onClick={async () => {
+                            if (
+                              window.confirm(
+                                `Apakah pesanan #${order.id} sudah Anda terima?`,
+                              )
+                            ) {
+                              await updateOrderStatus(order.id, "selesai");
+                            }
+                          }}
+                          className="h-11 px-6 rounded-xl bg-green-600 text-white font-extrabold text-xs tracking-wider uppercase hover:bg-green-700"
+                        >
+                          ✅ PESANAN DITERIMA
+                        </button>
+                      )}
+
                       {/* KOMPLAIN - HANYA UNTUK PESANAN SELESAI */}
                       {(order.status || "")
                         .toLowerCase()
@@ -385,6 +449,7 @@ function Orders() {
                         </button>
                       )}
                     </div>
+
                     <div className="flex items-center gap-3 flex-wrap">
                       {(order.status || "")
                         .toLowerCase()
