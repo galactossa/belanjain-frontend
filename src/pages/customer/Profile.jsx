@@ -19,7 +19,7 @@ import SaldoModal from "../../components/customer/profile/SaldoModal";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import OpenStoreModal from "../../components/customer/profile/OpenStoreModal";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Footer from "../../components/home/Footer";
 import api from "../../api/api";
 
@@ -45,6 +45,9 @@ function Profile() {
   const [followedStores, setFollowedStores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [membershipLevel, setMembershipLevel] = useState("REGULAR");
+
+  // 🔥 PAKAI useRef UNTUK CEGAH SPAM
+  const membershipFetched = useRef(false);
 
   // Fetch profile
   useEffect(() => {
@@ -77,8 +80,10 @@ function Profile() {
     else setLoading(false);
   }, [currentUser]);
 
-  // ================= FETCH MEMBERSHIP LEVEL =================
+  // ================= FETCH MEMBERSHIP LEVEL (FIX: PAKAI useRef) =================
   useEffect(() => {
+    if (membershipFetched.current) return;
+
     const fetchMembership = async () => {
       if (!user?.id_pengguna && !currentUser?.id_pengguna) return;
       try {
@@ -86,9 +91,11 @@ function Profile() {
         const response = await api.get(`/loyalty/membership/${userId}`);
         const level = response.data.data?.membership_level || "Regular";
         setMembershipLevel(level.toUpperCase());
+        membershipFetched.current = true;
       } catch (error) {
-        console.error("Error fetching membership:", error);
+        console.warn("⚠️ Membership not available yet");
         setMembershipLevel("REGULAR");
+        membershipFetched.current = true;
       }
     };
     fetchMembership();
@@ -136,7 +143,6 @@ function Profile() {
       setUser({ ...user, url_foto: imageUrl });
 
       alert("Foto profil berhasil diupload!");
-      // 🔥 Force reload untuk melihat perubahan
       window.location.reload();
     } catch (error) {
       console.error("Error uploading photo:", error);
@@ -173,6 +179,44 @@ function Profile() {
     } catch (error) {
       console.error("Error redeeming voucher:", error);
       alert(error.response?.data?.message || "Gagal redeem voucher");
+    }
+  };
+
+  // ================= 🔥 FIX 14: HANDLE SAVE EDIT PROFILE =================
+  const handleSaveEdit = async () => {
+    try {
+      const payload = {};
+
+      // 🔥 Kirim null jika kosong, atau value jika ada
+      if (name !== undefined && name !== null && name.trim() !== "") {
+        payload.nama = name.trim();
+      } else {
+        payload.nama = null;
+      }
+
+      if (email !== undefined && email !== null && email.trim() !== "") {
+        payload.email = email.trim();
+      } else {
+        payload.email = null;
+      }
+
+      console.log("📡 Sending update payload:", payload);
+
+      const userId = user?.id_pengguna || currentUser.id_pengguna;
+      const response = await api.put(`/pengguna/${userId}`, payload);
+      console.log("✅ Profile updated:", response.data);
+
+      const updatedUser = { ...currentUser, ...response.data.data };
+      localStorage.setItem("currentUser", JSON.stringify(updatedUser));
+      setUser(response.data.data);
+      setName(response.data.data.nama);
+      setEmail(response.data.data.email);
+
+      setShowEdit(false);
+      alert("✅ Profil berhasil diupdate!");
+    } catch (error) {
+      console.error("❌ Error updating profile:", error);
+      alert(error.response?.data?.message || "Gagal update profil");
     }
   };
 
@@ -340,46 +384,32 @@ function Profile() {
                     </div>
                     <div className="flex-1 space-y-4">
                       <input
-                        value={name}
+                        value={name || ""}
                         onChange={(e) => setName(e.target.value)}
+                        placeholder="Nama"
                         className="w-full h-12 bg-slate-100 rounded-2xl px-5 font-bold outline-none"
                       />
                       <input
-                        value={email}
+                        value={email || ""}
                         onChange={(e) => setEmail(e.target.value)}
+                        placeholder="Email"
                         className="w-full h-12 bg-slate-100 rounded-2xl px-5 font-bold outline-none"
                       />
                     </div>
                     <div className="flex gap-3">
                       <button
-                        onClick={() => setShowEdit(false)}
-                        className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center"
+                        onClick={() => {
+                          setShowEdit(false);
+                          setName(user?.nama || currentUser.name);
+                          setEmail(user?.email || currentUser.email);
+                        }}
+                        className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center hover:bg-slate-200 transition"
                       >
                         <X />
                       </button>
                       <button
-                        onClick={async () => {
-                          try {
-                            await api.put(
-                              `/pengguna/${user?.id_pengguna || currentUser.id}`,
-                              { nama: name, email: email },
-                            );
-                            const updatedUser = { ...currentUser, name, email };
-                            localStorage.setItem(
-                              "currentUser",
-                              JSON.stringify(updatedUser),
-                            );
-                            setShowEdit(false);
-                            window.location.reload();
-                          } catch (error) {
-                            console.error("Error updating profile:", error);
-                            alert(
-                              error.response?.data?.message ||
-                                "Gagal update profil",
-                            );
-                          }
-                        }}
-                        className="w-14 h-14 rounded-2xl bg-blue-600 text-white flex items-center justify-center"
+                        onClick={handleSaveEdit}
+                        className="w-14 h-14 rounded-2xl bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 transition"
                       >
                         <Save />
                       </button>

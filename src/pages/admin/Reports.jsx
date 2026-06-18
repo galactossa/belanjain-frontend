@@ -85,6 +85,7 @@ function Reports() {
       (item.tipe_target || "").toLowerCase().includes(search.toLowerCase()),
   );
 
+  // ================= 🔥 DOWNLOAD EXCEL =================
   const exportExcel = () => {
     const headers = "ID,Tipe,Alasan,Pelapor,Target,Status,Tanggal\n";
     const rows = reports
@@ -103,6 +104,52 @@ function Reports() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  // ================= 🔥 DOWNLOAD PDF =================
+  const exportPDF = () => {
+    // 🔥 Ambil semua laporan yang difilter (atau semua)
+    const dataToExport = filteredReports.length > 0 ? filteredReports : reports;
+
+    if (dataToExport.length === 0) {
+      alert("Tidak ada data laporan untuk diexport");
+      return;
+    }
+
+    // Buat konten PDF sederhana (pakai window.print atau blob)
+    const content = `
+      LAPORAN BELANJAIN
+      Total Laporan: ${dataToExport.length}
+      Tanggal: ${new Date().toLocaleString("id-ID")}
+      ${"-".repeat(50)}
+      
+      ${dataToExport
+        .map(
+          (item, i) => `
+      ${i + 1}. ID: ${item.id_laporan}
+         Tipe: ${item.tipe_target}
+         Alasan: ${item.alasan}
+         Pelapor: ${item.pelapor_nama || "-"}
+         Status: ${item.status || "Pending"}
+         Tanggal: ${formatDate(item.created_at)}
+      ${"-".repeat(30)}
+      `,
+        )
+        .join("\n")}
+    `;
+
+    // Buat PDF dengan blob
+    const blob = new Blob([content], {
+      type: "application/pdf",
+    });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `laporan-report-${Date.now()}.pdf`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
   };
 
   const handleAction = (item) => {
@@ -132,6 +179,7 @@ function Reports() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            {/* ================= 🔥 DOWNLOAD MENU ================= */}
             <div className="relative" ref={downloadRef}>
               <button
                 onClick={() => setShowDownloadMenu((prev) => !prev)}
@@ -140,16 +188,29 @@ function Reports() {
                 <Download size={16} /> Download <ChevronDown size={14} />
               </button>
               {showDownloadMenu && (
-                <div className="absolute right-0 mt-2 w-40 rounded-[18px] border border-slate-200 bg-white shadow-lg py-2">
+                <div className="absolute right-0 mt-2 w-40 rounded-[18px] border border-slate-200 bg-white shadow-lg py-2 z-50">
                   <button
-                    onClick={exportExcel}
-                    className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50"
+                    onClick={() => {
+                      exportExcel();
+                      setShowDownloadMenu(false);
+                    }}
+                    className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
                   >
-                    <span className="font-semibold">Excel</span>
+                    <span className="text-green-600">📊</span> Excel / CSV
+                  </button>
+                  <button
+                    onClick={() => {
+                      exportPDF();
+                      setShowDownloadMenu(false);
+                    }}
+                    className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 border-t border-slate-100"
+                  >
+                    <span className="text-red-500">📄</span> PDF
                   </button>
                 </div>
               )}
             </div>
+
             <div className="bg-white border border-slate-200 shadow-sm h-11 w-[240px] rounded-2xl px-3 flex items-center gap-2">
               <Search size={16} className="text-slate-400" />
               <input
@@ -184,6 +245,7 @@ function Reports() {
           </div>
         </div>
 
+        {/* ================= LIST REPORT ================= */}
         <div className="mt-10 flex flex-col gap-5">
           {filteredReports.length === 0 ? (
             <div className="bg-white rounded-[28px] p-12 text-center text-slate-400 border border-slate-200">
