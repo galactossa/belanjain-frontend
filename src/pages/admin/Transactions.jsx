@@ -38,21 +38,31 @@ function Transactions() {
     fetchNotifications();
   }, []);
 
+  // ================= 🔥 FETCH TRANSAKSI =================
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // 1. Coba ambil transaksi
+        // 1. Coba ambil dari endpoint transaksi
         let transData = [];
         try {
           const response = await api.get("/transaksi");
           console.log("📊 Transactions response:", response.data);
-          transData = response.data.data.data || [];
+          // 🔥 Cek struktur response yang berbeda
+          if (response.data?.data?.data) {
+            transData = response.data.data.data;
+          } else if (response.data?.data) {
+            transData = response.data.data;
+          } else if (Array.isArray(response.data)) {
+            transData = response.data;
+          } else {
+            transData = [];
+          }
         } catch (transError) {
           console.warn("⚠️ Transaksi API error:", transError.message);
         }
 
-        // 2. Jika kosong, ambil dari pesanan yang sudah selesai
+        // 2. Jika transaksi kosong, ambil dari pesanan yang sudah dibayar
         if (transData.length === 0) {
           console.log("📊 No transactions, fetching completed orders...");
           const ordersResponse = await api.get("/pesanan");
@@ -60,11 +70,13 @@ function Transactions() {
 
           const allOrders = ordersResponse.data.data || [];
 
+          // Filter pesanan yang sudah dibayar / diproses / selesai
           const completedOrders = allOrders.filter(
             (o) =>
               o.status_pembayaran === "sukses" ||
               o.status === "diproses" ||
-              o.status === "selesai",
+              o.status === "selesai" ||
+              o.status === "dikirim",
           );
 
           console.log("📊 Completed orders:", completedOrders.length);
@@ -180,7 +192,7 @@ function Transactions() {
   return (
     <AdminLayout>
       <div className="min-h-screen bg-[#f6f8fc] p-8">
-        {/* HEADER */}
+        {/* ================= HEADER ================= */}
         <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-[28px] font-black text-slate-900 leading-tight">
@@ -251,7 +263,7 @@ function Transactions() {
           </div>
         </div>
 
-        {/* TABEL */}
+        {/* ================= TABEL ================= */}
         <div className="bg-white rounded-[40px] border border-slate-200 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
             <p className="text-xs font-semibold tracking-[3px] text-slate-400 uppercase">
@@ -344,7 +356,7 @@ function Transactions() {
             </table>
           </div>
 
-          {/* FOOTER */}
+          {/* ================= FOOTER ================= */}
           {filteredTransactions.length > 0 && (
             <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50">
               <p className="text-xs text-slate-400">
