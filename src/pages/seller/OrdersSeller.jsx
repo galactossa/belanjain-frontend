@@ -16,13 +16,11 @@ function OrdersSeller() {
   const [loading, setLoading] = useState(true);
   const [storeId, setStoreId] = useState(null);
   const currentUser = JSON.parse(localStorage.getItem("currentUser") || "null");
-  // 🔥 PERBAIKAN: Gunakan id_pengguna
   const userId = currentUser?.id_pengguna || currentUser?.id;
 
   // Fetch store and orders
   useEffect(() => {
     const fetchData = async () => {
-      // 🔥 PERBAIKAN: Cek userId
       if (!userId) {
         setLoading(false);
         return;
@@ -54,7 +52,7 @@ function OrdersSeller() {
       }
     };
     fetchData();
-  }, [userId]); // 🔥 PERBAIKAN: Dependency userId
+  }, [userId]);
 
   const getStatusColor = (status) => {
     const s = status?.toLowerCase() || "";
@@ -62,18 +60,18 @@ function OrdersSeller() {
     if (s.includes("diproses")) return "bg-orange-100 text-orange-700";
     if (s.includes("dikirim")) return "bg-blue-100 text-blue-500";
     if (s.includes("selesai")) return "bg-emerald-100 text-emerald-700";
+    if (s.includes("dibatalkan")) return "bg-red-100 text-red-600";
     return "bg-slate-100 text-slate-500";
   };
 
-  const handleResiSave = async (id) => {
-    const value = resiValue.trim();
-    if (!value) return;
-
+  // ================= 🔥 UPDATE STATUS =================
+  const updateOrderStatus = async (orderId, newStatus, resi = null) => {
     try {
-      await api.put(`/pesanan/${id}/status`, {
-        status: "dikirim",
-        nomor_resi: value,
-      });
+      const payload = { status: newStatus };
+      if (resi) payload.nomor_resi = resi;
+
+      await api.put(`/pesanan/${orderId}/status`, payload);
+
       // Refresh orders
       const ordersRes = await api.get(`/pesanan/toko/${storeId}`);
       setOrders(
@@ -89,11 +87,20 @@ function OrdersSeller() {
         })),
       );
       setSelectedOrder(null);
-      setResiValue("");
+      alert(`✅ Status berhasil diupdate ke ${newStatus.toUpperCase()}`);
     } catch (error) {
       console.error("Error updating status:", error);
       alert(error.response?.data?.message || "Gagal update status");
     }
+  };
+
+  const handleResiSave = async (id) => {
+    const value = resiValue.trim();
+    if (!value) {
+      alert("Nomor resi wajib diisi!");
+      return;
+    }
+    await updateOrderStatus(id, "dikirim", value);
   };
 
   const filteredOrders = orders.filter((item) => {
@@ -146,21 +153,26 @@ function OrdersSeller() {
 
         <div className="bg-white border border-slate-200 rounded-[24px] p-3 shadow-sm flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-wrap items-center gap-2">
-            {["SEMUA", "MENUNGGU", "DIPROSES", "DIKIRIM", "SELESAI"].map(
-              (status) => (
-                <button
-                  key={status}
-                  onClick={() => setActiveTab(status)}
-                  className={`h-9 px-4 rounded-xl text-[10px] font-black uppercase duration-200 ${
-                    activeTab === status
-                      ? "bg-blue-600 text-white shadow-md"
-                      : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                  }`}
-                >
-                  {status}
-                </button>
-              ),
-            )}
+            {[
+              "SEMUA",
+              "MENUNGGU",
+              "DIPROSES",
+              "DIKIRIM",
+              "SELESAI",
+              "DIBATALKAN",
+            ].map((status) => (
+              <button
+                key={status}
+                onClick={() => setActiveTab(status)}
+                className={`h-9 px-4 rounded-xl text-[10px] font-black uppercase duration-200 ${
+                  activeTab === status
+                    ? "bg-blue-600 text-white shadow-md"
+                    : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                }`}
+              >
+                {status}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -218,6 +230,7 @@ function OrdersSeller() {
           ))}
         </div>
 
+        {/* ================= DETAIL ORDER MODAL ================= */}
         {selectedOrder && (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4 py-6">
             <div className="bg-white w-full max-w-[760px] rounded-[28px] p-6 shadow-[0_30px_90px_rgba(15,23,42,0.15)]">
@@ -272,10 +285,91 @@ function OrdersSeller() {
                 </div>
               </div>
 
-              {selectedOrder.status?.toLowerCase().includes("diproses") && (
-                <div className="rounded-[20px] border border-slate-200 bg-slate-50 p-4 mb-5">
+              {/* ================= 🔥 UPDATE STATUS MANUAL ================= */}
+              <div className="border-t border-slate-200 pt-5">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400 mb-3">
+                  Update Status Pesanan
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {/* MENUNGGU → DIPROSES */}
+                  {selectedOrder.status === "menunggu" && (
+                    <button
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            `Ubah pesanan #${selectedOrder.id} menjadi DIPROSES?`,
+                          )
+                        ) {
+                          updateOrderStatus(selectedOrder.id, "diproses");
+                        }
+                      }}
+                      className="h-10 px-4 rounded-xl bg-blue-600 text-white font-bold text-sm hover:bg-blue-700 transition"
+                    >
+                      Proses Pesanan
+                    </button>
+                  )}
+
+                  {/* DIPROSES → DIKIRIM (dengan resi) */}
+                  {selectedOrder.status === "diproses" && (
+                    <button
+                      onClick={() => {
+                        const resi = prompt("Masukkan nomor resi pengiriman:");
+                        if (resi === null) return;
+                        if (!resi.trim()) {
+                          alert("Nomor resi wajib diisi!");
+                          return;
+                        }
+                        updateOrderStatus(
+                          selectedOrder.id,
+                          "dikirim",
+                          resi.trim(),
+                        );
+                      }}
+                      className="h-10 px-4 rounded-xl bg-orange-500 text-white font-bold text-sm hover:bg-orange-600 transition"
+                    >
+                      Kirim Pesanan
+                    </button>
+                  )}
+
+                  {/* DIKIRIM → SELESAI */}
+                  {selectedOrder.status === "dikirim" && (
+                    <button
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            `Ubah pesanan #${selectedOrder.id} menjadi SELESAI?`,
+                          )
+                        ) {
+                          updateOrderStatus(selectedOrder.id, "selesai");
+                        }
+                      }}
+                      className="h-10 px-4 rounded-xl bg-green-600 text-white font-bold text-sm hover:bg-green-700 transition"
+                    >
+                      Selesaikan Pesanan
+                    </button>
+                  )}
+
+                  {/* SELESAI → tidak ada aksi */}
+                  {selectedOrder.status === "selesai" && (
+                    <span className="text-sm text-slate-400 italic">
+                      ✅ Pesanan sudah selesai
+                    </span>
+                  )}
+
+                  {/* DIBATALKAN → tidak ada aksi */}
+                  {selectedOrder.status === "dibatalkan" && (
+                    <span className="text-sm text-red-400 italic">
+                      ❌ Pesanan sudah dibatalkan
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* ================= INPUT RESI (alternatif) ================= */}
+              {selectedOrder.status === "diproses" && (
+                <div className="rounded-[20px] border border-slate-200 bg-slate-50 p-4 mt-4">
                   <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400 mb-2">
-                    Input Resi
+                    Atau Input Resi Manual
                   </p>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                     <input
@@ -288,7 +382,7 @@ function OrdersSeller() {
                       onClick={() => handleResiSave(selectedOrder.id)}
                       className="h-10 rounded-xl bg-blue-600 px-5 text-xs font-black text-white hover:bg-blue-700 whitespace-nowrap"
                     >
-                      Simpan Resi
+                      Kirim dengan Resi
                     </button>
                   </div>
                 </div>
@@ -296,7 +390,7 @@ function OrdersSeller() {
 
               <button
                 onClick={() => setSelectedOrder(null)}
-                className="w-full h-12 rounded-xl bg-blue-600 text-white font-black text-sm"
+                className="w-full h-12 rounded-xl bg-blue-600 text-white font-black text-sm mt-4 hover:bg-blue-700 transition"
               >
                 TUTUP
               </button>
