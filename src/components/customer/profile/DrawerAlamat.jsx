@@ -57,7 +57,6 @@ function DrawerAlamat({ show, onClose }) {
       return;
     }
 
-    // Validasi
     if (!form.penerima || !form.telepon || !form.alamat || !form.kota) {
       alert("Nama penerima, telepon, alamat, dan kota wajib diisi");
       return;
@@ -71,6 +70,7 @@ function DrawerAlamat({ show, onClose }) {
         alamat: form.alamat,
         kota: form.kota,
         kode_pos: form.kode_pos || "",
+        label: form.label || "Rumah",
         utama: form.utama || false,
       };
 
@@ -79,7 +79,7 @@ function DrawerAlamat({ show, onClose }) {
       } else {
         await api.post("/alamat", payload);
       }
-      // Refresh list
+
       const response = await api.get(
         `/alamat/pengguna/${currentUser.id_pengguna}`,
       );
@@ -226,7 +226,7 @@ function DrawerAlamat({ show, onClose }) {
               <div className="grid grid-cols-2 gap-4">
                 <input
                   required
-                  placeholder="Rumah / Kantor"
+                  placeholder="Label (Rumah / Kantor)"
                   value={form.label}
                   onChange={(e) => setForm({ ...form, label: e.target.value })}
                   className="h-14 rounded-2xl border px-4"
