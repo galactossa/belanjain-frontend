@@ -363,7 +363,7 @@ function Transactions() {
                 Menampilkan {filteredTransactions.length} transaksi
               </p>
               <p className="text-xs text-slate-400">
-                {/* Total pendapatan:{" "} */}
+                Total pendapatan:{" "}
                 <span className="font-black text-slate-700">
                   {formatCurrency(
                     filteredTransactions.reduce(
