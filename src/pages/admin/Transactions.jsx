@@ -367,7 +367,8 @@ function Transactions() {
                 <span className="font-black text-slate-700">
                   {formatCurrency(
                     filteredTransactions.reduce(
-                      (sum, item) => sum + (item.jumlah_dibayar || 0),
+                      (sum, item) =>
+                        sum + (parseFloat(item.jumlah_dibayar) || 0), // 🔥 FIX
                       0,
                     ),
                   )}
