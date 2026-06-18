@@ -8,12 +8,12 @@ import api from "../../api/api";
 function AddProduct() {
   const navigate = useNavigate();
   const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
-  // 🔥 PERBAIKAN: Gunakan id_pengguna
   const userId = currentUser?.id_pengguna || currentUser?.id;
   const [storeId, setStoreId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
   const [preview, setPreview] = useState("");
+  const [categories, setCategories] = useState([]);
   const [productForm, setProductForm] = useState({
     name: "",
     category: "",
@@ -24,10 +24,22 @@ function AddProduct() {
     city: "",
   });
 
-  // Fetch store
+  // ================= 🔥 FETCH KATEGORI =================
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await api.get("/kategori");
+        setCategories(response.data.data || []);
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+      }
+    };
+    fetchCategories();
+  }, []);
+
+  // ================= FETCH STORE =================
   useEffect(() => {
     const fetchStore = async () => {
-      // 🔥 PERBAIKAN: Cek userId
       if (!userId) {
         alert("User tidak ditemukan. Silakan login ulang.");
         navigate("/");
@@ -47,6 +59,7 @@ function AddProduct() {
     fetchStore();
   }, [userId, navigate]);
 
+  // ================= 🔥 HANDLE SAVE PRODUK =================
   const handleSave = async () => {
     if (!productForm.name || !productForm.price) {
       alert("Lengkapi data produk terlebih dahulu");
@@ -58,19 +71,32 @@ function AddProduct() {
       return;
     }
 
+    // 🔥 Dapatkan id_kategori dari nama kategori yang dipilih
+    let kategoriId = null;
+    if (productForm.category) {
+      const found = categories.find(
+        (cat) =>
+          cat.nama_kategori.toLowerCase() ===
+          productForm.category.toLowerCase(),
+      );
+      if (found) {
+        kategoriId = found.id_kategori;
+      }
+    }
+
     setLoading(true);
     try {
       await api.post("/produk", {
         id_toko: storeId,
         nama_produk: productForm.name,
-        id_kategori: null, // TODO: implement category
+        id_kategori: kategoriId, // 🔥 KIRIM ID, BUKAN NULL!
         deskripsi: productForm.description,
         harga: Number(productForm.price),
         stok: Number(productForm.stock) || 0,
         url_gambar: productForm.image,
       });
 
-      alert("Produk berhasil ditambahkan!");
+      alert("✅ Produk berhasil ditambahkan!");
       navigate("/seller/products");
     } catch (error) {
       console.error("Error adding product:", error);
@@ -102,6 +128,7 @@ function AddProduct() {
 
         <div className="max-w-[950px] mx-auto bg-white rounded-[40px] border border-slate-200 shadow-sm p-8">
           <div className="grid md:grid-cols-2 grid-cols-1 gap-6">
+            {/* NAMA PRODUK */}
             <div>
               <label className="text-[12px] uppercase tracking-[2px] font-black text-[#0f172a]">
                 Nama Produk *
@@ -116,6 +143,8 @@ function AddProduct() {
                 className="w-full h-[52px] rounded-[18px] border border-slate-200 bg-[#f8fafc] px-5 mt-2 outline-none font-semibold"
               />
             </div>
+
+            {/* 🔥 KATEGORI - DROPDOWN DARI API */}
             <div>
               <label className="text-[12px] uppercase tracking-[2px] font-black text-[#0f172a]">
                 Kategori *
@@ -128,13 +157,15 @@ function AddProduct() {
                 className="w-full h-[52px] rounded-[18px] border border-slate-200 bg-[#f8fafc] px-5 mt-2 font-semibold outline-none"
               >
                 <option value="">Pilih Kategori</option>
-                <option value="Elektronik">Elektronik</option>
-                <option value="Fashion">Fashion</option>
-                <option value="Rumah Tangga">Rumah Tangga</option>
-                <option value="Olahraga">Olahraga</option>
-                <option value="Kecantikan">Kecantikan</option>
+                {categories.map((cat) => (
+                  <option key={cat.id_kategori} value={cat.nama_kategori}>
+                    {cat.nama_kategori}
+                  </option>
+                ))}
               </select>
             </div>
+
+            {/* HARGA */}
             <div>
               <label className="text-[12px] uppercase tracking-[2px] font-black text-[#0f172a]">
                 Harga Jual *
@@ -149,6 +180,8 @@ function AddProduct() {
                 className="w-full h-[52px] rounded-[18px] border border-slate-200 bg-[#f8fafc] px-5 mt-2 outline-none font-semibold"
               />
             </div>
+
+            {/* STOK */}
             <div>
               <label className="text-[12px] uppercase tracking-[2px] font-black text-[#0f172a]">
                 Stok Awal *
@@ -163,6 +196,8 @@ function AddProduct() {
                 className="w-full h-[52px] rounded-[18px] border border-slate-200 bg-[#f8fafc] px-5 mt-2 outline-none font-semibold"
               />
             </div>
+
+            {/* FOTO URL */}
             <div className="col-span-2">
               <label className="text-[12px] uppercase tracking-[2px] font-black text-[#0f172a]">
                 Foto Produk URL
@@ -184,6 +219,8 @@ function AddProduct() {
                 />
               )}
             </div>
+
+            {/* DESKRIPSI */}
             <div className="col-span-2">
               <label className="text-[12px] uppercase tracking-[2px] font-black text-[#0f172a]">
                 Deskripsi Lengkap *
@@ -202,6 +239,8 @@ function AddProduct() {
               />
             </div>
           </div>
+
+          {/* BUTTON SUBMIT */}
           <button
             onClick={handleSave}
             disabled={loading}
