@@ -43,13 +43,18 @@ function Login({ setAuthModal }) {
 
       const { token, pengguna } = response.data.data;
 
+      console.log("🔍 Login response - pengguna:", pengguna);
+      console.log("🔍 Login response - role:", pengguna?.role);
+
       // Simpan token & user
       localStorage.setItem("token", token);
       localStorage.setItem("currentUser", JSON.stringify(pengguna));
 
+      // 🔥 SET TOKEN DI AXIOS
+      api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+
       setLoginSuccess(true);
 
-      // Trigger event untuk navbar
       window.dispatchEvent(new Event("storage"));
 
       setTimeout(() => {
@@ -57,7 +62,6 @@ function Login({ setAuthModal }) {
         setLoginSuccess(false);
         setAuthModal(null);
 
-        // Redirect berdasarkan role
         if (pengguna.role === "admin") {
           navigate("/admin");
         } else if (pengguna.role === "penjual") {

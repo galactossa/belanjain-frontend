@@ -15,6 +15,12 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
+    const user = JSON.parse(localStorage.getItem("currentUser") || "{}");
+
+    console.log("🔍 Sending request to:", config.url);
+    console.log("🔍 Token:", token ? "ADA" : "TIDAK ADA");
+    console.log("🔍 User role:", user?.role || "TIDAK ADA");
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -23,10 +29,15 @@ api.interceptors.request.use(
   (error) => Promise.reject(error),
 );
 
-// INTERCEPTOR RESPONSE: kalau 401 (token expired), logout otomatis
+// INTERCEPTOR RESPONSE
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    console.error(
+      "❌ API Error:",
+      error.response?.status,
+      error.response?.data,
+    );
     if (error.response?.status === 401) {
       localStorage.removeItem("token");
       localStorage.removeItem("currentUser");

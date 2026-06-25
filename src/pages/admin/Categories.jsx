@@ -1,4 +1,4 @@
-import { Search, Bell, Plus, Trash2, Layers3, X } from "lucide-react";
+import { Search, Bell, Plus, Trash2, Layers3, X, Pencil } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import AdminLayout from "../../layouts/AdminLayout";
 import ModalNotfications from "../../components/admin/ModalNotfications";
@@ -12,13 +12,23 @@ function Categories() {
   const [showAdd, setShowAdd] = useState(false);
   const [newCategory, setNewCategory] = useState("");
   const [showDelete, setShowDelete] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [editCategoryName, setEditCategoryName] = useState("");
   const [showNotif, setShowNotif] = useState(false);
   const notifRef = useRef();
   const [notifications, setNotifications] = useState([]);
   const unreadCount = notifications.filter((notif) => !notif.read).length;
 
-  // Fetch notifications
+  // ================= 🔥 CEK USER LOGIN =================
+  const currentUser = JSON.parse(localStorage.getItem("currentUser") || "{}");
+  const token = localStorage.getItem("token");
+
+  console.log("🔍 Current User:", currentUser);
+  console.log("🔍 Token:", token ? "ADA" : "TIDAK ADA");
+  console.log("🔍 User Role:", currentUser?.role);
+
+  // Fetch notifications (skip if error)
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
@@ -33,7 +43,8 @@ function Categories() {
         }));
         setNotifications(data);
       } catch (error) {
-        console.error("Error fetching notifications:", error);
+        console.warn("⚠️ Notifikasi belum tersedia:", error.message);
+        setNotifications([]);
       }
     };
     fetchNotifications();
@@ -72,8 +83,18 @@ function Categories() {
     setFilteredCategories(result);
   }, [search, categories]);
 
+  // ================= 🔥 CEK ROLE SEBELUM API CALL =================
+  const isAdmin = currentUser?.role === "admin";
+
   const handleAddCategory = async () => {
     if (!newCategory.trim()) return;
+
+    // 🔥 CEK ROLE
+    if (!isAdmin) {
+      alert("Anda tidak memiliki akses admin. Silakan login ulang.");
+      return;
+    }
+
     try {
       await api.post("/kategori", { nama_kategori: newCategory });
       const response = await api.get("/kategori");
@@ -81,24 +102,77 @@ function Categories() {
       setFilteredCategories(response.data.data || []);
       setNewCategory("");
       setShowAdd(false);
+      alert("✅ Kategori berhasil ditambahkan!");
     } catch (error) {
       console.error("Error adding category:", error);
-      alert(error.response?.data?.message || "Gagal menambah kategori");
+      if (error.response?.status === 403) {
+        alert("❌ Akses ditolak. Pastikan Anda login sebagai admin.");
+      } else {
+        alert(error.response?.data?.message || "Gagal menambah kategori");
+      }
     }
   };
 
   const handleDeleteCategory = async () => {
     if (!selectedCategory) return;
+
+    // 🔥 CEK ROLE
+    if (!isAdmin) {
+      alert("Anda tidak memiliki akses admin. Silakan login ulang.");
+      return;
+    }
+
     try {
       await api.delete(`/kategori/${selectedCategory.id_kategori}`);
       const response = await api.get("/kategori");
       setCategories(response.data.data || []);
       setFilteredCategories(response.data.data || []);
       setShowDelete(false);
+      alert("✅ Kategori berhasil dihapus!");
     } catch (error) {
       console.error("Error deleting category:", error);
-      alert(error.response?.data?.message || "Gagal menghapus kategori");
+      if (error.response?.status === 403) {
+        alert("❌ Akses ditolak. Pastikan Anda login sebagai admin.");
+      } else {
+        alert(error.response?.data?.message || "Gagal menghapus kategori");
+      }
     }
+  };
+
+  const handleEditCategory = async () => {
+    if (!selectedCategory || !editCategoryName.trim()) return;
+
+    // 🔥 CEK ROLE
+    if (!isAdmin) {
+      alert("Anda tidak memiliki akses admin. Silakan login ulang.");
+      return;
+    }
+
+    try {
+      await api.put(`/kategori/${selectedCategory.id_kategori}`, {
+        nama_kategori: editCategoryName,
+      });
+      const response = await api.get("/kategori");
+      setCategories(response.data.data || []);
+      setFilteredCategories(response.data.data || []);
+      setShowEdit(false);
+      setSelectedCategory(null);
+      setEditCategoryName("");
+      alert("✅ Kategori berhasil diupdate!");
+    } catch (error) {
+      console.error("Error editing category:", error);
+      if (error.response?.status === 403) {
+        alert("❌ Akses ditolak. Pastikan Anda login sebagai admin.");
+      } else {
+        alert(error.response?.data?.message || "Gagal mengedit kategori");
+      }
+    }
+  };
+
+  const openEditModal = (category) => {
+    setSelectedCategory(category);
+    setEditCategoryName(category.nama_kategori);
+    setShowEdit(true);
   };
 
   if (loading) {
@@ -150,6 +224,48 @@ function Categories() {
                   className="w-full h-[60px] rounded-2xl bg-[#2563FF] hover:bg-[#1E4FE0] duration-300 text-white font-black tracking-[2px] shadow-[0_15px_35px_rgba(37,99,255,0.35)] mt-10"
                 >
                   SIMPAN KATEGORI
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showEdit && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-[#0f172a]/50 backdrop-blur-[8px]" />
+            <div className="relative z-10 w-[480px] bg-white rounded-[40px] overflow-hidden shadow-[0_25px_80px_rgba(15,23,42,0.25)]">
+              <div className="px-10 py-8 flex items-center justify-between border-b border-slate-100">
+                <div className="flex items-center gap-5">
+                  <div className="w-14 h-14 rounded-2xl bg-[#2563FF] flex items-center justify-center">
+                    <Layers3 size={28} className="text-white" />
+                  </div>
+                  <h1 className="text-[24px] font-black text-slate-900 uppercase">
+                    Edit Kategori
+                  </h1>
+                </div>
+                <button
+                  onClick={() => setShowEdit(false)}
+                  className="text-slate-400 hover:text-red-500 duration-300"
+                >
+                  <X size={32} />
+                </button>
+              </div>
+              <div className="p-10">
+                <p className="text-slate-400 text-sm font-black tracking-wider uppercase mb-3">
+                  Nama Kategori
+                </p>
+                <input
+                  type="text"
+                  value={editCategoryName}
+                  onChange={(e) => setEditCategoryName(e.target.value)}
+                  placeholder="Contoh : Elektronik"
+                  className="w-full h-[58px] rounded-2xl border-2 border-[#2563FF] px-6 outline-none font-semibold text-slate-700"
+                />
+                <button
+                  onClick={handleEditCategory}
+                  className="w-full h-[60px] rounded-2xl bg-[#2563FF] hover:bg-[#1E4FE0] duration-300 text-white font-black tracking-[2px] shadow-[0_15px_35px_rgba(37,99,255,0.35)] mt-10"
+                >
+                  UPDATE KATEGORI
                 </button>
               </div>
             </div>
@@ -260,18 +376,29 @@ function Categories() {
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => {
-                  setSelectedCategory(item);
-                  setShowDelete(true);
-                }}
-                className="w-9 h-9 rounded-xl hover:bg-red-50 flex items-center justify-center duration-300 group"
-              >
-                <Trash2
-                  size={18}
-                  className="text-slate-400 group-hover:text-red-500 duration-300"
-                />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => openEditModal(item)}
+                  className="w-9 h-9 rounded-xl hover:bg-blue-50 flex items-center justify-center duration-300 group"
+                >
+                  <Pencil
+                    size={18}
+                    className="text-slate-400 group-hover:text-blue-600 duration-300"
+                  />
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedCategory(item);
+                    setShowDelete(true);
+                  }}
+                  className="w-9 h-9 rounded-xl hover:bg-red-50 flex items-center justify-center duration-300 group"
+                >
+                  <Trash2
+                    size={18}
+                    className="text-slate-400 group-hover:text-red-500 duration-300"
+                  />
+                </button>
+              </div>
             </div>
           ))}
         </div>
