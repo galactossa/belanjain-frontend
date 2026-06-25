@@ -15,6 +15,7 @@ export default function OrderDetailModal({
   onOpenTracking,
   onOpenComplaint,
   onBuyAgain,
+  onOpenReview,
 }) {
   if (!show || !order) return null;
 
@@ -43,54 +44,40 @@ export default function OrderDetailModal({
     typeof order.shippingAddress === "string"
       ? order.shippingAddress
       : order.shippingAddress?.address || order.address || order.alamat || "-";
-const formatDate = (date) => {
-  const d = new Date(date);
 
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const year = d.getFullYear();
+  const formatDate = (date) => {
+    const d = new Date(date);
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = d.getFullYear();
+    return `${day}-${month}-${year}`;
+  };
 
-  return `${day}-${month}-${year}`;
-};
+  const statusLower = (order.status || "").toLowerCase();
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
-      <div
-  className="
-  relative
-  bg-white
-  w-[95%]
-  max-w-2xl
-  h-[88vh]
-  rounded-2xl
-  shadow-2xl
-  z-10
-  overflow-hidden
-  flex
-  flex-col
-"
->
+      <div className="relative bg-white w-[95%] max-w-2xl h-[88vh] rounded-2xl shadow-2xl z-10 overflow-hidden flex flex-col">
         <div className="border-b bg-white px-5 py-4">
-  <div className="flex items-center justify-between">
-    <div>
-      <h3 className="font-black text-base text-slate-800">
-        DETAIL TRANSAKSI
-      </h3>
-
-      <p className="text-[11px] text-slate-400">
-        Informasi lengkap pemesanan
-      </p>
-    </div>
-
-    <button
-      onClick={onClose}
-      className="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center"
-    >
-      <X size={18} />
-    </button>
-  </div>
-</div>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-black text-base text-slate-800">
+                DETAIL TRANSAKSI
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                Informasi lengkap pemesanan
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-full hover:bg-slate-100 flex items-center justify-center"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 gap-4 max-h-[76vh] overflow-y-auto pr-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-slate-100 [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 rounded-3xl border border-slate-200 bg-slate-50 p-5">
@@ -125,7 +112,11 @@ const formatDate = (date) => {
                       className="relative flex flex-col items-center gap-3 text-center min-w-[70px]"
                     >
                       <div
-                        className={`z-10 flex h-8w-8 items-center justify-center rounded-full border ${completed ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-300 border border-slate-200"}`}
+                        className={`z-10 flex h-8 w-8 items-center justify-center rounded-full border ${
+                          completed
+                            ? "bg-blue-600 text-white border-blue-600"
+                            : "bg-white text-slate-300 border border-slate-200"
+                        }`}
                       >
                         {completed ? (
                           <CheckCircle size={12} />
@@ -134,7 +125,11 @@ const formatDate = (date) => {
                         )}
                       </div>
                       <div
-                        className={`text-[11px] uppercase ${completed ? "text-slate-700 font-semibold" : "text-slate-400"}`}
+                        className={`text-[11px] uppercase ${
+                          completed
+                            ? "text-slate-700 font-semibold"
+                            : "text-slate-400"
+                        }`}
                       >
                         {step}
                       </div>
@@ -178,7 +173,7 @@ const formatDate = (date) => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="rounded-2xl border border-slate-200 bg-white p-5">
-              <div className="flex item4-start gap-3">
+              <div className="flex items-start gap-3">
                 <MapPin size={18} className="text-blue-600 mt-1" />
                 <div>
                   <div className="text-xs uppercase tracking-[2px] text-slate-500">
@@ -233,37 +228,49 @@ const formatDate = (date) => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-             <button
-      onClick={() => onOpenComplaint?.(order)}
-      className="h-10 rounded-xl bg-pink-50 text-pink-600 font-bold"
-    >
-      Komplain
-    </button>
+          {/* ================= 🔥 BUTTONS - SESUAI STATUS (TANPA TUTUP) ================= */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 pb-4">
+            {/* 🔥 KOMPLAIN - HANYA UNTUK STATUS SELESAI */}
+            {statusLower === "selesai" && (
+              <button
+                onClick={() => onOpenComplaint?.(order)}
+                className="h-10 rounded-xl bg-pink-50 text-pink-600 font-bold hover:bg-pink-100 transition"
+              >
+                Komplain
+              </button>
+            )}
 
-    <button
-      onClick={() => onOpenTracking?.(order)}
-      className="h-10 rounded-xl border font-bold"
-    >
-      Lacak
-    </button>
+            {/* 🔥 LACAK - HANYA UNTUK STATUS DIKIRIM ATAU SELESAI */}
+            {(statusLower === "dikirim" || statusLower === "selesai") && (
+              <button
+                onClick={() => onOpenTracking?.(order)}
+                className="h-10 rounded-xl border font-bold hover:bg-slate-50 transition"
+              >
+                Lacak
+              </button>
+            )}
 
-    <button
-      onClick={() => onBuyAgain?.(order)}
-      className="h-10 rounded-xl bg-blue-600 text-white font-bold"
-    >
-      Beli Lagi
-    </button>
+            {/* 🔥 BELI LAGI - HANYA UNTUK STATUS SELESAI */}
+            {statusLower === "selesai" && (
+              <button
+                onClick={() => onBuyAgain?.(order)}
+                className="h-10 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition"
+              >
+                Beli Lagi
+              </button>
+            )}
 
-    <button
-      onClick={onClose}
-      className="h-10 rounded-xl border font-bold"
-    >
-      Tutup
-    </button>
-
-  </div>
-</div>
+            {/* 🔥 ULASAN - HANYA UNTUK STATUS SELESAI */}
+            {statusLower === "selesai" && (
+              <button
+                onClick={() => onOpenReview?.(order)}
+                className="h-10 rounded-xl bg-yellow-50 text-yellow-600 font-bold hover:bg-yellow-100 transition"
+              >
+                ⭐ Ulasan
+              </button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

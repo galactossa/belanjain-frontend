@@ -86,7 +86,7 @@ function CustomerNavbar({
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
-  // ================= NOTIFICATION =================
+  // ================= 🔥 NOTIFICATION (DIPERBAIKI) =================
   const [notifications, setNotifications] = useState([]);
   const [notificationCount, setNotificationCount] = useState(0);
 
@@ -97,11 +97,20 @@ function CustomerNavbar({
         const response = await api.get(
           `/notifikasi/pengguna/${currentUser.id_pengguna}`,
         );
-        const data = response.data.data || [];
+        console.log("🔍 Notifications response:", response.data);
+
+        let data = [];
+        if (response.data?.data) {
+          data = response.data.data;
+        } else if (Array.isArray(response.data)) {
+          data = response.data;
+        }
+
         setNotifications(data);
         setNotificationCount(data.filter((n) => !n.sudah_dibaca).length);
       } catch (error) {
         console.error("Error fetching notifications:", error);
+        setNotifications([]);
       }
     };
     fetchNotifications();
@@ -152,9 +161,8 @@ function CustomerNavbar({
     fetchChatRooms();
   }, [currentUser?.id_pengguna]);
 
-  // ================= 🔥 HANDLE SEARCH =================
+  // ================= HANDLE SEARCH =================
   const handleSearch = () => {
-    // 🔥 Navigate ke customer dengan query parameter search
     if (search.trim()) {
       navigate(`/customer?search=${encodeURIComponent(search.trim())}`);
     } else {
@@ -436,6 +444,11 @@ function CustomerNavbar({
                   <p className="text-sm font-semibold text-slate-900">
                     {notif.pesan || notif.judul}
                   </p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    {notif.created_at
+                      ? new Date(notif.created_at).toLocaleString()
+                      : "Baru saja"}
+                  </p>
                 </div>
               ))
             ) : (
@@ -453,7 +466,7 @@ function CustomerNavbar({
               }}
               className="w-full h-12 border-t border-slate-100 text-blue-600 font-bold hover:bg-blue-50 rounded-b-2xl"
             >
-              Lihat Semua Dibaca
+              Lihat Semua ({userNotifications.length})
             </button>
           )}
         </div>
@@ -494,7 +507,7 @@ function CustomerNavbar({
                 onClick={markAllAsRead}
                 className="mt-4 text-blue-600 text-sm font-bold"
               >
-                Tandai Semua Dibaca
+                Tandai Semua Dibaca ({notificationCount})
               </button>
             </div>
 
@@ -503,11 +516,13 @@ function CustomerNavbar({
                 userNotifications.map((notif) => (
                   <div
                     key={notif.id_notifikasi}
-                    className="bg-white border border-slate-200 rounded-3xl p-5 mx-4 mb-4 hover:shadow-md transition"
+                    className={`bg-white border border-slate-200 rounded-3xl p-5 mx-4 mb-4 hover:shadow-md transition ${
+                      !notif.sudah_dibaca ? "border-l-4 border-l-blue-500" : ""
+                    }`}
                   >
                     <div className="flex gap-4">
-                      <div className="w-12 h-12 rounded-2xl bg-orange-50 flex items-center justify-center shrink-0">
-                        <Package size={20} className="text-orange-500" />
+                      <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center shrink-0">
+                        <Bell size={20} className="text-blue-500" />
                       </div>
                       <div className="flex-1">
                         <div className="flex justify-between">
@@ -520,21 +535,45 @@ function CustomerNavbar({
                               : "Baru saja"}
                           </span>
                         </div>
-                        <p className="text-sm text-slate-500 mt-1">
+                        <p className="text-sm text-slate-600 mt-1 leading-relaxed">
                           {notif.pesan}
                         </p>
-                        {!notif.sudah_dibaca && (
-                          <span className="inline-flex mt-3 px-2 py-1 rounded-md bg-blue-50 text-blue-600 text-[11px] font-bold">
-                            Baru
-                          </span>
-                        )}
+                        <div className="flex items-center gap-3 mt-3">
+                          {!notif.sudah_dibaca && (
+                            <button
+                              onClick={() => markAsRead(notif.id_notifikasi)}
+                              className="text-xs font-bold text-blue-600 hover:text-blue-700"
+                            >
+                              Tandai Dibaca
+                            </button>
+                          )}
+                          {notif.tipe && (
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                notif.tipe === "pesanan"
+                                  ? "bg-orange-100 text-orange-600"
+                                  : notif.tipe === "promo"
+                                    ? "bg-red-100 text-red-600"
+                                    : notif.tipe === "toko"
+                                      ? "bg-green-100 text-green-600"
+                                      : "bg-slate-100 text-slate-600"
+                              }`}
+                            >
+                              {notif.tipe.toUpperCase()}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
                 ))
               ) : (
                 <div className="p-8 text-center text-slate-500">
-                  Tidak ada notifikasi
+                  <div className="text-5xl mb-4">🔔</div>
+                  <p className="font-semibold">Tidak ada notifikasi</p>
+                  <p className="text-sm mt-1">
+                    Semua notifikasi akan muncul di sini
+                  </p>
                 </div>
               )}
             </div>

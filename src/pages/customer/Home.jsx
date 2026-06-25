@@ -1,4 +1,4 @@
-// ================= src/pages/customer/Home.jsx =================
+// src/pages/customer/Home.jsx
 import { useState, useRef, useEffect } from "react";
 import { Heart, ShoppingCart, ArrowRight } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -116,6 +116,21 @@ function Home() {
     loadCart();
   }, [currentUser?.id_pengguna]);
 
+  // ================= 🔥 UPDATE CART QUANTITY =================
+  const updateCartQuantity = async (itemId, newQty) => {
+    if (newQty < 1) return;
+    try {
+      await api.put(`/keranjang/${itemId}`, { jumlah: newQty });
+      const response = await api.get(
+        `/keranjang/pengguna/${currentUser.id_pengguna}`,
+      );
+      setCartItems(response.data.data.items || []);
+    } catch (error) {
+      console.error("Error updating quantity:", error);
+      alert(error.response?.data?.message || "Gagal update jumlah");
+    }
+  };
+
   // ================= FETCH PRODUCTS =================
   useEffect(() => {
     const fetchProducts = async () => {
@@ -125,7 +140,6 @@ function Home() {
         params.append("page", currentPage);
         params.append("limit", 12);
 
-        // 🔥 FILTER KATEGORI
         if (selectedCategory !== "Semua") {
           try {
             const categoryResponse = await api.get("/kategori");
@@ -137,46 +151,30 @@ function Home() {
             );
             if (category) {
               params.append("id_kategori", category.id_kategori);
-              console.log(
-                "🔍 Filter category:",
-                selectedCategory,
-                "ID:",
-                category.id_kategori,
-              );
-            } else {
-              console.warn("⚠️ Category not found:", selectedCategory);
             }
           } catch (catError) {
             console.warn("⚠️ Category API error:", catError);
           }
         }
 
-        // 🔥 SHOPPING MODE
         if (shoppingMode) {
           params.append("shopping_mode", shoppingMode);
-          console.log("🔍 Shopping mode applied:", shoppingMode);
         }
 
         if (search) params.append("q", search);
         if (filters.minPrice > 0) params.append("min_harga", filters.minPrice);
         if (filters.maxPrice > 0) params.append("max_harga", filters.maxPrice);
 
-        // 🔥 FILTER MEREK
         if (filters.brands && filters.brands.length > 0) {
           params.append("brands", filters.brands.join(","));
-          console.log("🔍 Filter brands:", filters.brands);
         }
 
-        // 🔥 FILTER RATING
         if (filters.ratings && filters.ratings.length > 0) {
           const minRating = Math.min(...filters.ratings);
           params.append("min_rating", minRating);
-          console.log("🔍 Filter min rating:", minRating);
         }
 
-        console.log("📡 Fetching with params:", params.toString());
         const response = await api.get(`/produk?${params.toString()}`);
-        console.log("🔍 API Response Home:", response.data);
 
         let productData = [];
         let paginationData = {
@@ -195,7 +193,6 @@ function Home() {
           productData = response.data;
         }
 
-        console.log("🔍 Products found:", productData.length);
         setProducts(productData);
         setPagination(paginationData);
       } catch (error) {
@@ -535,7 +532,11 @@ function Home() {
                       className="border rounded-3xl p-3 flex gap-3 bg-white"
                     >
                       <img
-                        src={item.url_gambar || item.image}
+                        src={
+                          item.url_gambar ||
+                          item.image ||
+                          "https://via.placeholder.com/100"
+                        }
                         alt={item.nama_produk || item.name}
                         className="w-24 h-24 rounded-2xl object-cover"
                       />
@@ -549,12 +550,39 @@ function Home() {
                             item.harga_produk || item.price,
                           ).toLocaleString("id-ID")}
                         </p>
-                        <p className="text-sm text-slate-500 mt-1">
-                          Qty: {item.jumlah || 1}
-                        </p>
+
+                        {/* 🔥 TOMBOL UPDATE QTY */}
+                        <div className="flex items-center gap-2 mt-2">
+                          <button
+                            onClick={() =>
+                              updateCartQuantity(
+                                item.id_keranjang,
+                                (item.jumlah || 1) - 1,
+                              )
+                            }
+                            className="w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-slate-100"
+                          >
+                            -
+                          </button>
+                          <span className="w-8 text-center font-bold">
+                            {item.jumlah || 1}
+                          </span>
+                          <button
+                            onClick={() =>
+                              updateCartQuantity(
+                                item.id_keranjang,
+                                (item.jumlah || 1) + 1,
+                              )
+                            }
+                            className="w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-slate-100"
+                          >
+                            +
+                          </button>
+                        </div>
+
                         <button
                           onClick={() => handleRemoveCart(item.id_keranjang)}
-                          className="mt-3 w-full h-10 rounded-xl bg-red-50 text-red-500 font-bold"
+                          className="mt-3 w-full h-10 rounded-xl bg-red-50 text-red-500 font-bold hover:bg-red-100"
                         >
                           Hapus
                         </button>

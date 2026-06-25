@@ -1,4 +1,4 @@
-// ================= src/pages/customer/ProductDetail.jsx =================
+// src/pages/customer/ProductDetail.jsx
 import {
   Star,
   Heart,
@@ -59,11 +59,12 @@ function ProductDetail() {
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch product
+  // ================= FETCH PRODUCT & REVIEWS =================
   useEffect(() => {
     const fetchProduct = async () => {
       setLoading(true);
       try {
+        // Fetch product
         const response = await api.get(`/produk/${id}`);
         const prod = response.data.data;
         setProduct(prod);
@@ -73,7 +74,6 @@ function ProductDetail() {
           try {
             const sellerRes = await api.get(`/toko/${prod.id_toko}`);
             setSeller(sellerRes.data.data);
-            // Cek follow status
             if (currentUser?.id_pengguna) {
               try {
                 const followRes = await api.get(
@@ -89,9 +89,25 @@ function ProductDetail() {
           }
         }
 
-        // Fetch reviews
-        const reviewRes = await api.get(`/ulasan/produk/${id}`);
-        setProductReviews(reviewRes.data.data.ulasan || []);
+        // ================= 🔥 FETCH REVIEWS =================
+        try {
+          const reviewRes = await api.get(`/ulasan/produk/${id}`);
+          console.log("🔍 Review response:", reviewRes.data);
+
+          let reviews = [];
+          if (reviewRes.data?.data?.ulasan) {
+            reviews = reviewRes.data.data.ulasan;
+          } else if (reviewRes.data?.data) {
+            reviews = reviewRes.data.data;
+          } else if (Array.isArray(reviewRes.data)) {
+            reviews = reviewRes.data;
+          }
+
+          setProductReviews(reviews);
+        } catch (reviewError) {
+          console.error("Error fetching reviews:", reviewError);
+          setProductReviews([]);
+        }
       } catch (error) {
         console.error("Error fetching product:", error);
       } finally {
@@ -124,7 +140,6 @@ function ProductDetail() {
         totalReviewCount
       : 0;
 
-  // ================= 🔥 FOLLOW TOKO =================
   const handleFollow = async () => {
     if (!currentUser) {
       alert("Silakan login terlebih dahulu");
@@ -154,7 +169,6 @@ function ProductDetail() {
     }
   };
 
-  // ================= 🔥 CHAT DENGAN PENJUAL =================
   const handleChat = () => {
     if (!currentUser) {
       alert("Silakan login terlebih dahulu");
@@ -165,11 +179,9 @@ function ProductDetail() {
       alert("Toko tidak memiliki data penjual");
       return;
     }
-    // 🔥 LANGSUNG KE CHAT DENGAN ID PENJUAL
     navigate(`/customer/chat/${seller.id_pengguna}`);
   };
 
-  // ================= 🔥 BUKA PROFIL TOKO =================
   const handleStoreProfile = () => {
     if (!seller?.id_toko) {
       alert("Toko tidak ditemukan");
@@ -178,7 +190,6 @@ function ProductDetail() {
     navigate(`/customer/store/${seller.id_toko}`);
   };
 
-  // ================= HANDLE CART =================
   const handleCart = async () => {
     if (!currentUser) {
       alert("Silakan login terlebih dahulu");
@@ -202,7 +213,6 @@ function ProductDetail() {
     }
   };
 
-  // ================= HANDLE BUY NOW =================
   const handleBuyNow = async () => {
     if (!currentUser) {
       alert("Silakan login terlebih dahulu");
@@ -224,7 +234,6 @@ function ProductDetail() {
     navigate("/customer/checkout");
   };
 
-  // ================= HANDLE WISHLIST =================
   const handleWishlist = async () => {
     if (!currentUser) {
       alert("Silakan login terlebih dahulu");
@@ -247,7 +256,6 @@ function ProductDetail() {
     }
   };
 
-  // ================= HANDLE REPORT =================
   const handleReport = () => {
     if (!reportReason.trim()) {
       alert("Alasan laporan wajib diisi");
@@ -314,7 +322,6 @@ function ProductDetail() {
       />
 
       <main className="max-w-[1200px] mx-auto px-4 py-6">
-        {/* BREADCRUMB */}
         <div className="text-xs text-slate-400 flex gap-2 mb-6">
           <span
             onClick={() => navigate("/customer")}
@@ -377,7 +384,6 @@ function ProductDetail() {
               Rp {Number(product.harga).toLocaleString("id-ID")}
             </h2>
 
-            {/* ================= 🔥 STORE SECTION ================= */}
             <div className="flex items-center justify-between border rounded-xl p-3 mt-6 shadow-sm">
               <div
                 onClick={handleStoreProfile}
@@ -395,7 +401,6 @@ function ProductDetail() {
               </div>
 
               <div className="flex gap-2">
-                {/* 🔥 FOLLOW BUTTON */}
                 <button
                   onClick={handleFollow}
                   className={`px-4 py-2 rounded-xl font-bold text-sm transition ${
@@ -406,8 +411,6 @@ function ProductDetail() {
                 >
                   {isFollowing ? "✓ Mengikuti" : "+ Ikuti"}
                 </button>
-
-                {/* 🔥 CHAT BUTTON */}
                 <button
                   onClick={handleChat}
                   className="px-4 py-2 rounded-xl bg-blue-600 text-white font-bold text-sm hover:bg-blue-700 transition flex items-center gap-1"
@@ -469,10 +472,12 @@ function ProductDetail() {
                 </div>
               )}
 
+              {/* ================= 🔥 TAB ULASAN (DIPERBAIKI) ================= */}
               {activeTab === "ulasan" && (
                 <div>
                   {totalReviewCount > 0 ? (
                     <div className="space-y-6">
+                      {/* Rating summary */}
                       <div>
                         <div className="flex items-center gap-4 mb-4">
                           <div className="flex items-center gap-2">
@@ -509,27 +514,34 @@ function ProductDetail() {
                           ))}
                         </div>
                       </div>
+
+                      {/* 🔥 LIST ULASAN */}
                       <div className="space-y-4">
-                        {productReviews.slice(0, 3).map((review) => (
+                        {productReviews.slice(0, 5).map((review) => (
                           <div
-                            key={review.id_ulasan}
-                            className="border rounded-xl p-4"
+                            key={review.id_ulasan || review.id}
+                            className="border rounded-xl p-4 hover:bg-slate-50 transition"
                           >
                             <div className="flex justify-between items-start">
                               <div className="flex-1">
                                 <div className="flex items-center gap-2">
+                                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm">
+                                    {review.pembeli_nama
+                                      ?.charAt(0)
+                                      ?.toUpperCase() || "U"}
+                                  </div>
                                   <h4 className="font-semibold text-sm">
                                     {review.pembeli_nama || "User"}
                                   </h4>
-                                  <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
-                                    ✓
+                                  <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">
+                                    ✓ TERVERIFIKASI
                                   </span>
                                 </div>
-                                <div className="flex gap-1 mt-1">
+                                <div className="flex gap-1 mt-2">
                                   {[...Array(5)].map((_, i) => (
                                     <Star
                                       key={i}
-                                      size={12}
+                                      size={14}
                                       className={
                                         i < Math.round(review.rating || 0)
                                           ? "fill-yellow-400 text-yellow-400"
@@ -538,29 +550,60 @@ function ProductDetail() {
                                     />
                                   ))}
                                 </div>
-                                <p className="text-slate-600 mt-2 text-xs">
-                                  {review.komentar || "-"}
+                                <p className="text-slate-700 mt-3 text-sm leading-relaxed">
+                                  {review.komentar || "Tidak ada komentar"}
                                 </p>
-                                <p className="text-slate-400 text-xs mt-2">
-                                  {review.date || "-"}
-                                </p>
+                                <div className="flex items-center gap-3 mt-3">
+                                  <p className="text-slate-400 text-xs">
+                                    {review.created_at
+                                      ? new Date(
+                                          review.created_at,
+                                        ).toLocaleDateString("id-ID", {
+                                          day: "numeric",
+                                          month: "long",
+                                          year: "numeric",
+                                        })
+                                      : review.date || "-"}
+                                  </p>
+                                  {review.rating && (
+                                    <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-bold">
+                                      ⭐ {review.rating.toFixed(1)}
+                                    </span>
+                                  )}
+                                </div>
+                                {review.foto_url && (
+                                  <img
+                                    src={review.foto_url}
+                                    alt="Review photo"
+                                    className="mt-3 w-20 h-20 rounded-xl object-cover border"
+                                  />
+                                )}
                               </div>
                             </div>
                           </div>
                         ))}
                       </div>
-                      {totalReviewCount > 3 && (
+
+                      {totalReviewCount > 5 && (
                         <button
                           type="button"
                           onClick={() => setShowReviewModal(true)}
-                          className="w-full py-4 rounded-3xl border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50"
+                          className="w-full py-4 rounded-3xl border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 transition"
                         >
-                          Lihat Semua Ulasan
+                          Lihat Semua Ulasan ({totalReviewCount})
                         </button>
                       )}
                     </div>
                   ) : (
-                    <p>Belum ada ulasan untuk produk ini</p>
+                    <div className="text-center py-10">
+                      <div className="text-5xl mb-4">📝</div>
+                      <h3 className="font-bold text-slate-700 text-lg">
+                        Belum Ada Ulasan
+                      </h3>
+                      <p className="text-slate-400 text-sm mt-2">
+                        Jadilah yang pertama memberikan ulasan untuk produk ini
+                      </p>
+                    </div>
                   )}
                 </div>
               )}

@@ -1,25 +1,14 @@
 import { useState } from "react";
 
-import {
-  Mail,
-  ArrowLeft,
-  CheckCircle2,
-  X,
-} from "lucide-react";
+import { Mail, ArrowLeft, CheckCircle2, X } from "lucide-react";
 
-function ForgotPassword({
-  setAuthModal,
-}) {
+function ForgotPassword({ setAuthModal }) {
+  const [email, setEmail] = useState("");
 
-  const [email, setEmail] =
-    useState("");
-
-  const [success, setSuccess] =
-    useState(false);
+  const [success, setSuccess] = useState(false);
 
   // ================= SEND RESET =================
   const handleReset = () => {
-
     if (!email) {
       alert("Masukkan email terlebih dahulu");
       return;
@@ -28,14 +17,11 @@ function ForgotPassword({
     setSuccess(true);
 
     setTimeout(() => {
-
       setSuccess(false);
-
     }, 3000);
   };
 
   return (
-
     <div
       className="
         fixed
@@ -49,10 +35,8 @@ function ForgotPassword({
         px-4
       "
     >
-
       {/* ================= SUCCESS ================= */}
       {success && (
-
         <div
           className="
             fixed
@@ -72,30 +56,16 @@ function ForgotPassword({
             animate-bounce
           "
         >
-
-          <CheckCircle2
-            className="text-green-500"
-            size={24}
-          />
+          <CheckCircle2 className="text-green-500" size={24} />
 
           <div>
-
             <h3 className="font-black text-slate-800 text-sm">
-
               Link Berhasil Dikirim
-
             </h3>
 
-            <p className="text-xs text-slate-500">
-
-              Silahkan cek email kamu
-
-            </p>
-
+            <p className="text-xs text-slate-500">Silahkan cek email kamu</p>
           </div>
-
         </div>
-
       )}
 
       {/* ================= CARD ================= */}
@@ -110,7 +80,6 @@ function ForgotPassword({
           overflow-hidden
         "
       >
-
         {/* TOP */}
         <div
           className="
@@ -123,12 +92,9 @@ function ForgotPassword({
             relative
           "
         >
-
           {/* CLOSE */}
           <button
-            onClick={() =>
-              setAuthModal(null)
-            }
+            onClick={() => setAuthModal(null)}
             className="
               absolute
               top-5
@@ -144,37 +110,21 @@ function ForgotPassword({
               justify-center
             "
           >
-
             <X size={18} />
-
           </button>
 
-          <h1 className="text-4xl font-black">
-
-            Forgot Password
-
-          </h1>
+          <h1 className="text-4xl font-black">Forgot Password</h1>
 
           <p className="mt-4 text-blue-100 leading-relaxed">
-
-            Masukkan email akunmu dan kami akan
-            mengirim link reset password.
-
+            Masukkan email akunmu dan kami akan mengirim link reset password.
           </p>
-
         </div>
 
         {/* BODY */}
         <div className="px-10 py-10">
-
           {/* EMAIL */}
           <div>
-
-            <label className="text-sm font-bold text-slate-700">
-
-              Email
-
-            </label>
+            <label className="text-sm font-bold text-slate-700">Email</label>
 
             <div
               className="
@@ -190,20 +140,12 @@ function ForgotPassword({
                 gap-3
               "
             >
-
-              <Mail
-                size={18}
-                className="text-slate-400"
-              />
+              <Mail size={18} className="text-slate-400" />
 
               <input
                 type="email"
                 value={email}
-                onChange={(e) =>
-                  setEmail(
-                    e.target.value
-                  )
-                }
+                onChange={(e) => setEmail(e.target.value)}
                 placeholder="Masukkan email"
                 className="
                   w-full
@@ -212,9 +154,7 @@ function ForgotPassword({
                   text-sm
                 "
               />
-
             </div>
-
           </div>
 
           {/* BUTTON */}
@@ -234,16 +174,12 @@ function ForgotPassword({
               shadow-lg
             "
           >
-
             Kirim Link Reset
-
           </button>
 
           {/* BACK */}
           <button
-            onClick={() =>
-              setAuthModal("login")
-            }
+            onClick={() => setAuthModal("login")}
             className="
               mt-7
               w-full
@@ -256,17 +192,11 @@ function ForgotPassword({
               text-sm
             "
           >
-
             <ArrowLeft size={16} />
-
             Kembali ke Login
-
           </button>
-
         </div>
-
       </div>
-
     </div>
   );
 }

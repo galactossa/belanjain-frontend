@@ -16,7 +16,7 @@ import { FaWhatsapp } from "react-icons/fa";
 import { MdOutlineAlternateEmail } from "react-icons/md";
 import { AnimatePresence, motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const Switch = ({ checked, onChange }) => (
   <button
@@ -65,6 +65,52 @@ function PengaturanModal({
 
   // ================= BLOCKED USERS STATE =================
   const [blockedUsers, setBlockedUsers] = useState([]);
+
+  // ================= 🔥 LOAD SETTINGS FROM LOCALSTORAGE =================
+  useEffect(() => {
+    // Load chat settings
+    const savedChat = localStorage.getItem("chatSettings");
+    if (savedChat) {
+      try {
+        const parsed = JSON.parse(savedChat);
+        setChatSettings(parsed);
+      } catch (e) {}
+    }
+
+    // Load notification settings
+    const savedNotif = localStorage.getItem("notifSettings");
+    if (savedNotif) {
+      try {
+        const parsed = JSON.parse(savedNotif);
+        setNotifSettings(parsed);
+      } catch (e) {}
+    }
+
+    // Load privacy settings
+    const savedPrivacy = localStorage.getItem("privacySettings");
+    if (savedPrivacy) {
+      try {
+        const parsed = JSON.parse(savedPrivacy);
+        setPrivacySettings(parsed);
+      } catch (e) {}
+    }
+  }, []);
+
+  // ================= 🔥 SAVE SETTINGS TO LOCALSTORAGE =================
+  const saveChatSettings = () => {
+    localStorage.setItem("chatSettings", JSON.stringify(chatSettings));
+    setActiveModal(null);
+  };
+
+  const saveNotifSettings = () => {
+    localStorage.setItem("notifSettings", JSON.stringify(notifSettings));
+    setActiveModal(null);
+  };
+
+  const savePrivacySettings = () => {
+    localStorage.setItem("privacySettings", JSON.stringify(privacySettings));
+    setActiveModal(null);
+  };
 
   if (!activeModal) {
     return null;
@@ -261,7 +307,7 @@ function PengaturanModal({
               </div>
 
               <button
-                onClick={() => setActiveModal(null)}
+                onClick={saveChatSettings}
                 className="w-full h-14 rounded-2xl bg-blue-600 text-white font-black tracking-wide hover:bg-blue-700 duration-300"
               >
                 {currentText.saveChat}
@@ -352,7 +398,7 @@ function PengaturanModal({
               </div>
 
               <button
-                onClick={() => setActiveModal(null)}
+                onClick={saveNotifSettings}
                 className="w-full h-14 rounded-2xl bg-slate-950 text-white font-black tracking-wider hover:bg-black duration-300"
               >
                 {currentText.savePreferences}
@@ -443,7 +489,7 @@ function PengaturanModal({
               </div>
 
               <button
-                onClick={() => setActiveModal(null)}
+                onClick={savePrivacySettings}
                 className="w-full h-14 rounded-2xl bg-blue-600 text-white font-black text-lg tracking-wide hover:bg-blue-700 duration-300"
               >
                 {currentText.savePrivacy}

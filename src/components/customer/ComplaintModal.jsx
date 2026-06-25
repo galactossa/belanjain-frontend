@@ -23,18 +23,30 @@ export default function ComplaintModal({ show, onClose, order, onSubmit }) {
   };
 
   const handleSubmit = () => {
+    if (!reason) {
+      alert("Pilih alasan komplain terlebih dahulu");
+      return;
+    }
+    if (!details.trim()) {
+      alert("Tuliskan detail keluhan Anda");
+      return;
+    }
+
+    // 🔥 AMBIL ID PRODUK PERTAMA
+    const productId = productOptions.length > 0 ? productOptions[0].id : 1;
+
     const payload = {
       orderId: order.id,
-      product: selectedProduct,
-      reason,
-      details,
-      solution,
+      order: order,
+      productId: productId,
+      reason: reason,
+      details: details,
+      solution: solution,
       files: files.map((f) => f.name),
       date: new Date().toISOString(),
     };
 
     if (onSubmit) onSubmit(payload);
-    onClose();
   };
 
   return (
@@ -136,13 +148,21 @@ export default function ComplaintModal({ show, onClose, order, onSubmit }) {
             <div className="flex gap-3">
               <button
                 onClick={() => setSolution("refund")}
-                className={`flex-1 p-3 rounded-lg border ${solution === "refund" ? "bg-pink-50 border-pink-400 text-pink-600" : "bg-white"}`}
+                className={`flex-1 p-3 rounded-lg border ${
+                  solution === "refund"
+                    ? "bg-pink-50 border-pink-400 text-pink-600"
+                    : "bg-white"
+                }`}
               >
                 REFUND DANA
               </button>
               <button
                 onClick={() => setSolution("exchange")}
-                className={`flex-1 p-3 rounded-lg border ${solution === "exchange" ? "bg-pink-50 border-pink-400 text-pink-600" : "bg-white"}`}
+                className={`flex-1 p-3 rounded-lg border ${
+                  solution === "exchange"
+                    ? "bg-pink-50 border-pink-400 text-pink-600"
+                    : "bg-white"
+                }`}
               >
                 TUKAR BARANG BARU
               </button>

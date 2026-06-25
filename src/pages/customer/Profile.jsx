@@ -135,15 +135,20 @@ function Profile() {
       );
 
       console.log("Upload response:", response.data);
-      const imageUrl = response.data.data.url_foto;
-      console.log("Image URL:", imageUrl);
+      // Support different response shapes; prefer data.url_foto
+      const imageUrl =
+        response.data?.data?.url_foto || response.data?.data || null;
+
+      if (!imageUrl) {
+        alert("Upload berhasil tapi URL gambar tidak ditemukan pada response");
+        return;
+      }
 
       const updatedUser = { ...currentUser, url_foto: imageUrl };
       localStorage.setItem("currentUser", JSON.stringify(updatedUser));
       setUser({ ...user, url_foto: imageUrl });
 
       alert("Foto profil berhasil diupload!");
-      window.location.reload();
     } catch (error) {
       console.error("Error uploading photo:", error);
       alert(error.response?.data?.message || "Gagal upload foto");
@@ -152,20 +157,26 @@ function Profile() {
 
   // ================= REDEEM VOUCHER =================
   const redeemVoucher = async (voucher) => {
-    if (points < voucher.pointCost) {
+    const userId = currentUser?.id_pengguna || currentUser?.id;
+    const needed = voucher.pointCost || voucher.point_cost || voucher.poin_cost;
+
+    if (!needed) {
+      alert("Voucher ini tidak tersedia untuk ditukar dengan poin!");
+      return;
+    }
+
+    if (points < needed) {
       alert("Poin tidak cukup!");
       return;
     }
 
     try {
       await api.put("/loyalty/points/redeem", {
-        id_pengguna: currentUser.id,
-        poin_dipakai: voucher.pointCost,
+        id_pengguna: userId,
+        poin_dipakai: needed,
       });
 
-      const pointsRes = await api.get(
-        `/loyalty/points/pengguna/${currentUser.id}`,
-      );
+      const pointsRes = await api.get(`/loyalty/points/pengguna/${userId}`);
       const newPoints = pointsRes.data.data.total_points || 0;
       setPoints(newPoints);
 

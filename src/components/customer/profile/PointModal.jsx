@@ -2,16 +2,24 @@ import { X, Trophy, Coins, Clock3, Plus } from "lucide-react";
 import { useState, useEffect } from "react";
 import api from "../../../api/api";
 
-function PointModal({ show, onClose, points, history, redeemVoucher }) {
+function PointModal({
+  show,
+  onClose,
+  points,
+  history: initialHistory,
+  redeemVoucher,
+}) {
   const [globalVouchers, setGlobalVouchers] = useState([]);
+  const [history, setHistory] = useState(initialHistory || []);
   const [loading, setLoading] = useState(false);
   const [redeemingVoucherId, setRedeemingVoucherId] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
   const currentUser = JSON.parse(localStorage.getItem("currentUser"));
 
-  // Fetch vouchers from API
+  // ================= FETCH VOUCHERS =================
   useEffect(() => {
     const fetchVouchers = async () => {
+      if (!show) return;
       try {
         const response = await api.get("/voucher");
         setGlobalVouchers(response.data.data || []);
@@ -19,36 +27,78 @@ function PointModal({ show, onClose, points, history, redeemVoucher }) {
         console.error("Error fetching vouchers:", error);
       }
     };
-    if (show) fetchVouchers();
+    fetchVouchers();
   }, [show]);
 
+  // ================= FETCH HISTORY =================
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (!show || !currentUser?.id_pengguna) return;
+      try {
+        const response = await api.get(
+          `/loyalty/history/${currentUser.id_pengguna}`,
+        );
+        setHistory(response.data.data || []);
+      } catch (error) {
+        console.error("Error fetching history:", error);
+      }
+    };
+    fetchHistory();
+  }, [show, currentUser?.id_pengguna]);
+
+  // ================= 🔥 REDEEM VOUCHER =================
   const handleRedeem = async (voucher) => {
+    // Cek poin cukup
     if (points < voucher.pointCost) {
-      setErrorMessage("Poin tidak cukup untuk menukar voucher.");
+      setErrorMessage(
+        `Poin tidak cukup. Butuh ${voucher.pointCost} poin, kamu punya ${points} poin.`,
+      );
       return;
     }
 
-    setRedeemingVoucherId(voucher.id);
+    setRedeemingVoucherId(voucher.id_voucher);
     setErrorMessage("");
 
     try {
-      await api.put("/loyalty/points/redeem", {
-        id_pengguna: currentUser.id,
+      const userId = currentUser?.id_pengguna || currentUser?.id;
+
+      // 🔥 Panggil API redeem
+      const response = await api.put("/loyalty/points/redeem", {
+        id_pengguna: userId,
         poin_dipakai: voucher.pointCost,
       });
 
-      // Refresh points
-      const response = await api.get(
-        `/loyalty/points/pengguna/${currentUser.id}`,
-      );
-      // Update parent state via callback
-      if (redeemVoucher) redeemVoucher(voucher);
+      console.log("✅ Redeem response:", response.data);
 
-      setErrorMessage("Voucher berhasil ditukar!");
+      // 🔥 Refresh points via callback
+      if (redeemVoucher) {
+        await redeemVoucher(voucher);
+      }
+
+      // 🔥 Refresh history
+      const historyRes = await api.get(`/loyalty/history/${userId}`);
+      setHistory(historyRes.data.data || []);
+
+      // 🔥 Refresh global vouchers
+      const voucherRes = await api.get("/voucher");
+      setGlobalVouchers(voucherRes.data.data || []);
+
+      setErrorMessage("✅ Voucher berhasil ditukar!");
       setTimeout(() => setErrorMessage(""), 3000);
     } catch (error) {
-      console.error("Error redeeming voucher:", error);
-      setErrorMessage(error.response?.data?.message || "Gagal menukar voucher");
+      console.error("❌ Error redeeming voucher:", error);
+      console.error("❌ Error response:", error.response?.data);
+
+      // 🔥 Tampilkan pesan error yang lebih jelas
+      const errorMsg = error.response?.data?.message || "Gagal menukar voucher";
+      if (
+        errorMsg.includes("poin tidak mencukupi") ||
+        errorMsg.includes("Poin tidak mencukupi")
+      ) {
+        setErrorMessage(`Poin tidak cukup untuk menukar voucher ini.`);
+      } else {
+        setErrorMessage(errorMsg);
+      }
     } finally {
       setRedeemingVoucherId(null);
     }
@@ -104,56 +154,71 @@ function PointModal({ show, onClose, points, history, redeemVoucher }) {
 
           {errorMessage && (
             <div
-              className={`mb-4 rounded-2xl p-4 text-sm ${errorMessage.includes("berhasil") ? "bg-green-50 border border-green-200 text-green-700" : "bg-red-50 border border-red-200 text-red-700"}`}
+              className={`mb-4 rounded-2xl p-4 text-sm ${
+                errorMessage.includes("berhasil") || errorMessage.includes("✅")
+                  ? "bg-green-50 border border-green-200 text-green-700"
+                  : "bg-red-50 border border-red-200 text-red-700"
+              }`}
             >
               {errorMessage}
             </div>
           )}
 
           <div className="grid md:grid-cols-3 gap-5">
-            {globalVouchers.map((voucher) => {
-              const isRedeeming = redeemingVoucherId === voucher.id;
-              const canRedeem = points >= voucher.pointCost;
+            {globalVouchers.length === 0 ? (
+              <div className="col-span-3 text-center py-10 text-slate-400">
+                <p className="font-semibold">Belum ada voucher tersedia</p>
+                <p className="text-sm mt-1">
+                  Kumpulkan poin dan cek kembali nanti
+                </p>
+              </div>
+            ) : (
+              globalVouchers.map((voucher) => {
+                const isRedeeming = redeemingVoucherId === voucher.id_voucher;
+                const canRedeem = points >= voucher.pointCost;
 
-              return (
-                <div
-                  key={voucher.id_voucher}
-                  className="bg-white rounded-3xl border p-5 shadow-sm"
-                >
-                  <img
-                    src={voucher.image || "https://via.placeholder.com/300"}
-                    alt={voucher.kode}
-                    className="w-full h-36 rounded-2xl object-cover mb-4"
-                  />
-                  <h4 className="font-black">{voucher.kode}</h4>
-                  <p className="text-sm text-slate-500 min-h-[50px]">
-                    {voucher.tipe_diskon === "persen"
-                      ? `Diskon ${voucher.nilai_diskon}%`
-                      : `Potongan Rp ${Number(voucher.nilai_diskon).toLocaleString("id-ID")}`}
-                  </p>
-                  <div className="text-orange-500 font-bold mt-4">
-                    {voucher.pointCost} Poin
-                  </div>
-                  <button
-                    onClick={() => handleRedeem(voucher)}
-                    disabled={!canRedeem || isRedeeming}
-                    className={`w-full h-11 rounded-xl mt-4 text-sm font-bold transition ${
-                      isRedeeming
-                        ? "bg-blue-400 text-white cursor-wait"
-                        : canRedeem
-                          ? "bg-slate-900 text-white hover:bg-black"
-                          : "bg-slate-200 text-slate-400 cursor-not-allowed"
-                    }`}
+                return (
+                  <div
+                    key={voucher.id_voucher}
+                    className="bg-white rounded-3xl border p-5 shadow-sm hover:shadow-md transition"
                   >
-                    {isRedeeming
-                      ? "MEMPROSES..."
-                      : canRedeem
-                        ? "TUKARKAN"
-                        : "POIN KURANG"}
-                  </button>
-                </div>
-              );
-            })}
+                    <img
+                      src={voucher.image || "https://via.placeholder.com/300"}
+                      alt={voucher.kode}
+                      className="w-full h-36 rounded-2xl object-cover mb-4"
+                    />
+                    <h4 className="font-black text-slate-800">
+                      {voucher.kode}
+                    </h4>
+                    <p className="text-sm text-slate-500 min-h-[50px]">
+                      {voucher.tipe_diskon === "persen"
+                        ? `Diskon ${voucher.nilai_diskon}%`
+                        : `Potongan Rp ${Number(voucher.nilai_diskon).toLocaleString("id-ID")}`}
+                    </p>
+                    <div className="text-orange-500 font-bold mt-2">
+                      {voucher.pointCost} Poin
+                    </div>
+                    <button
+                      onClick={() => handleRedeem(voucher)}
+                      disabled={!canRedeem || isRedeeming}
+                      className={`w-full h-11 rounded-xl mt-4 text-sm font-bold transition ${
+                        isRedeeming
+                          ? "bg-blue-400 text-white cursor-wait"
+                          : canRedeem
+                            ? "bg-slate-900 text-white hover:bg-black"
+                            : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                      }`}
+                    >
+                      {isRedeeming
+                        ? "MEMPROSES..."
+                        : canRedeem
+                          ? "TUKARKAN"
+                          : `BUTUH ${voucher.pointCost - points} POIN LAGI`}
+                    </button>
+                  </div>
+                );
+              })
+            )}
           </div>
 
           {/* HISTORY */}
@@ -164,30 +229,57 @@ function PointModal({ show, onClose, points, history, redeemVoucher }) {
             {history.length > 0 ? (
               history.map((item, index) => (
                 <div
-                  key={index}
+                  key={item.id_loyalty || index}
                   className="px-6 py-5 border-b last:border-b-0 flex justify-between items-center"
                 >
                   <div className="flex gap-4">
                     <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center ${item.type === "plus" ? "bg-green-100" : "bg-red-100"}`}
+                      className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                        item.poin > 0 ? "bg-green-100" : "bg-red-100"
+                      }`}
                     >
-                      {item.type === "plus" ? (
+                      {item.poin > 0 ? (
                         <Plus size={18} className="text-green-600" />
                       ) : (
                         <X size={16} className="text-red-500" />
                       )}
                     </div>
                     <div>
-                      <p className="font-semibold">{item.title}</p>
+                      <p className="font-semibold text-slate-800">
+                        {item.sumber === "pembelian"
+                          ? "🛒 Pembelian Produk"
+                          : item.sumber === "redeem"
+                            ? "🎁 Redeem Voucher"
+                            : item.sumber === "topup"
+                              ? "💰 Topup Saldo"
+                              : item.sumber || "Aktivitas"}
+                      </p>
                       <div className="flex items-center gap-1 text-xs text-slate-400">
-                        <Clock3 size={12} /> {item.date || "-"}
+                        <Clock3 size={12} />
+                        {item.created_at
+                          ? new Date(item.created_at).toLocaleDateString(
+                              "id-ID",
+                              {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              },
+                            )
+                          : "-"}
                       </div>
+                      {item.id_referensi && (
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          Referensi: #{item.id_referensi}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div
-                    className={`font-bold ${item.type === "plus" ? "text-green-600" : "text-red-500"}`}
+                    className={`font-bold ${item.poin > 0 ? "text-green-600" : "text-red-500"}`}
                   >
-                    {item.point}
+                    {item.poin > 0 ? `+${item.poin}` : item.poin}
                   </div>
                 </div>
               ))
