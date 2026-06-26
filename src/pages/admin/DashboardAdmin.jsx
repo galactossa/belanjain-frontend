@@ -62,13 +62,6 @@ function DashboardAdmin() {
   const [topProducts, setTopProducts] = useState([]);
   const [orderStatusData, setOrderStatusData] = useState([]);
   const [recentActivities, setRecentActivities] = useState([]);
-  const [trendAnalysis, setTrendAnalysis] = useState({
-    trend: "stabil",
-    persentase: 0,
-    arah: "➡️",
-    warna: "text-slate-500",
-    deskripsi: "Belum cukup data",
-  });
 
   // ================= FETCH DATA =================
   useEffect(() => {
@@ -96,88 +89,154 @@ function DashboardAdmin() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // ================= STATISTIK ADMIN =================
-        const statsRes = await api.get("/statistik/admin");
-        console.log("📊 Stats response:", statsRes.data);
-        const statsData = statsRes.data.data || {};
+        // ================= 1. STATISTIK ADMIN =================
+        try {
+          const statsRes = await api.get("/statistik/admin");
+          console.log("📊 Stats response:", statsRes.data);
+          const statsData = statsRes.data.data || {};
 
-        setStats({
-          jumlah_user: statsData.jumlah_user || 0,
-          jumlah_penjual: statsData.jumlah_penjual || 0,
-          jumlah_produk: statsData.jumlah_produk || 0,
-          jumlah_pesanan: statsData.jumlah_pesanan || 0,
-          total_transaksi: statsData.total_transaksi || 0,
-          pesanan_menunggu: statsData.pesanan_menunggu || 0,
-          pesanan_selesai: statsData.pesanan_selesai || 0,
-          rata_rata_rating: statsData.rata_rata_rating || 0,
-        });
-
-        // ================= USERS =================
-        const usersRes = await api.get("/pengguna?limit=5");
-        const usersData = usersRes.data.data.data || [];
-        setUsers(
-          usersData
-            .filter((user) => user.role !== "admin")
-            .slice(0, 4)
-            .map((user) => ({
-              id: user.id_pengguna,
-              name: user.nama || "User",
-              role:
-                user.role === "pembeli"
-                  ? "PEMBELI"
-                  : user.role === "penjual"
-                    ? "PENJUAL"
-                    : user.role?.toUpperCase() || "USER",
-              letter: (user.nama || "U").charAt(0).toUpperCase(),
-              aktif: user.aktif,
-            })),
-        );
-
-        // ================= REPORTS =================
-        const reportsRes = await api.get("/laporan?limit=3");
-        const reportsData = reportsRes.data.data.data || [];
-        setReports(reportsData);
-
-        // ================= MONTHLY REVENUE =================
-        const ordersRes = await api.get("/pesanan");
-        const orders = ordersRes.data.data || [];
-
-        const monthlySales = {};
-        const now = new Date();
-        for (let i = 0; i < 6; i++) {
-          const month = new Date(now.getFullYear(), now.getMonth() - i, 1);
-          const key = month.toLocaleString("id-ID", {
-            month: "short",
-            year: "numeric",
+          setStats({
+            jumlah_user: statsData.jumlah_user || 0,
+            jumlah_penjual: statsData.jumlah_penjual || 0,
+            jumlah_produk: statsData.jumlah_produk || 0,
+            jumlah_pesanan: statsData.jumlah_pesanan || 0,
+            total_transaksi: statsData.total_transaksi || 0,
+            pesanan_menunggu: statsData.pesanan_menunggu || 0,
+            pesanan_selesai: statsData.pesanan_selesai || 0,
+            rata_rata_rating: statsData.rata_rata_rating || 0,
           });
-          monthlySales[key] = 0;
+        } catch (err) {
+          console.error("❌ Gagal fetch statistik:", err);
         }
 
-        orders.forEach((order) => {
-          if (order.status === "selesai") {
-            const date = new Date(order.created_at);
-            const key = date.toLocaleString("id-ID", {
+        // ================= 2. USERS =================
+        try {
+          const usersRes = await api.get("/pengguna?limit=5");
+          const usersData = usersRes.data.data.data || [];
+          setUsers(
+            usersData
+              .filter((user) => user.role !== "admin")
+              .slice(0, 4)
+              .map((user) => ({
+                id: user.id_pengguna,
+                name: user.nama || "User",
+                role:
+                  user.role === "pembeli"
+                    ? "PEMBELI"
+                    : user.role === "penjual"
+                      ? "PENJUAL"
+                      : "USER",
+                letter: (user.nama || "U").charAt(0).toUpperCase(),
+                aktif: user.aktif,
+              })),
+          );
+        } catch (err) {
+          console.warn("⚠️ Gagal fetch users:", err);
+        }
+
+        // ================= 3. REPORTS =================
+        try {
+          const reportsRes = await api.get("/laporan?limit=3");
+          const reportsData = reportsRes.data.data.data || [];
+          setReports(reportsData);
+        } catch (err) {
+          console.warn("⚠️ Gagal fetch reports:", err);
+          setReports([]);
+        }
+
+        // ================= 4. ORDERS =================
+        try {
+          const ordersRes = await api.get("/pesanan");
+          console.log("📦 Orders response FULL:", ordersRes.data);
+
+          let orders = [];
+          if (ordersRes.data?.data) {
+            orders = ordersRes.data.data;
+          } else if (Array.isArray(ordersRes.data)) {
+            orders = ordersRes.data;
+          }
+          console.log("📦 Orders processed:", orders.length, "orders");
+
+          // 🔥 MONTHLY REVENUE
+          const monthlySales = {};
+          const now = new Date();
+          for (let i = 0; i < 6; i++) {
+            const month = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const key = month.toLocaleString("id-ID", {
               month: "short",
               year: "numeric",
             });
-            if (monthlySales[key] !== undefined) {
-              monthlySales[key] += Number(order.harga_akhir || 0);
-            }
+            monthlySales[key] = 0;
           }
-        });
 
-        const monthlyArray = Object.keys(monthlySales)
-          .map((key) => ({
-            bulan: key,
-            total: monthlySales[key],
-          }))
-          .reverse();
-        setMonthlyRevenue(monthlyArray);
+          orders.forEach((order) => {
+            if (order.status === "selesai") {
+              const date = new Date(order.created_at);
+              const key = date.toLocaleString("id-ID", {
+                month: "short",
+                year: "numeric",
+              });
+              if (monthlySales[key] !== undefined) {
+                monthlySales[key] += Number(order.harga_akhir || 0);
+              }
+            }
+          });
 
-        // ================= TOP PRODUCTS =================
+          const monthlyArray = Object.keys(monthlySales)
+            .map((key) => ({ bulan: key, total: monthlySales[key] }))
+            .reverse();
+          console.log("📊 Monthly revenue:", monthlyArray);
+          setMonthlyRevenue(monthlyArray);
+
+          // 🔥 ORDER STATUS
+          const statusCount = {};
+          orders.forEach((order) => {
+            const status = order.status || "menunggu";
+            statusCount[status] = (statusCount[status] || 0) + 1;
+          });
+          const statusData = Object.keys(statusCount).map((key) => ({
+            name: key.charAt(0).toUpperCase() + key.slice(1),
+            value: statusCount[key],
+          }));
+          console.log("📊 Order status:", statusData);
+          setOrderStatusData(statusData);
+
+          // 🔥 RECENT ACTIVITIES
+          const recent = orders
+            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+            .slice(0, 5)
+            .map((order) => ({
+              id: order.id_pesanan,
+              customer: order.nama_penerima || "Customer",
+              status: order.status || "Menunggu",
+              total: order.harga_akhir || 0,
+              date: new Date(order.created_at).toLocaleDateString("id-ID", {
+                day: "numeric",
+                month: "short",
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+            }));
+          console.log("🕐 Recent activities:", recent);
+          setRecentActivities(recent);
+        } catch (err) {
+          console.error("❌ Error fetching orders:", err);
+        }
+
+        // ================= 5. TOP PRODUCTS =================
         try {
           const topProductsRes = await api.get("/produk?limit=100");
-          const products = topProductsRes.data.data.data || [];
+          console.log("🏆 Top products response:", topProductsRes.data);
+
+          let products = [];
+          if (topProductsRes.data?.data?.data) {
+            products = topProductsRes.data.data.data;
+          } else if (topProductsRes.data?.data) {
+            products = topProductsRes.data.data;
+          } else if (Array.isArray(topProductsRes.data)) {
+            products = topProductsRes.data;
+          }
+
           const sorted = [...products]
             .sort((a, b) => (b.total_terjual || 0) - (a.total_terjual || 0))
             .slice(0, 5)
@@ -185,43 +244,14 @@ function DashboardAdmin() {
               name: p.nama_produk || "Produk",
               terjual: p.total_terjual || 0,
             }));
+          console.log("🏆 Top products sorted:", sorted);
           setTopProducts(sorted);
-        } catch (error) {
+        } catch (err) {
+          console.warn("⚠️ Gagal fetch top products:", err);
           setTopProducts([]);
         }
-
-        // ================= ORDER STATUS =================
-        const statusCount = {};
-        orders.forEach((order) => {
-          const status = order.status || "menunggu";
-          statusCount[status] = (statusCount[status] || 0) + 1;
-        });
-
-        const statusData = Object.keys(statusCount).map((key) => ({
-          name: key.charAt(0).toUpperCase() + key.slice(1),
-          value: statusCount[key],
-        }));
-        setOrderStatusData(statusData);
-
-        // ================= RECENT ACTIVITIES =================
-        const recent = orders
-          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-          .slice(0, 5)
-          .map((order) => ({
-            id: order.id_pesanan,
-            customer: order.nama_penerima || "Customer",
-            status: order.status || "Menunggu",
-            total: order.harga_akhir || 0,
-            date: new Date(order.created_at).toLocaleDateString("id-ID", {
-              day: "numeric",
-              month: "short",
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-          }));
-        setRecentActivities(recent);
-      } catch (error) {
-        console.error("❌ Error fetching admin data:", error);
+      } catch (err) {
+        console.error("❌ Error fetching admin data:", err);
       } finally {
         setLoading(false);
       }
@@ -247,9 +277,43 @@ function DashboardAdmin() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // ================= DOWNLOAD =================
+  const downloadExcel = () => {
+    const content = `LAPORAN BELANJAIN
+TOTAL USER : ${stats.jumlah_user}
+TOTAL PENJUAL : ${stats.jumlah_penjual}
+TOTAL PRODUK : ${stats.jumlah_produk}
+TOTAL PESANAN : ${stats.jumlah_pesanan}
+TOTAL PENDAPATAN : Rp ${stats.total_transaksi.toLocaleString("id-ID")}`;
+    const blob = new Blob([content], { type: "application/vnd.ms-excel" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `laporan-belanjain-${new Date().toISOString().split("T")[0]}.xls`;
+    link.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const downloadPDF = () => {
+    const content = `RINGKASAN PDF BELANJAIN
+TOTAL USER : ${stats.jumlah_user}
+TOTAL PENJUAL : ${stats.jumlah_penjual}
+TOTAL PRODUK : ${stats.jumlah_produk}
+TOTAL PESANAN : ${stats.jumlah_pesanan}
+TOTAL PENDAPATAN : Rp ${stats.total_transaksi.toLocaleString("id-ID")}`;
+    const blob = new Blob([content], { type: "application/pdf" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `ringkasan-belanjain-${new Date().toISOString().split("T")[0]}.pdf`;
+    link.click();
+    window.URL.revokeObjectURL(url);
+  };
+
   // ================= HELPERS =================
   const formatPrice = (value) => {
-    return `Rp ${Number(value || 0).toLocaleString("id-ID")}`;
+    if (!value || value === 0) return "Rp 0";
+    return `Rp ${Number(value).toLocaleString("id-ID")}`;
   };
 
   const getStatusColor = (status) => {
@@ -263,9 +327,10 @@ function DashboardAdmin() {
     return "bg-slate-100 text-slate-700";
   };
 
-  // ================= RENDER FUNCTIONS =================
+  // ================= RENDER CHARTS =================
   const renderRevenueChart = () => {
     if (
+      !monthlyRevenue ||
       monthlyRevenue.length === 0 ||
       monthlyRevenue.every((d) => d.total === 0)
     ) {
@@ -279,8 +344,6 @@ function DashboardAdmin() {
         </div>
       );
     }
-
-    const maxValue = Math.max(...monthlyRevenue.map((d) => d.total), 1);
 
     return (
       <ResponsiveContainer width="100%" height={250}>
@@ -306,7 +369,11 @@ function DashboardAdmin() {
   };
 
   const renderTopProductsChart = () => {
-    if (topProducts.length === 0 || topProducts.every((p) => p.terjual === 0)) {
+    if (
+      !topProducts ||
+      topProducts.length === 0 ||
+      topProducts.every((p) => p.terjual === 0)
+    ) {
       return (
         <div className="text-center text-slate-400 py-8">
           <div className="text-3xl mb-2">🏪</div>
@@ -314,7 +381,6 @@ function DashboardAdmin() {
         </div>
       );
     }
-
     return (
       <ResponsiveContainer width="100%" height={200}>
         <BarChart data={topProducts} layout="vertical" margin={{ left: 60 }}>
@@ -334,14 +400,13 @@ function DashboardAdmin() {
   };
 
   const renderPieChart = () => {
-    if (orderStatusData.length === 0) {
+    if (!orderStatusData || orderStatusData.length === 0) {
       return (
         <div className="text-center text-slate-400 py-4">
           <p className="font-semibold">Tidak ada data status</p>
         </div>
       );
     }
-
     return (
       <ResponsiveContainer width="100%" height={160}>
         <PieChart>
@@ -379,7 +444,6 @@ function DashboardAdmin() {
     );
   }
 
-  // ================= STATS CARDS =================
   const statsCards = [
     {
       title: "Total User",
@@ -408,7 +472,9 @@ function DashboardAdmin() {
     },
     {
       title: "Rating",
-      value: `⭐ ${(stats.rata_rata_rating || 0).toFixed(1)}`,
+      value: stats.rata_rata_rating
+        ? `⭐ ${Number(stats.rata_rata_rating).toFixed(1)}`
+        : "⭐ 0",
       icon: <Star size={22} />,
     },
   ];
@@ -509,7 +575,6 @@ function DashboardAdmin() {
             </p>
             {renderRevenueChart()}
           </div>
-
           <div className="col-span-12 xl:col-span-4 bg-white rounded-[34px] border p-6 shadow-sm">
             <h2 className="text-[18px] font-black text-slate-900 mb-4">
               📊 Status Pesanan
@@ -554,7 +619,6 @@ function DashboardAdmin() {
             </div>
             {renderTopProductsChart()}
           </div>
-
           <div className="col-span-12 xl:col-span-4 bg-white rounded-[34px] border p-6 shadow-sm">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-[18px] font-black text-slate-900">
@@ -567,7 +631,7 @@ function DashboardAdmin() {
                 LIHAT SEMUA
               </button>
             </div>
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 max-h-[250px] overflow-y-auto pr-1">
               {users.length === 0 ? (
                 <div className="text-center text-slate-400 py-4">
                   Belum ada user
@@ -575,31 +639,30 @@ function DashboardAdmin() {
               ) : (
                 users.map((user, index) => (
                   <div
-                    key={index}
-                    className="bg-[#f8fafc] rounded-[22px] p-3 flex items-center justify-between"
+                    key={user.id || index}
+                    className="bg-[#f8fafc] rounded-[22px] p-3 flex items-center justify-between hover:bg-slate-100 transition"
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-2xl bg-[#edf3ff] flex items-center justify-center text-blue-600 font-black text-sm">
-                        {user.letter}
+                        {user.letter || "U"}
                       </div>
                       <div>
-                        <h3 className="font-black text-[13px] text-slate-900">
-                          {user.name}
+                        <h3 className="font-black text-[13px] text-slate-900 truncate max-w-[120px]">
+                          {user.name || "User"}
                         </h3>
                         <p className="text-[10px] font-bold text-slate-400 mt-0.5">
-                          {user.role}
+                          {user.role || "USER"}
                         </p>
                       </div>
                     </div>
                     <div
-                      className={`w-2 h-2 rounded-full ${user.aktif !== false ? "bg-emerald-500" : "bg-red-500"}`}
+                      className={`w-2.5 h-2.5 rounded-full ${user.aktif !== false ? "bg-emerald-500" : "bg-red-500"}`}
                     />
                   </div>
                 ))
               )}
             </div>
           </div>
-
           <div className="col-span-12 xl:col-span-4 bg-white rounded-[34px] border p-6 shadow-sm">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-[18px] font-black text-slate-900">
@@ -612,37 +675,39 @@ function DashboardAdmin() {
                 LIHAT SEMUA
               </button>
             </div>
-            {reports.length === 0 ? (
-              <div className="text-center text-slate-400 py-4">
-                Belum ada laporan
-              </div>
-            ) : (
-              reports.slice(0, 3).map((report, index) => (
-                <div
-                  key={index}
-                  className="bg-[#f8fafc] rounded-[22px] p-3 flex items-center justify-between border"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center text-[18px] font-black">
-                      !
-                    </div>
-                    <div>
-                      <h3 className="font-black text-slate-900 text-[12px] uppercase truncate max-w-[120px]">
-                        {report.alasan?.substring(0, 25) || "Laporan"}
-                      </h3>
-                      <p className="text-[10px] font-black text-slate-400 mt-0.5">
-                        Status: {report.status || "Menunggu"}
-                      </p>
-                    </div>
-                  </div>
-                  <div
-                    className={`px-2 py-1 rounded-xl text-[9px] font-black ${getStatusColor(report.status)}`}
-                  >
-                    {report.status || "MENUNGGU"}
-                  </div>
+            <div className="flex flex-col gap-3 max-h-[250px] overflow-y-auto pr-1">
+              {reports.length === 0 ? (
+                <div className="text-center text-slate-400 py-4">
+                  Belum ada laporan
                 </div>
-              ))
-            )}
+              ) : (
+                reports.slice(0, 3).map((report, index) => (
+                  <div
+                    key={report.id_laporan || index}
+                    className="bg-[#f8fafc] rounded-[22px] p-3 flex items-center justify-between border border-slate-200 hover:bg-slate-100 transition"
+                  >
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="w-9 h-9 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center text-[16px] font-black shrink-0">
+                        !
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="font-black text-slate-900 text-[12px] uppercase leading-tight truncate max-w-[120px]">
+                          {report.alasan?.substring(0, 25) || "Laporan"}
+                        </h3>
+                        <p className="text-[10px] font-black text-slate-400 mt-0.5">
+                          Status: {report.status || "Menunggu"}
+                        </p>
+                      </div>
+                    </div>
+                    <div
+                      className={`px-2 py-1 rounded-xl text-[9px] font-black whitespace-nowrap ${getStatusColor(report.status)}`}
+                    >
+                      {report.status || "MENUNGGU"}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
 
@@ -673,11 +738,11 @@ function DashboardAdmin() {
                 </thead>
                 <tbody>
                   {recentActivities.map((item) => (
-                    <tr key={item.id} className="border-t">
+                    <tr key={item.id} className="border-t border-slate-100">
                       <td className="px-4 py-3 font-medium text-slate-900 text-sm">
                         #{item.id}
                       </td>
-                      <td className="px-4 py-3 font-semibold text-slate-700 text-sm">
+                      <td className="px-4 py-3 font-semibold text-slate-700 text-sm truncate max-w-[100px]">
                         {item.customer}
                       </td>
                       <td className="px-4 py-3 font-medium text-slate-900 text-sm">
@@ -690,7 +755,7 @@ function DashboardAdmin() {
                           {item.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-slate-500">
+                      <td className="px-4 py-3 text-sm text-slate-500 whitespace-nowrap">
                         {item.date}
                       </td>
                     </tr>
