@@ -10,14 +10,37 @@ import {
   Layers,
   Star,
   ChevronDown,
+  TrendingDown,
+  Minus,
+  DollarSign,
+  Clock,
+  CheckCircle,
+  AlertTriangle,
 } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+} from "recharts";
 
 import AdminLayout from "../../layouts/AdminLayout";
 import ModalNotfications from "../../components/admin/ModalNotfications";
 import api from "../../api/api";
+
+const COLORS = ["#3B82F6", "#F59E0B", "#EF4444", "#10B981", "#8B5CF6"];
 
 function DashboardAdmin() {
   const navigate = useNavigate();
@@ -30,18 +53,89 @@ function DashboardAdmin() {
   const [chartMounted, setChartMounted] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // ================= STATE =================
   const [stats, setStats] = useState({
     jumlah_user: 0,
     jumlah_penjual: 0,
     jumlah_produk: 0,
     total_transaksi: 0,
     jumlah_pesanan: 0,
+    total_pendapatan: 0,
+    pesanan_menunggu: 0,
+    pesanan_selesai: 0,
+    rata_rata_rating: 0,
   });
 
   const [users, setUsers] = useState([]);
   const [reports, setReports] = useState([]);
+  const [monthlyRevenue, setMonthlyRevenue] = useState([]);
+  const [topProducts, setTopProducts] = useState([]);
+  const [orderStatusData, setOrderStatusData] = useState([]);
+  const [recentActivities, setRecentActivities] = useState([]);
+  const [trendAnalysis, setTrendAnalysis] = useState({
+    trend: "stabil",
+    persentase: 0,
+    arah: "➡️",
+    warna: "text-slate-500",
+    deskripsi: "Data belum cukup untuk analisis tren",
+  });
 
-  // Fetch notifications
+  // ================= ANALISIS TREND =================
+  const analyzeTrend = (data) => {
+    if (data.length < 2) {
+      return {
+        trend: "stabil",
+        persentase: 0,
+        arah: "➡️",
+        warna: "text-slate-500",
+        deskripsi: "Belum cukup data untuk analisis tren",
+      };
+    }
+
+    const lastPeriod = data[data.length - 1]?.total || 0;
+    const prevPeriod = data[data.length - 2]?.total || 0;
+
+    if (prevPeriod === 0) {
+      return {
+        trend: "naik",
+        persentase: lastPeriod > 0 ? 100 : 0,
+        arah: "📈",
+        warna: "text-emerald-600",
+        deskripsi: "Pendapatan baru mulai terlihat",
+      };
+    }
+
+    const perubahan = ((lastPeriod - prevPeriod) / prevPeriod) * 100;
+    const persentase = Math.abs(Math.round(perubahan));
+
+    if (perubahan > 10) {
+      return {
+        trend: "naik",
+        persentase: persentase,
+        arah: "📈",
+        warna: "text-emerald-600",
+        deskripsi: `Pendapatan naik ${persentase}% dari periode sebelumnya`,
+      };
+    } else if (perubahan < -10) {
+      return {
+        trend: "turun",
+        persentase: persentase,
+        arah: "📉",
+        warna: "text-red-500",
+        deskripsi: `Pendapatan turun ${persentase}% dari periode sebelumnya`,
+      };
+    } else {
+      return {
+        trend: "stabil",
+        persentase: persentase,
+        arah: "➡️",
+        warna: "text-slate-500",
+        deskripsi: `Pendapatan relatif stabil (perubahan ${persentase}%)`,
+      };
+    }
+  };
+
+  // ================= FETCH DATA =================
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
@@ -56,44 +150,159 @@ function DashboardAdmin() {
         }));
         setNotifications(data);
       } catch (error) {
-        console.error("Error fetching notifications:", error);
+        console.warn("⚠️ Notifikasi belum tersedia:", error.message);
+        setNotifications([]);
       }
     };
     fetchNotifications();
   }, []);
 
-  // Fetch data
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Fetch statistik admin
+        // ================= STATISTIK ADMIN =================
         const statsRes = await api.get("/statistik/admin");
         console.log("📊 Stats response:", statsRes.data);
-        setStats(statsRes.data.data);
+        const statsData = statsRes.data.data || {};
+        setStats({
+          jumlah_user: statsData.jumlah_user || 0,
+          jumlah_penjual: statsData.jumlah_penjual || 0,
+          jumlah_produk: statsData.jumlah_produk || 0,
+          total_transaksi: statsData.total_transaksi || 0,
+          jumlah_pesanan: statsData.jumlah_pesanan || 0,
+          total_pendapatan: statsData.total_transaksi || 0,
+          pesanan_menunggu: statsData.pesanan_menunggu || 0,
+          pesanan_selesai: statsData.pesanan_selesai || 0,
+          rata_rata_rating: statsData.rata_rata_rating || 0,
+        });
 
-        // Fetch users
+        // ================= USERS =================
         const usersRes = await api.get("/pengguna?limit=5");
+        console.log("👤 Users response:", usersRes.data);
         const usersData = usersRes.data.data.data || [];
         setUsers(
           usersData
             .filter((user) => user.role !== "admin")
-            .slice(0, 3)
+            .slice(0, 4)
             .map((user) => ({
+              id: user.id_pengguna,
               name: user.nama || "User",
               role:
-                user.role === "customer"
+                user.role === "pembeli"
                   ? "PEMBELI"
-                  : user.role?.toUpperCase() || "USER",
+                  : user.role === "penjual"
+                    ? "PENJUAL"
+                    : user.role?.toUpperCase() || "USER",
               letter: (user.nama || "U").charAt(0).toUpperCase(),
+              email: user.email,
+              aktif: user.aktif,
             })),
         );
 
-        // Fetch reports
-        const reportsRes = await api.get("/laporan?limit=2");
-        setReports(reportsRes.data.data.data || []);
+        // ================= REPORTS =================
+        const reportsRes = await api.get("/laporan?limit=3");
+        console.log("📋 Reports response:", reportsRes.data);
+        const reportsData = reportsRes.data.data.data || [];
+        setReports(reportsData);
+
+        // ================= MONTHLY REVENUE (6 BULAN TERAKHIR) =================
+        const ordersRes = await api.get("/pesanan");
+        console.log("📦 Orders response:", ordersRes.data);
+        const orders = ordersRes.data.data || [];
+
+        const monthlySales = {};
+        const now = new Date();
+        for (let i = 0; i < 6; i++) {
+          const month = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          const key = month.toLocaleString("id-ID", {
+            month: "short",
+            year: "numeric",
+          });
+          monthlySales[key] = 0;
+        }
+
+        orders.forEach((order) => {
+          if (order.status === "selesai" || order.status === "completed") {
+            const date = new Date(order.created_at);
+            const key = date.toLocaleString("id-ID", {
+              month: "short",
+              year: "numeric",
+            });
+            if (monthlySales[key] !== undefined) {
+              monthlySales[key] += Number(
+                order.harga_akhir || order.total_harga || 0,
+              );
+            }
+          }
+        });
+
+        const monthlyArray = Object.keys(monthlySales)
+          .map((key) => ({
+            bulan: key,
+            total: monthlySales[key],
+          }))
+          .reverse();
+        console.log("📊 Monthly revenue:", monthlyArray);
+        setMonthlyRevenue(monthlyArray);
+
+        // ================= TREND ANALYSIS =================
+        const trendResult = analyzeTrend(monthlyArray);
+        setTrendAnalysis(trendResult);
+
+        // ================= TOP PRODUCTS =================
+        try {
+          const topProductsRes = await api.get("/produk?limit=100");
+          console.log("🏆 Top products response:", topProductsRes.data);
+          const products = topProductsRes.data.data.data || [];
+          const sorted = [...products]
+            .sort((a, b) => (b.total_terjual || 0) - (a.total_terjual || 0))
+            .slice(0, 5)
+            .map((p) => ({
+              name: p.nama_produk || "Produk",
+              terjual: p.total_terjual || 0,
+              harga: p.harga || 0,
+            }));
+          setTopProducts(sorted);
+        } catch (error) {
+          console.error("Error fetching top products:", error);
+          setTopProducts([]);
+        }
+
+        // ================= ORDER STATUS DISTRIBUTION =================
+        const statusCount = {};
+        orders.forEach((order) => {
+          const status = order.status || "menunggu";
+          statusCount[status] = (statusCount[status] || 0) + 1;
+        });
+
+        const statusData = Object.keys(statusCount).map((key) => ({
+          name: key.charAt(0).toUpperCase() + key.slice(1),
+          value: statusCount[key],
+        }));
+        console.log("📊 Order status:", statusData);
+        setOrderStatusData(statusData);
+
+        // ================= RECENT ACTIVITIES =================
+        const recent = orders
+          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+          .slice(0, 5)
+          .map((order) => ({
+            id: order.id_pesanan,
+            customer: order.nama_penerima || "Customer",
+            status: order.status || "Menunggu",
+            total: order.harga_akhir || order.total_harga || 0,
+            date: new Date(order.created_at).toLocaleDateString("id-ID", {
+              day: "numeric",
+              month: "short",
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+          }));
+        setRecentActivities(recent);
       } catch (error) {
-        console.error("Error fetching admin data:", error);
+        console.error("❌ Error fetching admin data:", error);
+        console.error("❌ Error response:", error.response?.data);
       } finally {
         setLoading(false);
       }
@@ -121,57 +330,23 @@ function DashboardAdmin() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const totalRevenue = stats.total_transaksi || 0;
-  const totalUsers = stats.jumlah_user || 0;
-  const totalProducts = stats.jumlah_produk || 0;
-  const totalTransactions = stats.jumlah_pesanan || 0;
-
-  const statsCards = [
-    {
-      title: "TOTAL USER",
-      value: `${totalUsers}`,
-      icon: <Users size={22} />,
-      increase: "+12%",
-    },
-    {
-      title: "TOTAL PRODUK",
-      value: `${totalProducts}`,
-      icon: <Package size={22} />,
-      increase: "+5%",
-    },
-    {
-      title: "TOTAL TRANSAKSI",
-      value: `${totalTransactions}`,
-      icon: <ShoppingBag size={22} />,
-      increase: "+18%",
-    },
-    {
-      title: "TOTAL REVENUE",
-      value: `Rp ${totalRevenue.toLocaleString("id-ID")}`,
-      icon: <TrendingUp size={22} />,
-      increase: "+22%",
-    },
-    {
-      title: "RATING APP (USER)",
-      value: `★ 4.8 / 5.0`,
-      icon: <Star size={22} />,
-      increase: `${totalProducts} Produk`,
-    },
-  ];
-
+  // ================= DOWNLOAD FUNCTIONS =================
   const downloadExcel = () => {
     const content = `
 LAPORAN BELANJAIN
-TOTAL USER : ${totalUsers}
-TOTAL PRODUK : ${totalProducts}
-TOTAL TRANSAKSI : ${totalTransactions}
-TOTAL REVENUE : Rp ${totalRevenue.toLocaleString("id-ID")}
+TOTAL USER : ${stats.jumlah_user}
+TOTAL PENJUAL : ${stats.jumlah_penjual}
+TOTAL PRODUK : ${stats.jumlah_produk}
+TOTAL PESANAN : ${stats.jumlah_pesanan}
+TOTAL PENDAPATAN : Rp ${stats.total_pendapatan.toLocaleString("id-ID")}
+PESANAN MENUNGGU : ${stats.pesanan_menunggu}
+PESANAN SELESAI : ${stats.pesanan_selesai}
 `;
     const blob = new Blob([content], { type: "application/vnd.ms-excel" });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "laporan-belanjain.xls";
+    link.download = `laporan-belanjain-${new Date().toISOString().split("T")[0]}.xls`;
     link.click();
     window.URL.revokeObjectURL(url);
   };
@@ -179,19 +354,227 @@ TOTAL REVENUE : Rp ${totalRevenue.toLocaleString("id-ID")}
   const downloadPDF = () => {
     const content = `
 RINGKASAN PDF BELANJAIN
-TOTAL USER : ${totalUsers}
-TOTAL PRODUK : ${totalProducts}
-TOTAL TRANSAKSI : ${totalTransactions}
-TOTAL REVENUE : Rp ${totalRevenue.toLocaleString("id-ID")}
+TOTAL USER : ${stats.jumlah_user}
+TOTAL PENJUAL : ${stats.jumlah_penjual}
+TOTAL PRODUK : ${stats.jumlah_produk}
+TOTAL PESANAN : ${stats.jumlah_pesanan}
+TOTAL PENDAPATAN : Rp ${stats.total_pendapatan.toLocaleString("id-ID")}
 `;
     const blob = new Blob([content], { type: "application/pdf" });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "ringkasan-belanjain.pdf";
+    link.download = `ringkasan-belanjain-${new Date().toISOString().split("T")[0]}.pdf`;
     link.click();
     window.URL.revokeObjectURL(url);
   };
+
+  // ================= FORMAT FUNCTIONS =================
+  const formatPrice = (value) => {
+    return `Rp ${Number(value || 0).toLocaleString("id-ID")}`;
+  };
+
+  const getStatusColor = (status) => {
+    const s = status?.toLowerCase() || "";
+    if (s.includes("menunggu")) return "bg-yellow-100 text-yellow-700";
+    if (s.includes("diproses")) return "bg-blue-100 text-blue-700";
+    if (s.includes("dikirim")) return "bg-purple-100 text-purple-700";
+    if (s.includes("selesai")) return "bg-green-100 text-green-700";
+    if (s.includes("dibatalkan")) return "bg-red-100 text-red-700";
+    if (s.includes("komplain")) return "bg-pink-100 text-pink-700";
+    return "bg-slate-100 text-slate-700";
+  };
+
+  // ================= RENDER CHARTS =================
+  const renderRevenueChart = () => {
+    if (
+      monthlyRevenue.length === 0 ||
+      monthlyRevenue.every((d) => d.total === 0)
+    ) {
+      return (
+        <div className="h-64 flex flex-col items-center justify-center text-slate-400">
+          <div className="text-4xl mb-4">📊</div>
+          <p className="font-semibold">Belum ada data pendapatan</p>
+          <p className="text-sm">
+            Data akan muncul setelah ada transaksi selesai
+          </p>
+        </div>
+      );
+    }
+
+    const maxValue = Math.max(...monthlyRevenue.map((d) => d.total), 1);
+    const chartHeight = 200;
+
+    return (
+      <div className="h-64 mt-4">
+        <div className="flex justify-between text-[10px] text-slate-400 mb-2 px-2">
+          <span>📊 Tren Pendapatan 6 Bulan Terakhir</span>
+          <span className={`font-bold ${trendAnalysis.warna}`}>
+            {trendAnalysis.arah} {trendAnalysis.deskripsi}
+          </span>
+        </div>
+        <div className="relative h-[200px] flex items-end gap-4">
+          <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 0 }}>
+            <defs>
+              <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.3" />
+                <stop offset="100%" stopColor="#3B82F6" stopOpacity="0.02" />
+              </linearGradient>
+            </defs>
+            <polygon
+              points={
+                monthlyRevenue
+                  .map((d, i) => {
+                    const x = (i / (monthlyRevenue.length - 1)) * 100;
+                    const y = 100 - (d.total / maxValue) * 100;
+                    return `${x},${y}`;
+                  })
+                  .join(" ") + `,100,100,0,0`
+              }
+              fill="url(#revenueGradient)"
+              opacity={chartMounted ? 1 : 0}
+              style={{ transition: "opacity 0.8s ease" }}
+            />
+            <polyline
+              points={monthlyRevenue
+                .map((d, i) => {
+                  const x = (i / (monthlyRevenue.length - 1)) * 100;
+                  const y = 100 - (d.total / maxValue) * 100;
+                  return `${x},${y}`;
+                })
+                .join(" ")}
+              fill="none"
+              stroke="#3B82F6"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              opacity={chartMounted ? 1 : 0}
+              style={{ transition: "opacity 0.8s ease 0.3s" }}
+            />
+            {monthlyRevenue.map((d, i) => {
+              const x = (i / (monthlyRevenue.length - 1)) * 100;
+              const y = 100 - (d.total / maxValue) * 100;
+              return (
+                <circle
+                  key={i}
+                  cx={`${x}%`}
+                  cy={`${y}%`}
+                  r="4"
+                  fill="white"
+                  stroke="#3B82F6"
+                  strokeWidth="2"
+                  opacity={chartMounted ? 1 : 0}
+                  style={{ transition: `opacity 0.5s ease ${0.5 + i * 0.1}s` }}
+                />
+              );
+            })}
+          </svg>
+          {monthlyRevenue.map((item, index) => {
+            const height = (item.total / maxValue) * chartHeight;
+            return (
+              <div
+                key={index}
+                className="flex-1 flex flex-col items-center gap-1 relative z-10"
+              >
+                <div className="w-full flex flex-col items-center">
+                  <div
+                    className="w-full max-w-[40px] bg-blue-500/30 rounded-t-lg transition-all duration-500 hover:bg-blue-500/50"
+                    style={{
+                      height: `${Math.max(height, 4)}px`,
+                      opacity: chartMounted ? 0.5 : 0,
+                      transform: chartMounted ? "scaleY(1)" : "scaleY(0)",
+                      transformOrigin: "bottom",
+                      transition: `all 0.5s ease ${index * 0.08}s`,
+                    }}
+                  />
+                  <div className="text-[9px] font-bold text-slate-600 mt-1">
+                    {item.total > 0 ? formatPrice(item.total) : "-"}
+                  </div>
+                  <div className="text-[8px] text-slate-400 font-semibold">
+                    {item.bulan}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  const renderTopProductsChart = () => {
+    if (topProducts.length === 0 || topProducts.every((p) => p.terjual === 0)) {
+      return (
+        <div className="text-center text-slate-400 py-8">
+          <div className="text-3xl mb-2">🏪</div>
+          <p className="font-semibold">Belum ada produk terjual</p>
+          <p className="text-sm">Data akan muncul setelah ada pembelian</p>
+        </div>
+      );
+    }
+
+    return (
+      <ResponsiveContainer width="100%" height={200}>
+        <BarChart data={topProducts} layout="vertical" margin={{ left: 80 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+          <XAxis type="number" />
+          <YAxis
+            type="category"
+            dataKey="name"
+            tick={{ fontSize: 10 }}
+            width={80}
+          />
+          <Tooltip
+            formatter={(value) => [`${value} terjual`, "Jumlah Terjual"]}
+          />
+          <Bar dataKey="terjual" fill="#3B82F6" radius={[0, 4, 4, 0]} />
+        </BarChart>
+      </ResponsiveContainer>
+    );
+  };
+
+  const renderPieChart = () => {
+    if (orderStatusData.length === 0) {
+      return (
+        <div className="text-center text-slate-400 py-4">
+          <div className="text-3xl mb-2">📊</div>
+          <p className="font-semibold">Tidak ada data status</p>
+        </div>
+      );
+    }
+
+    return (
+      <ResponsiveContainer width="100%" height={180}>
+        <PieChart>
+          <Pie
+            data={orderStatusData}
+            cx="50%"
+            cy="50%"
+            innerRadius={40}
+            outerRadius={70}
+            dataKey="value"
+            nameKey="name"
+            label={({ name, value }) => `${name}: ${value}`}
+            labelLine={false}
+          >
+            {orderStatusData.map((entry, index) => (
+              <Cell
+                key={`cell-${index}`}
+                fill={COLORS[index % COLORS.length]}
+              />
+            ))}
+          </Pie>
+          <Tooltip />
+        </PieChart>
+      </ResponsiveContainer>
+    );
+  };
+
+  // ================= CEK APAKAH ADA DATA =================
+  const hasData =
+    stats.jumlah_user > 0 ||
+    stats.jumlah_produk > 0 ||
+    stats.jumlah_pesanan > 0;
 
   if (loading) {
     return (
@@ -210,7 +593,7 @@ TOTAL REVENUE : Rp ${totalRevenue.toLocaleString("id-ID")}
         <div className="flex items-center justify-between gap-6">
           <div>
             <h1 className="text-[28px] leading-tight font-black text-slate-900">
-              Dashboard
+              Dashboard Admin
             </h1>
             <p className="text-slate-500 mt-2 text-sm max-w-xl">
               Kelola sistem dan pantau aktivitas platform BelanjaIn.
@@ -233,7 +616,7 @@ TOTAL REVENUE : Rp ${totalRevenue.toLocaleString("id-ID")}
                     }}
                     className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
                   >
-                    Excel
+                    📊 Excel
                   </button>
                   <button
                     onClick={() => {
@@ -242,7 +625,7 @@ TOTAL REVENUE : Rp ${totalRevenue.toLocaleString("id-ID")}
                     }}
                     className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
                   >
-                    PDF
+                    📄 PDF
                   </button>
                 </div>
               )}
@@ -277,119 +660,150 @@ TOTAL REVENUE : Rp ${totalRevenue.toLocaleString("id-ID")}
           </div>
         </div>
 
-        {/* STATS */}
-        <div className="grid grid-cols-5 gap-5 mt-8">
-          {statsCards.map((item, index) => (
-            <div
-              key={index}
-              className="bg-white rounded-[28px] border border-slate-200 p-7 h-[190px] shadow-sm flex flex-col justify-between"
+        {/* ================= STATS CARDS ================= */}
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mt-8">
+          <div className="bg-white rounded-[28px] border border-slate-200 p-5 shadow-sm">
+            <p className="text-[10px] font-black tracking-[2px] uppercase text-slate-400">
+              Total User
+            </p>
+            <h2 className="text-[28px] font-black text-slate-900 mt-2">
+              {stats.jumlah_user || 0}
+            </h2>
+          </div>
+          <div className="bg-white rounded-[28px] border border-slate-200 p-5 shadow-sm">
+            <p className="text-[10px] font-black tracking-[2px] uppercase text-slate-400">
+              Total Penjual
+            </p>
+            <h2 className="text-[28px] font-black text-slate-900 mt-2">
+              {stats.jumlah_penjual || 0}
+            </h2>
+          </div>
+          <div className="bg-white rounded-[28px] border border-slate-200 p-5 shadow-sm">
+            <p className="text-[10px] font-black tracking-[2px] uppercase text-slate-400">
+              Total Produk
+            </p>
+            <h2 className="text-[28px] font-black text-slate-900 mt-2">
+              {stats.jumlah_produk || 0}
+            </h2>
+          </div>
+          <div className="bg-white rounded-[28px] border border-slate-200 p-5 shadow-sm">
+            <p className="text-[10px] font-black tracking-[2px] uppercase text-slate-400">
+              Total Pesanan
+            </p>
+            <h2 className="text-[28px] font-black text-slate-900 mt-2">
+              {stats.jumlah_pesanan || 0}
+            </h2>
+          </div>
+          <div
+            className={`rounded-[28px] border p-5 shadow-sm ${stats.total_pendapatan > 0 ? "bg-green-50 border-green-200" : "bg-white border-slate-200"}`}
+          >
+            <p
+              className={`text-[10px] font-black tracking-[2px] uppercase ${stats.total_pendapatan > 0 ? "text-green-600" : "text-slate-400"}`}
             >
-              <div className="flex items-start justify-between">
-                <div
-                  className={`w-14 h-14 rounded-2xl flex items-center justify-center ${index === 4 ? "bg-amber-50 text-amber-500" : "bg-[#edf3ff] text-blue-600"}`}
-                >
-                  {item.icon}
-                </div>
-                <div
-                  className={`flex items-center gap-1 text-[13px] font-black ${index === 4 ? "text-orange-500" : "text-blue-600"}`}
-                >
-                  <ArrowUpRight size={14} /> {item.increase}
-                </div>
-              </div>
-              <div>
-                <p className="text-[12px] font-black tracking-[1px] text-slate-400">
-                  {item.title}
-                </p>
-                <h2
-                  className={`font-black text-slate-900 leading-tight whitespace-pre-line mt-3 ${index === 3 ? "text-[24px]" : "text-[18px]"}`}
-                >
-                  {item.value}
-                </h2>
-              </div>
-            </div>
-          ))}
+              {stats.total_pendapatan > 0 ? "Pendapatan" : "Pendapatan"}
+            </p>
+            <h2
+              className={`text-[28px] font-black mt-2 ${stats.total_pendapatan > 0 ? "text-green-700" : "text-slate-400"}`}
+            >
+              {stats.total_pendapatan > 0
+                ? formatPrice(stats.total_pendapatan)
+                : "Rp 0"}
+            </h2>
+          </div>
+          <div
+            className={`rounded-[28px] border p-5 shadow-sm ${stats.rata_rata_rating > 0 ? "bg-yellow-50 border-yellow-200" : "bg-white border-slate-200"}`}
+          >
+            <p
+              className={`text-[10px] font-black tracking-[2px] uppercase ${stats.rata_rata_rating > 0 ? "text-yellow-600" : "text-slate-400"}`}
+            >
+              Rating
+            </p>
+            <h2
+              className={`text-[28px] font-black mt-2 ${stats.rata_rata_rating > 0 ? "text-yellow-700" : "text-slate-400"}`}
+            >
+              {stats.rata_rata_rating > 0
+                ? `⭐ ${stats.rata_rata_rating.toFixed(1)}`
+                : "⭐ 0"}
+            </h2>
+          </div>
         </div>
 
-        {/* CHART + USER */}
-        <div className="grid grid-cols-12 gap-6 mt-7">
-          <div className="col-span-8 bg-white rounded-[34px] border border-slate-200 p-7 shadow-sm overflow-hidden">
+        {/* ================= CHART + STATUS ================= */}
+        <div className="grid grid-cols-12 gap-6 mt-6">
+          {/* REVENUE CHART */}
+          <div className="col-span-12 xl:col-span-8 bg-white rounded-[34px] border border-slate-200 p-6 shadow-sm">
             <div className="flex items-center justify-between">
-              <h2 className="text-[16px] font-black text-slate-900">
-                STATISTIK PENDAPATAN KUMULATIF
-              </h2>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-blue-600"></div>
-                <p className="text-[12px] font-black text-slate-500">REVENUE</p>
+              <div>
+                <h2 className="text-[18px] font-black text-slate-900">
+                  📈 Statistik Pendapatan Kumulatif
+                </h2>
+                <p className="text-[11px] uppercase tracking-[2px] font-black text-slate-400 mt-1">
+                  6 Bulan Terakhir
+                </p>
               </div>
-            </div>
-            <div
-              className={`relative h-[320px] mt-6 overflow-hidden transition-all duration-700 ease-out ${chartMounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
-            >
-              <div className="absolute inset-0 flex flex-col justify-between">
-                {[1, 2, 3, 4, 5].map((_, i) => (
-                  <div
-                    key={i}
-                    className="border-b border-dashed border-slate-200"
-                  />
-                ))}
-              </div>
-              <svg
-                viewBox="0 0 900 320"
-                className="absolute inset-0 w-full h-full"
-              >
-                <defs>
-                  <linearGradient id="gradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#2563eb" stopOpacity="0.3" />
-                    <stop offset="100%" stopColor="#2563eb" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
-                <path
-                  d="M40 240 C120 180 180 160 260 190 C340 220 390 210 460 140 C540 80 650 200 730 120 C790 70 850 50 880 40 L880 320 L40 320 Z"
-                  fill="url(#gradient)"
-                  opacity="0"
+              {monthlyRevenue.some((d) => d.total > 0) && (
+                <div
+                  className={`flex items-center gap-2 text-sm font-black ${trendAnalysis.warna}`}
                 >
-                  <animate
-                    attributeName="opacity"
-                    from="0"
-                    to="1"
-                    dur="1.2s"
-                    fill="freeze"
-                  />
-                </path>
-                <path
-                  d="M40 240 C120 180 180 160 260 190 C340 220 390 210 460 140 C540 80 650 200 730 120 C790 70 850 50 880 40"
-                  fill="none"
-                  stroke="#2563eb"
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                  strokeDasharray="3000"
-                  strokeDashoffset="3000"
-                >
-                  <animate
-                    attributeName="stroke-dashoffset"
-                    from="3000"
-                    to="0"
-                    dur="1.5s"
-                    fill="freeze"
-                  />
-                </path>
-              </svg>
-              <div className="absolute bottom-0 left-0 right-0 flex justify-between text-[12px] text-slate-400 font-bold">
-                <p>Sen</p>
-                <p>Sel</p>
-                <p>Rab</p>
-                <p>Kam</p>
-                <p>Jum</p>
-                <p>Sab</p>
-                <p>Min</p>
-              </div>
+                  {trendAnalysis.arah} {trendAnalysis.deskripsi}
+                </div>
+              )}
             </div>
+            {renderRevenueChart()}
           </div>
 
-          <div className="col-span-4 bg-white rounded-[34px] border border-slate-200 p-7 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h2 className="text-[16px] font-black text-slate-900">
-                USER BARU
+          {/* ORDER STATUS */}
+          <div className="col-span-12 xl:col-span-4 bg-white rounded-[34px] border border-slate-200 p-6 shadow-sm">
+            <h2 className="text-[18px] font-black text-slate-900 mb-4">
+              📊 Status Pesanan
+            </h2>
+            <div className="flex flex-col gap-3 mb-4">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-slate-600">Menunggu</span>
+                <span className="font-black text-yellow-600">
+                  {stats.pesanan_menunggu || 0}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-slate-600">Selesai</span>
+                <span className="font-black text-green-600">
+                  {stats.pesanan_selesai || 0}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-slate-600">Total Pesanan</span>
+                <span className="font-black text-blue-600">
+                  {stats.jumlah_pesanan || 0}
+                </span>
+              </div>
+            </div>
+            <div className="h-[160px]">{renderPieChart()}</div>
+          </div>
+        </div>
+
+        {/* ================= TOP PRODUCTS + USER + REPORT ================= */}
+        <div className="grid grid-cols-12 gap-6 mt-6">
+          {/* TOP PRODUCTS */}
+          <div className="col-span-12 xl:col-span-4 bg-white rounded-[34px] border border-slate-200 p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-[18px] font-black text-slate-900">
+                🏆 Produk Terlaris
+              </h2>
+              <button
+                onClick={() => navigate("/admin/products")}
+                className="text-blue-600 text-[12px] font-black"
+              >
+                LIHAT SEMUA
+              </button>
+            </div>
+            {renderTopProductsChart()}
+          </div>
+
+          {/* USER BARU */}
+          <div className="col-span-12 xl:col-span-4 bg-white rounded-[34px] border border-slate-200 p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-[18px] font-black text-slate-900">
+                👤 User Baru
               </h2>
               <button
                 onClick={() => navigate("/admin/users")}
@@ -398,76 +812,143 @@ TOTAL REVENUE : Rp ${totalRevenue.toLocaleString("id-ID")}
                 LIHAT SEMUA
               </button>
             </div>
-            <div className="mt-6 flex flex-col gap-4">
-              {users.map((user, index) => (
-                <div
-                  key={index}
-                  className="bg-[#f8fafc] rounded-[22px] p-4 flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-[#edf3ff] flex items-center justify-center text-blue-600 font-black">
-                      {user.letter}
-                    </div>
-                    <div>
-                      <h3 className="font-black text-[14px] text-slate-900">
-                        {user.name}
-                      </h3>
-                      <p className="text-[11px] font-bold text-slate-400 mt-1">
-                        {user.role}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-emerald-500">✓</div>
+            <div className="flex flex-col gap-3">
+              {users.length === 0 ? (
+                <div className="text-center text-slate-400 py-4">
+                  Belum ada user
                 </div>
-              ))}
+              ) : (
+                users.map((user, index) => (
+                  <div
+                    key={index}
+                    className="bg-[#f8fafc] rounded-[22px] p-3 flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-[#edf3ff] flex items-center justify-center text-blue-600 font-black text-sm">
+                        {user.letter}
+                      </div>
+                      <div>
+                        <h3 className="font-black text-[13px] text-slate-900">
+                          {user.name}
+                        </h3>
+                        <p className="text-[10px] font-bold text-slate-400 mt-0.5">
+                          {user.role}
+                        </p>
+                      </div>
+                    </div>
+                    <div
+                      className={`w-2 h-2 rounded-full ${user.aktif !== false ? "bg-emerald-500" : "bg-red-500"}`}
+                    />
+                  </div>
+                ))
+              )}
             </div>
           </div>
-        </div>
 
-        {/* REPORT */}
-        <div className="bg-white rounded-[34px] border border-slate-200 p-7 shadow-sm mt-7">
-          <div className="flex items-center justify-between">
-            <h2 className="text-[16px] font-black text-slate-900">
-              LAPORAN TERBARU
-            </h2>
-            <button
-              onClick={() => navigate("/admin/reports")}
-              className="text-blue-600 text-[12px] font-black"
-            >
-              LIHAT SEMUA
-            </button>
-          </div>
-          <div className="grid grid-cols-2 gap-5 mt-7">
+          {/* REPORT TERBARU */}
+          <div className="col-span-12 xl:col-span-4 bg-white rounded-[34px] border border-slate-200 p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-[18px] font-black text-slate-900">
+                📋 Laporan Terbaru
+              </h2>
+              <button
+                onClick={() => navigate("/admin/reports")}
+                className="text-blue-600 text-[12px] font-black"
+              >
+                LIHAT SEMUA
+              </button>
+            </div>
             {reports.length === 0 ? (
-              <div className="col-span-2 text-center py-8 text-slate-400">
+              <div className="text-center text-slate-400 py-4">
                 Belum ada laporan
               </div>
             ) : (
-              reports.map((report, index) => (
-                <div
-                  key={index}
-                  className="bg-[#f8fafc] rounded-[24px] p-6 flex items-center justify-between border border-slate-200"
-                >
-                  <div className="flex items-center gap-5">
-                    <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center text-[20px] font-black">
-                      !
+              <div className="flex flex-col gap-3">
+                {reports.slice(0, 3).map((report, index) => (
+                  <div
+                    key={index}
+                    className="bg-[#f8fafc] rounded-[22px] p-3 flex items-center justify-between border border-slate-200"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center text-[18px] font-black">
+                        !
+                      </div>
+                      <div>
+                        <h3 className="font-black text-slate-900 text-[12px] uppercase leading-tight truncate max-w-[120px]">
+                          {report.alasan?.substring(0, 25) || "Laporan"}
+                        </h3>
+                        <p className="text-[10px] font-black text-slate-400 mt-0.5">
+                          Status: {report.status || "Menunggu"}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-black text-slate-900 text-[15px] uppercase leading-tight">
-                        {report.alasan?.substring(0, 30) || "Laporan"}
-                      </h3>
-                      <p className="text-slate-400 text-[11px] font-black tracking-[1px] uppercase mt-1">
-                        Status: {report.status || "Pending"}
-                      </p>
+                    <div
+                      className={`px-2 py-1 rounded-xl text-[9px] font-black ${getStatusColor(report.status)}`}
+                    >
+                      {report.status || "MENUNGGU"}
                     </div>
                   </div>
-                  <div className="bg-amber-100 text-amber-600 px-4 h-9 rounded-xl flex items-center font-black text-[11px] whitespace-nowrap">
-                    {report.status || "MENUNGGU"}
-                  </div>
-                </div>
-              ))
+                ))}
+              </div>
             )}
           </div>
+        </div>
+
+        {/* ================= RECENT ACTIVITIES ================= */}
+        <div className="bg-white rounded-[34px] border border-slate-200 p-6 shadow-sm mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-[18px] font-black text-slate-900">
+              🕐 Aktivitas Terbaru
+            </h2>
+          </div>
+          {recentActivities.length === 0 ? (
+            <div className="text-center text-slate-400 py-8">
+              <div className="text-4xl mb-3">🕐</div>
+              <p className="font-semibold">Belum ada aktivitas</p>
+              <p className="text-sm">
+                Aktivitas akan muncul setelah ada transaksi
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[600px]">
+                <thead>
+                  <tr className="text-left text-[10px] uppercase tracking-[2px] text-slate-400">
+                    <th className="px-4 py-3">ID Pesanan</th>
+                    <th className="px-4 py-3">Pelanggan</th>
+                    <th className="px-4 py-3">Total</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Tanggal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentActivities.map((item) => (
+                    <tr key={item.id} className="border-t border-slate-100">
+                      <td className="px-4 py-3 font-medium text-slate-900 text-sm">
+                        #{item.id}
+                      </td>
+                      <td className="px-4 py-3 font-semibold text-slate-700 text-sm">
+                        {item.customer}
+                      </td>
+                      <td className="px-4 py-3 font-medium text-slate-900 text-sm">
+                        {formatPrice(item.total)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`px-2 py-1 rounded-full text-[9px] font-black ${getStatusColor(item.status)}`}
+                        >
+                          {item.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-500">
+                        {item.date}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </AdminLayout>
