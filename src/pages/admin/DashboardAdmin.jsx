@@ -5,17 +5,9 @@ import {
   Bell,
   Search,
   TrendingUp,
-  ArrowUpRight,
   Download,
-  Layers,
   Star,
   ChevronDown,
-  TrendingDown,
-  Minus,
-  DollarSign,
-  Clock,
-  CheckCircle,
-  AlertTriangle,
 } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
@@ -33,7 +25,6 @@ import {
   PieChart,
   Pie,
   Cell,
-  Legend,
 } from "recharts";
 
 import AdminLayout from "../../layouts/AdminLayout";
@@ -58,9 +49,8 @@ function DashboardAdmin() {
     jumlah_user: 0,
     jumlah_penjual: 0,
     jumlah_produk: 0,
-    total_transaksi: 0,
     jumlah_pesanan: 0,
-    total_pendapatan: 0,
+    total_transaksi: 0,
     pesanan_menunggu: 0,
     pesanan_selesai: 0,
     rata_rata_rating: 0,
@@ -77,63 +67,8 @@ function DashboardAdmin() {
     persentase: 0,
     arah: "➡️",
     warna: "text-slate-500",
-    deskripsi: "Data belum cukup untuk analisis tren",
+    deskripsi: "Belum cukup data",
   });
-
-  // ================= ANALISIS TREND =================
-  const analyzeTrend = (data) => {
-    if (data.length < 2) {
-      return {
-        trend: "stabil",
-        persentase: 0,
-        arah: "➡️",
-        warna: "text-slate-500",
-        deskripsi: "Belum cukup data untuk analisis tren",
-      };
-    }
-
-    const lastPeriod = data[data.length - 1]?.total || 0;
-    const prevPeriod = data[data.length - 2]?.total || 0;
-
-    if (prevPeriod === 0) {
-      return {
-        trend: "naik",
-        persentase: lastPeriod > 0 ? 100 : 0,
-        arah: "📈",
-        warna: "text-emerald-600",
-        deskripsi: "Pendapatan baru mulai terlihat",
-      };
-    }
-
-    const perubahan = ((lastPeriod - prevPeriod) / prevPeriod) * 100;
-    const persentase = Math.abs(Math.round(perubahan));
-
-    if (perubahan > 10) {
-      return {
-        trend: "naik",
-        persentase: persentase,
-        arah: "📈",
-        warna: "text-emerald-600",
-        deskripsi: `Pendapatan naik ${persentase}% dari periode sebelumnya`,
-      };
-    } else if (perubahan < -10) {
-      return {
-        trend: "turun",
-        persentase: persentase,
-        arah: "📉",
-        warna: "text-red-500",
-        deskripsi: `Pendapatan turun ${persentase}% dari periode sebelumnya`,
-      };
-    } else {
-      return {
-        trend: "stabil",
-        persentase: persentase,
-        arah: "➡️",
-        warna: "text-slate-500",
-        deskripsi: `Pendapatan relatif stabil (perubahan ${persentase}%)`,
-      };
-    }
-  };
 
   // ================= FETCH DATA =================
   useEffect(() => {
@@ -150,7 +85,7 @@ function DashboardAdmin() {
         }));
         setNotifications(data);
       } catch (error) {
-        console.warn("⚠️ Notifikasi belum tersedia:", error.message);
+        console.warn("⚠️ Notifikasi belum tersedia");
         setNotifications([]);
       }
     };
@@ -165,13 +100,13 @@ function DashboardAdmin() {
         const statsRes = await api.get("/statistik/admin");
         console.log("📊 Stats response:", statsRes.data);
         const statsData = statsRes.data.data || {};
+
         setStats({
           jumlah_user: statsData.jumlah_user || 0,
           jumlah_penjual: statsData.jumlah_penjual || 0,
           jumlah_produk: statsData.jumlah_produk || 0,
-          total_transaksi: statsData.total_transaksi || 0,
           jumlah_pesanan: statsData.jumlah_pesanan || 0,
-          total_pendapatan: statsData.total_transaksi || 0,
+          total_transaksi: statsData.total_transaksi || 0,
           pesanan_menunggu: statsData.pesanan_menunggu || 0,
           pesanan_selesai: statsData.pesanan_selesai || 0,
           rata_rata_rating: statsData.rata_rata_rating || 0,
@@ -179,7 +114,6 @@ function DashboardAdmin() {
 
         // ================= USERS =================
         const usersRes = await api.get("/pengguna?limit=5");
-        console.log("👤 Users response:", usersRes.data);
         const usersData = usersRes.data.data.data || [];
         setUsers(
           usersData
@@ -195,20 +129,17 @@ function DashboardAdmin() {
                     ? "PENJUAL"
                     : user.role?.toUpperCase() || "USER",
               letter: (user.nama || "U").charAt(0).toUpperCase(),
-              email: user.email,
               aktif: user.aktif,
             })),
         );
 
         // ================= REPORTS =================
         const reportsRes = await api.get("/laporan?limit=3");
-        console.log("📋 Reports response:", reportsRes.data);
         const reportsData = reportsRes.data.data.data || [];
         setReports(reportsData);
 
-        // ================= MONTHLY REVENUE (6 BULAN TERAKHIR) =================
+        // ================= MONTHLY REVENUE =================
         const ordersRes = await api.get("/pesanan");
-        console.log("📦 Orders response:", ordersRes.data);
         const orders = ordersRes.data.data || [];
 
         const monthlySales = {};
@@ -223,16 +154,14 @@ function DashboardAdmin() {
         }
 
         orders.forEach((order) => {
-          if (order.status === "selesai" || order.status === "completed") {
+          if (order.status === "selesai") {
             const date = new Date(order.created_at);
             const key = date.toLocaleString("id-ID", {
               month: "short",
               year: "numeric",
             });
             if (monthlySales[key] !== undefined) {
-              monthlySales[key] += Number(
-                order.harga_akhir || order.total_harga || 0,
-              );
+              monthlySales[key] += Number(order.harga_akhir || 0);
             }
           }
         });
@@ -243,17 +172,11 @@ function DashboardAdmin() {
             total: monthlySales[key],
           }))
           .reverse();
-        console.log("📊 Monthly revenue:", monthlyArray);
         setMonthlyRevenue(monthlyArray);
-
-        // ================= TREND ANALYSIS =================
-        const trendResult = analyzeTrend(monthlyArray);
-        setTrendAnalysis(trendResult);
 
         // ================= TOP PRODUCTS =================
         try {
           const topProductsRes = await api.get("/produk?limit=100");
-          console.log("🏆 Top products response:", topProductsRes.data);
           const products = topProductsRes.data.data.data || [];
           const sorted = [...products]
             .sort((a, b) => (b.total_terjual || 0) - (a.total_terjual || 0))
@@ -261,15 +184,13 @@ function DashboardAdmin() {
             .map((p) => ({
               name: p.nama_produk || "Produk",
               terjual: p.total_terjual || 0,
-              harga: p.harga || 0,
             }));
           setTopProducts(sorted);
         } catch (error) {
-          console.error("Error fetching top products:", error);
           setTopProducts([]);
         }
 
-        // ================= ORDER STATUS DISTRIBUTION =================
+        // ================= ORDER STATUS =================
         const statusCount = {};
         orders.forEach((order) => {
           const status = order.status || "menunggu";
@@ -280,7 +201,6 @@ function DashboardAdmin() {
           name: key.charAt(0).toUpperCase() + key.slice(1),
           value: statusCount[key],
         }));
-        console.log("📊 Order status:", statusData);
         setOrderStatusData(statusData);
 
         // ================= RECENT ACTIVITIES =================
@@ -291,7 +211,7 @@ function DashboardAdmin() {
             id: order.id_pesanan,
             customer: order.nama_penerima || "Customer",
             status: order.status || "Menunggu",
-            total: order.harga_akhir || order.total_harga || 0,
+            total: order.harga_akhir || 0,
             date: new Date(order.created_at).toLocaleDateString("id-ID", {
               day: "numeric",
               month: "short",
@@ -302,7 +222,6 @@ function DashboardAdmin() {
         setRecentActivities(recent);
       } catch (error) {
         console.error("❌ Error fetching admin data:", error);
-        console.error("❌ Error response:", error.response?.data);
       } finally {
         setLoading(false);
       }
@@ -311,10 +230,8 @@ function DashboardAdmin() {
   }, []);
 
   useEffect(() => {
-    const timeout = window.setTimeout(() => {
-      setChartMounted(true);
-    }, 80);
-    return () => window.clearTimeout(timeout);
+    const timeout = setTimeout(() => setChartMounted(true), 80);
+    return () => clearTimeout(timeout);
   }, []);
 
   useEffect(() => {
@@ -330,46 +247,7 @@ function DashboardAdmin() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // ================= DOWNLOAD FUNCTIONS =================
-  const downloadExcel = () => {
-    const content = `
-LAPORAN BELANJAIN
-TOTAL USER : ${stats.jumlah_user}
-TOTAL PENJUAL : ${stats.jumlah_penjual}
-TOTAL PRODUK : ${stats.jumlah_produk}
-TOTAL PESANAN : ${stats.jumlah_pesanan}
-TOTAL PENDAPATAN : Rp ${stats.total_pendapatan.toLocaleString("id-ID")}
-PESANAN MENUNGGU : ${stats.pesanan_menunggu}
-PESANAN SELESAI : ${stats.pesanan_selesai}
-`;
-    const blob = new Blob([content], { type: "application/vnd.ms-excel" });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `laporan-belanjain-${new Date().toISOString().split("T")[0]}.xls`;
-    link.click();
-    window.URL.revokeObjectURL(url);
-  };
-
-  const downloadPDF = () => {
-    const content = `
-RINGKASAN PDF BELANJAIN
-TOTAL USER : ${stats.jumlah_user}
-TOTAL PENJUAL : ${stats.jumlah_penjual}
-TOTAL PRODUK : ${stats.jumlah_produk}
-TOTAL PESANAN : ${stats.jumlah_pesanan}
-TOTAL PENDAPATAN : Rp ${stats.total_pendapatan.toLocaleString("id-ID")}
-`;
-    const blob = new Blob([content], { type: "application/pdf" });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `ringkasan-belanjain-${new Date().toISOString().split("T")[0]}.pdf`;
-    link.click();
-    window.URL.revokeObjectURL(url);
-  };
-
-  // ================= FORMAT FUNCTIONS =================
+  // ================= HELPERS =================
   const formatPrice = (value) => {
     return `Rp ${Number(value || 0).toLocaleString("id-ID")}`;
   };
@@ -385,7 +263,7 @@ TOTAL PENDAPATAN : Rp ${stats.total_pendapatan.toLocaleString("id-ID")}
     return "bg-slate-100 text-slate-700";
   };
 
-  // ================= RENDER CHARTS =================
+  // ================= RENDER FUNCTIONS =================
   const renderRevenueChart = () => {
     if (
       monthlyRevenue.length === 0 ||
@@ -403,102 +281,27 @@ TOTAL PENDAPATAN : Rp ${stats.total_pendapatan.toLocaleString("id-ID")}
     }
 
     const maxValue = Math.max(...monthlyRevenue.map((d) => d.total), 1);
-    const chartHeight = 200;
 
     return (
-      <div className="h-64 mt-4">
-        <div className="flex justify-between text-[10px] text-slate-400 mb-2 px-2">
-          <span>📊 Tren Pendapatan 6 Bulan Terakhir</span>
-          <span className={`font-bold ${trendAnalysis.warna}`}>
-            {trendAnalysis.arah} {trendAnalysis.deskripsi}
-          </span>
-        </div>
-        <div className="relative h-[200px] flex items-end gap-4">
-          <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 0 }}>
-            <defs>
-              <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.3" />
-                <stop offset="100%" stopColor="#3B82F6" stopOpacity="0.02" />
-              </linearGradient>
-            </defs>
-            <polygon
-              points={
-                monthlyRevenue
-                  .map((d, i) => {
-                    const x = (i / (monthlyRevenue.length - 1)) * 100;
-                    const y = 100 - (d.total / maxValue) * 100;
-                    return `${x},${y}`;
-                  })
-                  .join(" ") + `,100,100,0,0`
-              }
-              fill="url(#revenueGradient)"
-              opacity={chartMounted ? 1 : 0}
-              style={{ transition: "opacity 0.8s ease" }}
-            />
-            <polyline
-              points={monthlyRevenue
-                .map((d, i) => {
-                  const x = (i / (monthlyRevenue.length - 1)) * 100;
-                  const y = 100 - (d.total / maxValue) * 100;
-                  return `${x},${y}`;
-                })
-                .join(" ")}
-              fill="none"
-              stroke="#3B82F6"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              opacity={chartMounted ? 1 : 0}
-              style={{ transition: "opacity 0.8s ease 0.3s" }}
-            />
-            {monthlyRevenue.map((d, i) => {
-              const x = (i / (monthlyRevenue.length - 1)) * 100;
-              const y = 100 - (d.total / maxValue) * 100;
-              return (
-                <circle
-                  key={i}
-                  cx={`${x}%`}
-                  cy={`${y}%`}
-                  r="4"
-                  fill="white"
-                  stroke="#3B82F6"
-                  strokeWidth="2"
-                  opacity={chartMounted ? 1 : 0}
-                  style={{ transition: `opacity 0.5s ease ${0.5 + i * 0.1}s` }}
-                />
-              );
-            })}
-          </svg>
-          {monthlyRevenue.map((item, index) => {
-            const height = (item.total / maxValue) * chartHeight;
-            return (
-              <div
-                key={index}
-                className="flex-1 flex flex-col items-center gap-1 relative z-10"
-              >
-                <div className="w-full flex flex-col items-center">
-                  <div
-                    className="w-full max-w-[40px] bg-blue-500/30 rounded-t-lg transition-all duration-500 hover:bg-blue-500/50"
-                    style={{
-                      height: `${Math.max(height, 4)}px`,
-                      opacity: chartMounted ? 0.5 : 0,
-                      transform: chartMounted ? "scaleY(1)" : "scaleY(0)",
-                      transformOrigin: "bottom",
-                      transition: `all 0.5s ease ${index * 0.08}s`,
-                    }}
-                  />
-                  <div className="text-[9px] font-bold text-slate-600 mt-1">
-                    {item.total > 0 ? formatPrice(item.total) : "-"}
-                  </div>
-                  <div className="text-[8px] text-slate-400 font-semibold">
-                    {item.bulan}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      <ResponsiveContainer width="100%" height={250}>
+        <AreaChart data={monthlyRevenue}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+          <XAxis dataKey="bulan" stroke="#94A3B8" fontSize={11} />
+          <YAxis
+            stroke="#94A3B8"
+            fontSize={11}
+            tickFormatter={(v) => `Rp${(v / 1000).toFixed(0)}K`}
+          />
+          <Tooltip formatter={(v) => formatPrice(v)} />
+          <Area
+            type="monotone"
+            dataKey="total"
+            stroke="#3B82F6"
+            fill="#3B82F6"
+            fillOpacity={0.2}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
     );
   };
 
@@ -508,25 +311,22 @@ TOTAL PENDAPATAN : Rp ${stats.total_pendapatan.toLocaleString("id-ID")}
         <div className="text-center text-slate-400 py-8">
           <div className="text-3xl mb-2">🏪</div>
           <p className="font-semibold">Belum ada produk terjual</p>
-          <p className="text-sm">Data akan muncul setelah ada pembelian</p>
         </div>
       );
     }
 
     return (
       <ResponsiveContainer width="100%" height={200}>
-        <BarChart data={topProducts} layout="vertical" margin={{ left: 80 }}>
+        <BarChart data={topProducts} layout="vertical" margin={{ left: 60 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
           <XAxis type="number" />
           <YAxis
             type="category"
             dataKey="name"
             tick={{ fontSize: 10 }}
-            width={80}
+            width={60}
           />
-          <Tooltip
-            formatter={(value) => [`${value} terjual`, "Jumlah Terjual"]}
-          />
+          <Tooltip formatter={(v) => [`${v} terjual`, "Jumlah"]} />
           <Bar dataKey="terjual" fill="#3B82F6" radius={[0, 4, 4, 0]} />
         </BarChart>
       </ResponsiveContainer>
@@ -537,21 +337,20 @@ TOTAL PENDAPATAN : Rp ${stats.total_pendapatan.toLocaleString("id-ID")}
     if (orderStatusData.length === 0) {
       return (
         <div className="text-center text-slate-400 py-4">
-          <div className="text-3xl mb-2">📊</div>
           <p className="font-semibold">Tidak ada data status</p>
         </div>
       );
     }
 
     return (
-      <ResponsiveContainer width="100%" height={180}>
+      <ResponsiveContainer width="100%" height={160}>
         <PieChart>
           <Pie
             data={orderStatusData}
             cx="50%"
             cy="50%"
-            innerRadius={40}
-            outerRadius={70}
+            innerRadius={35}
+            outerRadius={65}
             dataKey="value"
             nameKey="name"
             label={({ name, value }) => `${name}: ${value}`}
@@ -570,12 +369,6 @@ TOTAL PENDAPATAN : Rp ${stats.total_pendapatan.toLocaleString("id-ID")}
     );
   };
 
-  // ================= CEK APAKAH ADA DATA =================
-  const hasData =
-    stats.jumlah_user > 0 ||
-    stats.jumlah_produk > 0 ||
-    stats.jumlah_pesanan > 0;
-
   if (loading) {
     return (
       <AdminLayout>
@@ -586,68 +379,96 @@ TOTAL PENDAPATAN : Rp ${stats.total_pendapatan.toLocaleString("id-ID")}
     );
   }
 
+  // ================= STATS CARDS =================
+  const statsCards = [
+    {
+      title: "Total User",
+      value: stats.jumlah_user || 0,
+      icon: <Users size={22} />,
+    },
+    {
+      title: "Total Penjual",
+      value: stats.jumlah_penjual || 0,
+      icon: <Users size={22} />,
+    },
+    {
+      title: "Total Produk",
+      value: stats.jumlah_produk || 0,
+      icon: <Package size={22} />,
+    },
+    {
+      title: "Total Pesanan",
+      value: stats.jumlah_pesanan || 0,
+      icon: <ShoppingBag size={22} />,
+    },
+    {
+      title: "Pendapatan",
+      value: formatPrice(stats.total_transaksi || 0),
+      icon: <TrendingUp size={22} />,
+    },
+    {
+      title: "Rating",
+      value: `⭐ ${(stats.rata_rata_rating || 0).toFixed(1)}`,
+      icon: <Star size={22} />,
+    },
+  ];
+
   return (
     <AdminLayout>
       <div className="min-h-screen bg-[#f6f8fc] px-7 py-6">
-        {/* TOP */}
+        {/* HEADER */}
         <div className="flex items-center justify-between gap-6">
           <div>
-            <h1 className="text-[28px] leading-tight font-black text-slate-900">
+            <h1 className="text-[28px] font-black text-slate-900">
               Dashboard Admin
             </h1>
-            <p className="text-slate-500 mt-2 text-sm max-w-xl">
+            <p className="text-slate-500 mt-2 text-sm">
               Kelola sistem dan pantau aktivitas platform BelanjaIn.
             </p>
           </div>
-          <div className="flex items-center justify-end gap-3">
+          <div className="flex items-center gap-3">
             <div className="relative" ref={downloadRef}>
               <button
-                onClick={() => setShowDownloadMenu((prev) => !prev)}
-                className="h-[44px] px-4 rounded-[16px] bg-[#eef6ff] border border-blue-200 text-blue-700 font-semibold text-[13px] flex items-center gap-2 shadow-sm"
+                onClick={() => setShowDownloadMenu(!showDownloadMenu)}
+                className="h-[44px] px-4 rounded-[16px] bg-[#eef6ff] border border-blue-200 text-blue-700 font-semibold flex items-center gap-2 shadow-sm"
               >
                 <Download size={16} /> Download <ChevronDown size={14} />
               </button>
               {showDownloadMenu && (
-                <div className="absolute right-0 mt-2 w-36 rounded-[18px] border border-slate-200 bg-white shadow-lg py-2">
+                <div className="absolute right-0 mt-2 w-36 rounded-[18px] border bg-white shadow-lg py-2">
                   <button
-                    onClick={() => {
-                      downloadExcel();
-                      setShowDownloadMenu(false);
-                    }}
-                    className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                    onClick={downloadExcel}
+                    className="w-full px-4 py-2 text-left hover:bg-slate-100 text-sm"
                   >
                     📊 Excel
                   </button>
                   <button
-                    onClick={() => {
-                      downloadPDF();
-                      setShowDownloadMenu(false);
-                    }}
-                    className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                    onClick={downloadPDF}
+                    className="w-full px-4 py-2 text-left hover:bg-slate-100 text-sm"
                   >
                     📄 PDF
                   </button>
                 </div>
               )}
             </div>
-            <div className="bg-white border border-slate-200 shadow-sm h-11 w-[240px] rounded-2xl px-3 flex items-center gap-2">
+            <div className="bg-white border h-11 w-[240px] rounded-2xl px-3 flex items-center gap-2 shadow-sm">
               <Search size={16} className="text-slate-400" />
               <input
                 type="text"
                 placeholder="Cari sesuatu..."
-                className="bg-transparent outline-none w-full text-sm text-slate-700"
+                className="bg-transparent outline-none w-full text-sm"
               />
             </div>
             <div className="relative" ref={notifRef}>
               <button
                 onClick={() => setShowNotif(!showNotif)}
-                className="relative w-11 h-11 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shadow-sm"
+                className="relative w-11 h-11 rounded-2xl bg-white border flex items-center justify-center shadow-sm"
               >
                 <Bell size={16} className="text-slate-600" />
                 {unreadCount > 0 && (
-                  <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-blue-500 text-white text-[10px] font-black flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-blue-500 text-white text-[10px] font-black flex items-center justify-center">
                     {unreadCount}
-                  </div>
+                  </span>
                 )}
               </button>
               <ModalNotfications
@@ -660,132 +481,67 @@ TOTAL PENDAPATAN : Rp ${stats.total_pendapatan.toLocaleString("id-ID")}
           </div>
         </div>
 
-        {/* ================= STATS CARDS ================= */}
+        {/* STATS CARDS */}
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mt-8">
-          <div className="bg-white rounded-[28px] border border-slate-200 p-5 shadow-sm">
-            <p className="text-[10px] font-black tracking-[2px] uppercase text-slate-400">
-              Total User
-            </p>
-            <h2 className="text-[28px] font-black text-slate-900 mt-2">
-              {stats.jumlah_user || 0}
-            </h2>
-          </div>
-          <div className="bg-white rounded-[28px] border border-slate-200 p-5 shadow-sm">
-            <p className="text-[10px] font-black tracking-[2px] uppercase text-slate-400">
-              Total Penjual
-            </p>
-            <h2 className="text-[28px] font-black text-slate-900 mt-2">
-              {stats.jumlah_penjual || 0}
-            </h2>
-          </div>
-          <div className="bg-white rounded-[28px] border border-slate-200 p-5 shadow-sm">
-            <p className="text-[10px] font-black tracking-[2px] uppercase text-slate-400">
-              Total Produk
-            </p>
-            <h2 className="text-[28px] font-black text-slate-900 mt-2">
-              {stats.jumlah_produk || 0}
-            </h2>
-          </div>
-          <div className="bg-white rounded-[28px] border border-slate-200 p-5 shadow-sm">
-            <p className="text-[10px] font-black tracking-[2px] uppercase text-slate-400">
-              Total Pesanan
-            </p>
-            <h2 className="text-[28px] font-black text-slate-900 mt-2">
-              {stats.jumlah_pesanan || 0}
-            </h2>
-          </div>
-          <div
-            className={`rounded-[28px] border p-5 shadow-sm ${stats.total_pendapatan > 0 ? "bg-green-50 border-green-200" : "bg-white border-slate-200"}`}
-          >
-            <p
-              className={`text-[10px] font-black tracking-[2px] uppercase ${stats.total_pendapatan > 0 ? "text-green-600" : "text-slate-400"}`}
+          {statsCards.map((item, index) => (
+            <div
+              key={index}
+              className="bg-white rounded-[28px] border p-5 shadow-sm"
             >
-              {stats.total_pendapatan > 0 ? "Pendapatan" : "Pendapatan"}
-            </p>
-            <h2
-              className={`text-[28px] font-black mt-2 ${stats.total_pendapatan > 0 ? "text-green-700" : "text-slate-400"}`}
-            >
-              {stats.total_pendapatan > 0
-                ? formatPrice(stats.total_pendapatan)
-                : "Rp 0"}
-            </h2>
-          </div>
-          <div
-            className={`rounded-[28px] border p-5 shadow-sm ${stats.rata_rata_rating > 0 ? "bg-yellow-50 border-yellow-200" : "bg-white border-slate-200"}`}
-          >
-            <p
-              className={`text-[10px] font-black tracking-[2px] uppercase ${stats.rata_rata_rating > 0 ? "text-yellow-600" : "text-slate-400"}`}
-            >
-              Rating
-            </p>
-            <h2
-              className={`text-[28px] font-black mt-2 ${stats.rata_rata_rating > 0 ? "text-yellow-700" : "text-slate-400"}`}
-            >
-              {stats.rata_rata_rating > 0
-                ? `⭐ ${stats.rata_rata_rating.toFixed(1)}`
-                : "⭐ 0"}
-            </h2>
-          </div>
+              <p className="text-[10px] font-black tracking-[2px] uppercase text-slate-400">
+                {item.title}
+              </p>
+              <h2 className="text-[28px] font-black text-slate-900 mt-2">
+                {item.value}
+              </h2>
+            </div>
+          ))}
         </div>
 
-        {/* ================= CHART + STATUS ================= */}
+        {/* CHART + STATUS */}
         <div className="grid grid-cols-12 gap-6 mt-6">
-          {/* REVENUE CHART */}
-          <div className="col-span-12 xl:col-span-8 bg-white rounded-[34px] border border-slate-200 p-6 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-[18px] font-black text-slate-900">
-                  📈 Statistik Pendapatan Kumulatif
-                </h2>
-                <p className="text-[11px] uppercase tracking-[2px] font-black text-slate-400 mt-1">
-                  6 Bulan Terakhir
-                </p>
-              </div>
-              {monthlyRevenue.some((d) => d.total > 0) && (
-                <div
-                  className={`flex items-center gap-2 text-sm font-black ${trendAnalysis.warna}`}
-                >
-                  {trendAnalysis.arah} {trendAnalysis.deskripsi}
-                </div>
-              )}
-            </div>
+          <div className="col-span-12 xl:col-span-8 bg-white rounded-[34px] border p-6 shadow-sm">
+            <h2 className="text-[18px] font-black text-slate-900">
+              📈 Statistik Pendapatan Kumulatif
+            </h2>
+            <p className="text-[11px] uppercase tracking-[2px] font-black text-slate-400 mt-1">
+              6 Bulan Terakhir
+            </p>
             {renderRevenueChart()}
           </div>
 
-          {/* ORDER STATUS */}
-          <div className="col-span-12 xl:col-span-4 bg-white rounded-[34px] border border-slate-200 p-6 shadow-sm">
+          <div className="col-span-12 xl:col-span-4 bg-white rounded-[34px] border p-6 shadow-sm">
             <h2 className="text-[18px] font-black text-slate-900 mb-4">
               📊 Status Pesanan
             </h2>
             <div className="flex flex-col gap-3 mb-4">
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between">
                 <span className="text-sm text-slate-600">Menunggu</span>
                 <span className="font-black text-yellow-600">
                   {stats.pesanan_menunggu || 0}
                 </span>
               </div>
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between">
                 <span className="text-sm text-slate-600">Selesai</span>
                 <span className="font-black text-green-600">
                   {stats.pesanan_selesai || 0}
                 </span>
               </div>
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between">
                 <span className="text-sm text-slate-600">Total Pesanan</span>
                 <span className="font-black text-blue-600">
                   {stats.jumlah_pesanan || 0}
                 </span>
               </div>
             </div>
-            <div className="h-[160px]">{renderPieChart()}</div>
+            {renderPieChart()}
           </div>
         </div>
 
-        {/* ================= TOP PRODUCTS + USER + REPORT ================= */}
+        {/* BOTTOM SECTION */}
         <div className="grid grid-cols-12 gap-6 mt-6">
-          {/* TOP PRODUCTS */}
-          <div className="col-span-12 xl:col-span-4 bg-white rounded-[34px] border border-slate-200 p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
+          <div className="col-span-12 xl:col-span-4 bg-white rounded-[34px] border p-6 shadow-sm">
+            <div className="flex justify-between items-center mb-4">
               <h2 className="text-[18px] font-black text-slate-900">
                 🏆 Produk Terlaris
               </h2>
@@ -799,9 +555,8 @@ TOTAL PENDAPATAN : Rp ${stats.total_pendapatan.toLocaleString("id-ID")}
             {renderTopProductsChart()}
           </div>
 
-          {/* USER BARU */}
-          <div className="col-span-12 xl:col-span-4 bg-white rounded-[34px] border border-slate-200 p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
+          <div className="col-span-12 xl:col-span-4 bg-white rounded-[34px] border p-6 shadow-sm">
+            <div className="flex justify-between items-center mb-4">
               <h2 className="text-[18px] font-black text-slate-900">
                 👤 User Baru
               </h2>
@@ -845,9 +600,8 @@ TOTAL PENDAPATAN : Rp ${stats.total_pendapatan.toLocaleString("id-ID")}
             </div>
           </div>
 
-          {/* REPORT TERBARU */}
-          <div className="col-span-12 xl:col-span-4 bg-white rounded-[34px] border border-slate-200 p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
+          <div className="col-span-12 xl:col-span-4 bg-white rounded-[34px] border p-6 shadow-sm">
+            <div className="flex justify-between items-center mb-4">
               <h2 className="text-[18px] font-black text-slate-900">
                 📋 Laporan Terbaru
               </h2>
@@ -863,44 +617,40 @@ TOTAL PENDAPATAN : Rp ${stats.total_pendapatan.toLocaleString("id-ID")}
                 Belum ada laporan
               </div>
             ) : (
-              <div className="flex flex-col gap-3">
-                {reports.slice(0, 3).map((report, index) => (
-                  <div
-                    key={index}
-                    className="bg-[#f8fafc] rounded-[22px] p-3 flex items-center justify-between border border-slate-200"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center text-[18px] font-black">
-                        !
-                      </div>
-                      <div>
-                        <h3 className="font-black text-slate-900 text-[12px] uppercase leading-tight truncate max-w-[120px]">
-                          {report.alasan?.substring(0, 25) || "Laporan"}
-                        </h3>
-                        <p className="text-[10px] font-black text-slate-400 mt-0.5">
-                          Status: {report.status || "Menunggu"}
-                        </p>
-                      </div>
+              reports.slice(0, 3).map((report, index) => (
+                <div
+                  key={index}
+                  className="bg-[#f8fafc] rounded-[22px] p-3 flex items-center justify-between border"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center text-[18px] font-black">
+                      !
                     </div>
-                    <div
-                      className={`px-2 py-1 rounded-xl text-[9px] font-black ${getStatusColor(report.status)}`}
-                    >
-                      {report.status || "MENUNGGU"}
+                    <div>
+                      <h3 className="font-black text-slate-900 text-[12px] uppercase truncate max-w-[120px]">
+                        {report.alasan?.substring(0, 25) || "Laporan"}
+                      </h3>
+                      <p className="text-[10px] font-black text-slate-400 mt-0.5">
+                        Status: {report.status || "Menunggu"}
+                      </p>
                     </div>
                   </div>
-                ))}
-              </div>
+                  <div
+                    className={`px-2 py-1 rounded-xl text-[9px] font-black ${getStatusColor(report.status)}`}
+                  >
+                    {report.status || "MENUNGGU"}
+                  </div>
+                </div>
+              ))
             )}
           </div>
         </div>
 
-        {/* ================= RECENT ACTIVITIES ================= */}
-        <div className="bg-white rounded-[34px] border border-slate-200 p-6 shadow-sm mt-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-[18px] font-black text-slate-900">
-              🕐 Aktivitas Terbaru
-            </h2>
-          </div>
+        {/* ACTIVITIES */}
+        <div className="bg-white rounded-[34px] border p-6 shadow-sm mt-6">
+          <h2 className="text-[18px] font-black text-slate-900 mb-4">
+            🕐 Aktivitas Terbaru
+          </h2>
           {recentActivities.length === 0 ? (
             <div className="text-center text-slate-400 py-8">
               <div className="text-4xl mb-3">🕐</div>
@@ -914,7 +664,7 @@ TOTAL PENDAPATAN : Rp ${stats.total_pendapatan.toLocaleString("id-ID")}
               <table className="w-full min-w-[600px]">
                 <thead>
                   <tr className="text-left text-[10px] uppercase tracking-[2px] text-slate-400">
-                    <th className="px-4 py-3">ID Pesanan</th>
+                    <th className="px-4 py-3">ID</th>
                     <th className="px-4 py-3">Pelanggan</th>
                     <th className="px-4 py-3">Total</th>
                     <th className="px-4 py-3">Status</th>
@@ -923,7 +673,7 @@ TOTAL PENDAPATAN : Rp ${stats.total_pendapatan.toLocaleString("id-ID")}
                 </thead>
                 <tbody>
                   {recentActivities.map((item) => (
-                    <tr key={item.id} className="border-t border-slate-100">
+                    <tr key={item.id} className="border-t">
                       <td className="px-4 py-3 font-medium text-slate-900 text-sm">
                         #{item.id}
                       </td>
