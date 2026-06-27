@@ -49,6 +49,10 @@ function Profile() {
   // 🔥 PAKAI useRef UNTUK CEGAH SPAM
   const membershipFetched = useRef(false);
 
+  // 🔥 Tambahan state untuk upload
+  const [isUploading, setIsUploading] = useState(false);
+  const [avatarKey, setAvatarKey] = useState(Date.now());
+
   // Fetch profile
   useEffect(() => {
     const fetchProfile = async () => {
@@ -114,10 +118,23 @@ function Profile() {
     fetchVouchers();
   }, []);
 
-  // ================= HANDLE PHOTO UPLOAD =================
+  // ================= 🔥 HANDLE PHOTO UPLOAD (DIPERBAIKI) =================
   const handleImageChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Ukuran file maksimal 5MB");
+      return;
+    }
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      alert("Format file tidak didukung. Gunakan JPG, PNG, GIF, atau WEBP");
+      return;
+    }
+
+    setIsUploading(true);
 
     const formData = new FormData();
     formData.append("foto", file);
@@ -135,23 +152,40 @@ function Profile() {
       );
 
       console.log("Upload response:", response.data);
-      // Support different response shapes; prefer data.url_foto
-      const imageUrl =
-        response.data?.data?.url_foto || response.data?.data || null;
+
+      let imageUrl = null;
+      if (response.data?.data?.url_foto) {
+        imageUrl = response.data.data.url_foto;
+      } else if (response.data?.data) {
+        imageUrl = response.data.data;
+      } else if (response.data?.url_foto) {
+        imageUrl = response.data.url_foto;
+      }
 
       if (!imageUrl) {
         alert("Upload berhasil tapi URL gambar tidak ditemukan pada response");
+        setIsUploading(false);
         return;
       }
 
+      // 🔥 Update localStorage
       const updatedUser = { ...currentUser, url_foto: imageUrl };
       localStorage.setItem("currentUser", JSON.stringify(updatedUser));
-      setUser({ ...user, url_foto: imageUrl });
 
-      alert("Foto profil berhasil diupload!");
+      // 🔥 Update state
+      setUser({ ...user, url_foto: imageUrl });
+      setAvatarKey(Date.now());
+
+      alert("✅ Foto profil berhasil diupload!");
+
+      // 🔥 Reload page setelah upload
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
     } catch (error) {
       console.error("Error uploading photo:", error);
       alert(error.response?.data?.message || "Gagal upload foto");
+      setIsUploading(false);
     }
   };
 
@@ -198,7 +232,6 @@ function Profile() {
     try {
       const payload = {};
 
-      // 🔥 Kirim null jika kosong, atau value jika ada
       if (name !== undefined && name !== null && name.trim() !== "") {
         payload.nama = name.trim();
       } else {
@@ -249,6 +282,13 @@ function Profile() {
       </>
     );
   }
+
+  // 🔥 Ambil URL foto
+  const profilePhoto =
+    user?.url_foto || currentUser?.url_foto || currentUser?.photo || null;
+  const userInitial = (user?.nama || currentUser?.name || "U")
+    .charAt(0)
+    .toUpperCase();
 
   return (
     <>
@@ -313,30 +353,42 @@ function Profile() {
                           id="profileImage"
                           className="hidden"
                           onChange={handleImageChange}
+                          disabled={isUploading}
                         />
                         <label
                           htmlFor="profileImage"
-                          className="w-20 h-20 rounded-2xl overflow-hidden cursor-pointer flex items-center justify-center bg-blue-600 text-white text-3xl font-black shadow-lg relative"
+                          className={`w-20 h-20 rounded-2xl overflow-hidden cursor-pointer flex items-center justify-center bg-blue-600 text-white text-3xl font-black shadow-lg relative ${
+                            isUploading ? "opacity-50 cursor-wait" : ""
+                          }`}
                         >
-                          {currentUser?.url_foto ? (
+                          {profilePhoto ? (
                             <img
-                              src={currentUser.url_foto}
-                              alt=""
+                              key={`avatar-${avatarKey}`}
+                              src={profilePhoto}
+                              alt="Profile"
                               className="w-full h-full object-cover"
-                            />
-                          ) : currentUser?.photo ? (
-                            <img
-                              src={currentUser.photo}
-                              alt=""
-                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.style.display = "none";
+                                e.target.parentElement.textContent =
+                                  userInitial;
+                              }}
                             />
                           ) : (
-                            currentUser?.name?.charAt(0) || "U"
+                            userInitial
                           )}
                           <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 duration-300 flex items-center justify-center">
-                            <Camera size={24} />
+                            {isUploading ? (
+                              <div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent" />
+                            ) : (
+                              <Camera size={24} className="text-white" />
+                            )}
                           </div>
                         </label>
+                        {isUploading && (
+                          <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-xs text-blue-600 font-bold whitespace-nowrap">
+                            Mengupload...
+                          </span>
+                        )}
                       </div>
                       <div>
                         <div className="flex items-center gap-3">
@@ -368,39 +420,47 @@ function Profile() {
                         id="profileImageEdit"
                         className="hidden"
                         onChange={handleImageChange}
+                        disabled={isUploading}
                       />
                       <label
                         htmlFor="profileImageEdit"
-                        className="w-24 h-24 rounded-3xl overflow-hidden bg-blue-600 text-white text-4xl font-black flex items-center justify-center relative cursor-pointer"
+                        className={`w-24 h-24 rounded-3xl overflow-hidden cursor-pointer flex items-center justify-center bg-blue-600 text-white text-4xl font-black relative ${
+                          isUploading ? "opacity-50 cursor-wait" : ""
+                        }`}
                       >
-                        {currentUser?.url_foto ? (
+                        {profilePhoto ? (
                           <img
-                            src={currentUser.url_foto}
-                            alt=""
+                            key={`avatar-edit-${avatarKey}`}
+                            src={profilePhoto}
+                            alt="Profile"
                             className="w-full h-full object-cover"
-                          />
-                        ) : currentUser?.photo ? (
-                          <img
-                            src={currentUser.photo}
-                            alt=""
-                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.style.display = "none";
+                              e.target.parentElement.textContent = userInitial;
+                            }}
                           />
                         ) : (
-                          currentUser?.name?.charAt(0) || "U"
+                          userInitial
                         )}
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 duration-300 flex items-center justify-center">
-                          <Camera size={24} />
+                          {isUploading ? (
+                            <div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent" />
+                          ) : (
+                            <Camera size={24} className="text-white" />
+                          )}
                         </div>
                       </label>
                     </div>
                     <div className="flex-1 space-y-4">
                       <input
+                        key={`name-${name}`}
                         value={name || ""}
                         onChange={(e) => setName(e.target.value)}
                         placeholder="Nama"
                         className="w-full h-12 bg-slate-100 rounded-2xl px-5 font-bold outline-none"
                       />
                       <input
+                        key={`email-${email}`}
                         value={email || ""}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="Email"
