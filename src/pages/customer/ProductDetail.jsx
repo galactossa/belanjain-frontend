@@ -6,6 +6,11 @@ import {
   MessageCircle,
   CircleAlert,
   Share2,
+  ShieldCheck,
+  Zap,
+  TrendingUp,
+  TrendingDown,
+  Minus,
 } from "lucide-react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -32,13 +37,14 @@ function ProductDetail() {
   const [search, setSearch] = useState("");
   const [showWishlist, setShowWishlist] = useState(false);
   const [showCart, setShowCart] = useState(false);
+  const [showReport, setShowReport] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [trustScore, setTrustScore] = useState(null);
   const [timeLeft, setTimeLeft] = useState({
     hours: 12,
     minutes: 17,
     seconds: 35,
   });
-  const [showReport, setShowReport] = useState(false);
-  const [reportReason, setReportReason] = useState("");
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -59,7 +65,7 @@ function ProductDetail() {
     return () => clearInterval(timer);
   }, []);
 
-  // ================= FETCH PRODUCT & REVIEWS =================
+  // ================= FETCH PRODUCT =================
   useEffect(() => {
     const fetchProduct = async () => {
       setLoading(true);
@@ -89,7 +95,7 @@ function ProductDetail() {
           }
         }
 
-        // ================= 🔥 FETCH REVIEWS =================
+        // Fetch reviews
         try {
           const reviewRes = await api.get(`/ulasan/produk/${id}`);
           console.log("🔍 Review response:", reviewRes.data);
@@ -102,11 +108,20 @@ function ProductDetail() {
           } else if (Array.isArray(reviewRes.data)) {
             reviews = reviewRes.data;
           }
-
           setProductReviews(reviews);
         } catch (reviewError) {
           console.error("Error fetching reviews:", reviewError);
           setProductReviews([]);
+        }
+
+        // ================= 🔥 FETCH TRUST SCORE =================
+        try {
+          const trustRes = await api.get(`/trust-score/produk/${id}`);
+          console.log("🔍 Trust score response:", trustRes.data);
+          setTrustScore(trustRes.data.data);
+        } catch (trustError) {
+          console.error("Error fetching trust score:", trustError);
+          setTrustScore(null);
         }
       } catch (error) {
         console.error("Error fetching product:", error);
@@ -140,6 +155,13 @@ function ProductDetail() {
         totalReviewCount
       : 0;
 
+  const ratingSummary = [5, 4, 3, 2, 1].map((star) => ({
+    star,
+    count: productReviews.filter((r) => Math.round(r.rating || 0) === star)
+      .length,
+  }));
+
+  // ================= FOLLOW =================
   const handleFollow = async () => {
     if (!currentUser) {
       alert("Silakan login terlebih dahulu");
@@ -169,6 +191,7 @@ function ProductDetail() {
     }
   };
 
+  // ================= CHAT =================
   const handleChat = () => {
     if (!currentUser) {
       alert("Silakan login terlebih dahulu");
@@ -190,6 +213,7 @@ function ProductDetail() {
     navigate(`/customer/store/${seller.id_toko}`);
   };
 
+  // ================= CART =================
   const handleCart = async () => {
     if (!currentUser) {
       alert("Silakan login terlebih dahulu");
@@ -213,6 +237,7 @@ function ProductDetail() {
     }
   };
 
+  // ================= BUY NOW =================
   const handleBuyNow = async () => {
     if (!currentUser) {
       alert("Silakan login terlebih dahulu");
@@ -234,6 +259,7 @@ function ProductDetail() {
     navigate("/customer/checkout");
   };
 
+  // ================= WISHLIST =================
   const handleWishlist = async () => {
     if (!currentUser) {
       alert("Silakan login terlebih dahulu");
@@ -256,6 +282,7 @@ function ProductDetail() {
     }
   };
 
+  // ================= REPORT =================
   const handleReport = () => {
     if (!reportReason.trim()) {
       alert("Alasan laporan wajib diisi");
@@ -266,6 +293,7 @@ function ProductDetail() {
     setShowReport(false);
   };
 
+  // ================= SHARE =================
   const handleShare = async () => {
     const url = window.location.href;
     if (navigator.share) {
@@ -278,6 +306,116 @@ function ProductDetail() {
       navigator.clipboard.writeText(url);
       alert("Link disalin!");
     }
+  };
+
+  // ================= RENDER TRUST SCORE =================
+  const renderTrustScore = () => {
+    if (!trustScore) {
+      return (
+        <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200">
+          <div className="flex items-center gap-2 text-slate-400">
+            <ShieldCheck size={18} />
+            <span className="font-semibold text-sm">
+              Trust Score belum tersedia
+            </span>
+          </div>
+        </div>
+      );
+    }
+
+    const { trust_score, level, badge, detail } = trustScore;
+    const levelColors = {
+      "Sangat Terpercaya": "bg-green-100 text-green-700 border-green-300",
+      Terpercaya: "bg-blue-100 text-blue-700 border-blue-300",
+      "Cukup Terpercaya": "bg-yellow-100 text-yellow-700 border-yellow-300",
+      "Perlu Dipertimbangkan": "bg-red-100 text-red-700 border-red-300",
+    };
+
+    const levelColor =
+      levelColors[level] || "bg-slate-100 text-slate-700 border-slate-300";
+
+    return (
+      <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <ShieldCheck size={20} className="text-blue-600" />
+            <span className="font-black text-lg">Trust Score</span>
+          </div>
+          <div
+            className={`px-4 py-1.5 rounded-full text-sm font-black border ${levelColor}`}
+          >
+            {badge} {trust_score}%
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-500">Rating</span>
+              <span className="font-semibold">{detail.rating} / 5.0</span>
+            </div>
+            <div className="w-full h-1.5 bg-slate-200 rounded-full mt-1">
+              <div
+                className="h-full bg-yellow-400 rounded-full"
+                style={{ width: `${detail.rating_score}%` }}
+              />
+            </div>
+          </div>
+
+          <div>
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-500">Total Terjual</span>
+              <span className="font-semibold">{detail.total_terjual} unit</span>
+            </div>
+            <div className="w-full h-1.5 bg-slate-200 rounded-full mt-1">
+              <div
+                className="h-full bg-blue-400 rounded-full"
+                style={{ width: `${detail.terjual_score}%` }}
+              />
+            </div>
+          </div>
+
+          <div>
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-500">Konsistensi Review</span>
+              <span className="font-semibold">
+                {detail.konsistensi_review}%
+              </span>
+            </div>
+            <div className="w-full h-1.5 bg-slate-200 rounded-full mt-1">
+              <div
+                className="h-full bg-green-400 rounded-full"
+                style={{ width: `${detail.konsistensi_review}%` }}
+              />
+            </div>
+          </div>
+
+          <div>
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-500">Kecepatan Kirim</span>
+              <span className="font-semibold">{detail.kecepatan_kirim}%</span>
+            </div>
+            <div className="w-full h-1.5 bg-slate-200 rounded-full mt-1">
+              <div
+                className="h-full bg-purple-400 rounded-full"
+                style={{ width: `${detail.kecepatan_kirim}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 pt-4 border-t border-slate-200">
+          <p className="text-sm font-semibold text-slate-700">Level: {level}</p>
+          <p className="text-xs text-slate-400 mt-1">
+            {trust_score >= 80
+              ? "✅ Produk ini sangat terpercaya! Kualitas terjamin."
+              : trust_score >= 60
+                ? "👍 Produk ini cukup terpercaya. Cek ulasan untuk lebih yakin."
+                : "⚠️ Produk ini perlu dipertimbangkan. Baca ulasan dengan teliti."}
+          </p>
+        </div>
+      </div>
+    );
   };
 
   if (loading) {
@@ -295,12 +433,6 @@ function ProductDetail() {
       </div>
     );
   }
-
-  const ratingSummary = [5, 4, 3, 2, 1].map((star) => ({
-    star,
-    count: productReviews.filter((r) => Math.round(r.rating || 0) === star)
-      .length,
-  }));
 
   const subtotal = cartItems.reduce(
     (acc, item) => acc + (item.harga_produk || 0) * (item.jumlah || 1),
@@ -322,6 +454,7 @@ function ProductDetail() {
       />
 
       <main className="max-w-[1200px] mx-auto px-4 py-6">
+        {/* BREADCRUMB */}
         <div className="text-xs text-slate-400 flex gap-2 mb-6">
           <span
             onClick={() => navigate("/customer")}
@@ -384,6 +517,10 @@ function ProductDetail() {
               Rp {Number(product.harga).toLocaleString("id-ID")}
             </h2>
 
+            {/* ================= 🔥 TRUST SCORE SECTION ================= */}
+            <div className="mt-4">{renderTrustScore()}</div>
+
+            {/* STORE */}
             <div className="flex items-center justify-between border rounded-xl p-3 mt-6 shadow-sm">
               <div
                 onClick={handleStoreProfile}
@@ -472,12 +609,10 @@ function ProductDetail() {
                 </div>
               )}
 
-              {/* ================= 🔥 TAB ULASAN (DIPERBAIKI) ================= */}
               {activeTab === "ulasan" && (
                 <div>
                   {totalReviewCount > 0 ? (
                     <div className="space-y-6">
-                      {/* Rating summary */}
                       <div>
                         <div className="flex items-center gap-4 mb-4">
                           <div className="flex items-center gap-2">
@@ -515,7 +650,6 @@ function ProductDetail() {
                         </div>
                       </div>
 
-                      {/* 🔥 LIST ULASAN */}
                       <div className="space-y-4">
                         {productReviews.slice(0, 5).map((review) => (
                           <div
