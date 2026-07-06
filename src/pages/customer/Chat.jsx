@@ -1,4 +1,4 @@
-// src/pages/customer/Chat.jsx - FULL DENGAN COMPLAINT BANNER
+// src/pages/customer/Chat.jsx - FULL DENGAN COMPLAINT BANNER DI DALAM CHAT
 
 import {
   Search,
@@ -429,8 +429,42 @@ function Chat() {
           </div>
         ) : (
           <div className="flex-1 flex flex-col">
-            {/* 🔥 KOMPLAIN ACTIVE - TAMPILKAN PRODUK YANG DIKOMPLAIN (CUSTOMER SIDE) */}
-            {activeComplaint && (
+            <div className="h-[105px] bg-white border-b px-7 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <div className="w-14 h-14 rounded-2xl overflow-hidden bg-slate-200 flex items-center justify-center text-2xl font-black text-slate-600">
+                    {activeChat.other_user_name?.charAt(0) || "U"}
+                  </div>
+                  {onlineUsers.includes(activeChat.other_user_id) && (
+                    <span className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full" />
+                  )}
+                </div>
+                <div>
+                  <h2 className="text-2xl font-black">
+                    {activeChat.other_user_name}
+                  </h2>
+                  <p className="text-xs font-black tracking-[2px] text-emerald-600">
+                    {onlineUsers.includes(activeChat.other_user_id)
+                      ? "ONLINE"
+                      : "OFFLINE"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button className="w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center">
+                  <Phone size={18} />
+                </button>
+                <button className="w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center">
+                  <Video size={18} />
+                </button>
+                <button className="w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center">
+                  <MoreVertical size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* 🔥 KOMPLAIN ACTIVE - TAMPILKAN DI DALAM CHAT PANEL (HANYA JIKA USER YANG DIAJAK CHAT ADALAH PELAPOR) */}
+            {activeComplaint && activeComplaint.id_pelapor === userId && (
               <div className="bg-red-50 border border-red-200 rounded-xl p-4 mx-4 mt-4">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-4 flex-1">
@@ -485,40 +519,6 @@ function Chat() {
                 </div>
               </div>
             )}
-
-            <div className="h-[105px] bg-white border-b px-7 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="relative">
-                  <div className="w-14 h-14 rounded-2xl overflow-hidden bg-slate-200 flex items-center justify-center text-2xl font-black text-slate-600">
-                    {activeChat.other_user_name?.charAt(0) || "U"}
-                  </div>
-                  {onlineUsers.includes(activeChat.other_user_id) && (
-                    <span className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full" />
-                  )}
-                </div>
-                <div>
-                  <h2 className="text-2xl font-black">
-                    {activeChat.other_user_name}
-                  </h2>
-                  <p className="text-xs font-black tracking-[2px] text-emerald-600">
-                    {onlineUsers.includes(activeChat.other_user_id)
-                      ? "ONLINE"
-                      : "OFFLINE"}
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <button className="w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center">
-                  <Phone size={18} />
-                </button>
-                <button className="w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center">
-                  <Video size={18} />
-                </button>
-                <button className="w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center">
-                  <MoreVertical size={18} />
-                </button>
-              </div>
-            </div>
 
             <div className="flex-1 overflow-y-auto bg-[#F5F6F8] p-8">
               {messages.length === 0 ? (
