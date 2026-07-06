@@ -1,3 +1,4 @@
+// src/components/customer/CustomerNavbar.jsx
 import {
   Search,
   ShoppingCart,
@@ -10,6 +11,7 @@ import {
   LogOut,
   Settings,
   X,
+  AlertTriangle,
 } from "lucide-react";
 
 import { useNavigate, useLocation } from "react-router-dom";
@@ -86,7 +88,7 @@ function CustomerNavbar({
     return () => window.removeEventListener("storage", handleStorageChange);
   }, []);
 
-  // ================= 🔥 NOTIFICATION (DIPERBAIKI) =================
+  // ================= NOTIFICATION =================
   const [notifications, setNotifications] = useState([]);
   const [notificationCount, setNotificationCount] = useState(0);
 
@@ -396,6 +398,21 @@ function CustomerNavbar({
                         {currentText.profileMenuSettings}
                       </span>
                     </button>
+
+                    {/* 🔥 MENU LAPORAN CUSTOMER */}
+                    <button
+                      onClick={() => {
+                        setShowProfile(false);
+                        navigate("/customer/reports");
+                      }}
+                      className="w-full h-14 px-6 flex items-center gap-4 text-slate-700 hover:bg-red-50 transition"
+                    >
+                      <AlertTriangle
+                        size={20}
+                        className="text-red-500 shrink-0"
+                      />
+                      <span className="font-semibold">Riwayat Laporan</span>
+                    </button>
                   </div>
 
                   <div className="border-t border-slate-200 p-3">
@@ -556,7 +573,12 @@ function CustomerNavbar({
                                     ? "bg-red-100 text-red-600"
                                     : notif.tipe === "toko"
                                       ? "bg-green-100 text-green-600"
-                                      : "bg-slate-100 text-slate-600"
+                                      : notif.tipe === "komplain" ||
+                                          notif.tipe === "komplain_respon"
+                                        ? "bg-purple-100 text-purple-600"
+                                        : notif.tipe === "admin_teguran"
+                                          ? "bg-red-100 text-red-600"
+                                          : "bg-slate-100 text-slate-600"
                               }`}
                             >
                               {notif.tipe.toUpperCase()}

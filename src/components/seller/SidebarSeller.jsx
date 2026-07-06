@@ -1,3 +1,4 @@
+// src/components/seller/SidebarSeller.jsx
 import {
   LayoutDashboard,
   Boxes,
@@ -8,6 +9,7 @@ import {
   LogOut,
   PlusCircle,
   Store,
+  AlertTriangle,
 } from "lucide-react";
 
 import { Link, useLocation, useNavigate } from "react-router-dom";
@@ -54,6 +56,8 @@ function SidebarSeller() {
         return <MessageSquare {...iconProps} />;
       case "settings":
         return <Settings {...iconProps} />;
+      case "alert":
+        return <AlertTriangle {...iconProps} />;
       default:
         return null;
     }
@@ -76,6 +80,8 @@ function SidebarSeller() {
         path: "/seller/analystics",
       },
       { title: "Obrolan", iconType: "message", path: "/seller/chat" },
+      /* 🔥 MENU KOMPLAIN SELLER */
+      { title: "Komplain", iconType: "alert", path: "/seller/complaints" },
       { title: "Pengaturan", iconType: "settings", path: "/seller/settings" },
     ],
     [],

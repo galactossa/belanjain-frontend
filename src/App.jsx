@@ -1,3 +1,4 @@
+// src/App.jsx
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import api from "./api/api";
@@ -34,6 +35,9 @@ import Checkout from "./pages/customer/Checkout";
 import CustomerProductDetail from "./pages/customer/ProductDetail";
 import Profile from "./pages/customer/Profile";
 import StoreDetail from "./pages/customer/StoreDetail";
+/* ================= 🔥 REPORT ================= */
+import CustomerReports from "./pages/customer/Reports";
+import SellerComplaints from "./pages/seller/Complaints";
 
 function App() {
   const location = useLocation();
@@ -57,13 +61,10 @@ function App() {
         token.substring(0, 20) + "...",
       );
 
-      // Simpan token
       localStorage.setItem("token", token);
 
-      // Set token di axios interceptor
       api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
 
-      // Ambil data user
       const fetchUser = async () => {
         try {
           console.log("📡 Fetching user data from /pengguna/me...");
@@ -74,10 +75,8 @@ function App() {
           console.log("👤 User data received:", user);
           console.log("👤 User name:", user.nama);
 
-          // Update localStorage
           localStorage.setItem("currentUser", JSON.stringify(user));
 
-          // 🔥 FORCE RELOAD PAGE
           let redirectUrl = "/customer";
           if (user.role === "admin") redirectUrl = "/admin";
           else if (user.role === "penjual") redirectUrl = "/seller";
@@ -93,7 +92,6 @@ function App() {
       };
       fetchUser();
 
-      // Bersihkan URL dari token
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, [location, navigate]);
@@ -129,6 +127,8 @@ function App() {
       <Route path="/seller/settings" element={<Settings />} />
       <Route path="/seller/store-profile" element={<StoreProfile />} />
       <Route path="/seller/add-product" element={<AddProduct />} />
+      {/* 🔥 ROUTE KOMPLAIN SELLER */}
+      <Route path="/seller/complaints" element={<SellerComplaints />} />
 
       <Route path="/customer" element={<Home />} />
       <Route path="/customer/orders" element={<Orders />} />
@@ -141,6 +141,8 @@ function App() {
       />
       <Route path="/customer/store/:id" element={<StoreDetail />} />
       <Route path="/customer/profile" element={<Profile />} />
+      {/* 🔥 ROUTE LAPORAN CUSTOMER */}
+      <Route path="/customer/reports" element={<CustomerReports />} />
     </Routes>
   );
 }
