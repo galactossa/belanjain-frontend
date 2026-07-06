@@ -1,4 +1,4 @@
-// src/pages/seller/Complaints.jsx - FULL LENGKAP
+// src/pages/seller/Complaints.jsx - FULL LENGKAP DENGAN REDIRECT KE CHAT
 
 import {
   AlertTriangle,
@@ -7,24 +7,22 @@ import {
   XCircle,
   Search,
   MessageSquare,
-  Send,
   Package,
   User,
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import SellerLayout from "../../layouts/SellerLayout";
 import api from "../../api/api";
 
 function SellerComplaints() {
+  const navigate = useNavigate();
   const currentUser = JSON.parse(localStorage.getItem("currentUser"));
   const [storeId, setStoreId] = useState(null);
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("semua");
-  const [showDetail, setShowDetail] = useState(null);
-  const [responseText, setResponseText] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [stats, setStats] = useState({
     total: 0,
     menunggu: 0,
@@ -74,6 +72,48 @@ function SellerComplaints() {
     fetchComplaints();
   }, [storeId]);
 
+  // 🔥 HANDLE RESPON - LANGSUNG KE CHAT
+  const handleResponse = (complaint) => {
+    // Simpan data komplain ke localStorage
+    localStorage.setItem(
+      "activeComplaint",
+      JSON.stringify({
+        id_laporan: complaint.id_laporan,
+        id_pelapor: complaint.id_pelapor,
+        pelapor_nama: complaint.pelapor_nama,
+        alasan: complaint.alasan,
+        produk: complaint.produk,
+        status: complaint.status,
+        from: "seller",
+      }),
+    );
+
+    // Redirect ke halaman chat dengan user ID pelapor
+    navigate(`/seller/chat/${complaint.id_pelapor}`);
+  };
+
+  const handleResolve = async (complaintId, status) => {
+    if (
+      !window.confirm(`Yakin ingin mengubah status ke ${status.toUpperCase()}?`)
+    )
+      return;
+
+    try {
+      await api.put(`/laporan/${complaintId}/status`, { status });
+
+      const response = await api.get(`/laporan/seller/${storeId}`);
+      setComplaints(response.data.data.data || []);
+
+      const statsRes = await api.get(`/laporan/seller/${storeId}/statistik`);
+      setStats(statsRes.data.data);
+
+      alert(`✅ Status diubah ke ${status.toUpperCase()}`);
+    } catch (error) {
+      console.error("Error updating status:", error);
+      alert(error.response?.data?.message || "Gagal update status");
+    }
+  };
+
   const getStatusBadge = (status) => {
     const s = status?.toLowerCase() || "";
     if (s.includes("menunggu")) {
@@ -118,57 +158,6 @@ function SellerComplaints() {
     };
   };
 
-  const handleResponse = async (complaintId) => {
-    if (!responseText.trim() || responseText.trim().length < 5) {
-      alert("Respon minimal 5 karakter");
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      await api.put(`/laporan/${complaintId}/seller-response`, {
-        respon: responseText.trim(),
-      });
-
-      const response = await api.get(`/laporan/seller/${storeId}`);
-      setComplaints(response.data.data.data || []);
-
-      const statsRes = await api.get(`/laporan/seller/${storeId}/statistik`);
-      setStats(statsRes.data.data);
-
-      setShowDetail(null);
-      setResponseText("");
-      alert("✅ Respon berhasil dikirim!");
-    } catch (error) {
-      console.error("Error sending response:", error);
-      alert(error.response?.data?.message || "Gagal mengirim respon");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleResolve = async (complaintId, status) => {
-    if (
-      !window.confirm(`Yakin ingin mengubah status ke ${status.toUpperCase()}?`)
-    )
-      return;
-
-    try {
-      await api.put(`/laporan/${complaintId}/status`, { status });
-
-      const response = await api.get(`/laporan/seller/${storeId}`);
-      setComplaints(response.data.data.data || []);
-
-      const statsRes = await api.get(`/laporan/seller/${storeId}/statistik`);
-      setStats(statsRes.data.data);
-
-      alert(`✅ Status diubah ke ${status.toUpperCase()}`);
-    } catch (error) {
-      console.error("Error updating status:", error);
-      alert(error.response?.data?.message || "Gagal update status");
-    }
-  };
-
   const filteredComplaints = complaints.filter((item) => {
     const matchSearch =
       (item.alasan || "").toLowerCase().includes(search.toLowerCase()) ||
@@ -191,7 +180,6 @@ function SellerComplaints() {
     { id: "ditolak", label: "Ditolak", count: stats.ditolak },
   ];
 
-  // Format date
   const formatDate = (date) => {
     if (!date) return "-";
     const d = new Date(date);
@@ -204,7 +192,6 @@ function SellerComplaints() {
     });
   };
 
-  // Hitung hari sejak laporan dibuat
   const getDaysSince = (date) => {
     if (!date) return 0;
     const created = new Date(date);
@@ -227,7 +214,6 @@ function SellerComplaints() {
   return (
     <SellerLayout>
       <div className="max-w-6xl mx-auto px-6 py-8">
-        {/* HEADER */}
         <div>
           <h1 className="text-3xl font-black">Komplain Masuk</h1>
           <p className="text-slate-500 text-sm mt-1">
@@ -344,9 +330,7 @@ function SellerComplaints() {
                   }`}
                 >
                   <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                    {/* LEFT - INFO */}
                     <div className="flex-1">
-                      {/* HEADER */}
                       <div className="flex items-center gap-3 flex-wrap">
                         <span className="text-xs font-bold text-slate-400">
                           #{item.id_laporan}
@@ -368,7 +352,6 @@ function SellerComplaints() {
                         </span>
                       </div>
 
-                      {/* PRODUK YANG DIKOMPLAIN */}
                       <div className="mt-4 bg-white rounded-2xl border border-slate-200 p-4">
                         <div className="flex items-center gap-4">
                           <img
@@ -407,7 +390,6 @@ function SellerComplaints() {
                         </div>
                       </div>
 
-                      {/* ALASAN KOMPLAIN */}
                       <div className="mt-3">
                         <p className="text-sm text-slate-600">
                           <span className="font-bold text-slate-700">
@@ -417,7 +399,6 @@ function SellerComplaints() {
                         </p>
                       </div>
 
-                      {/* PELAPOR */}
                       <div className="flex items-center gap-4 mt-2 text-xs text-slate-400">
                         <div className="flex items-center gap-1">
                           <User size={14} />
@@ -427,7 +408,6 @@ function SellerComplaints() {
                         <span>Email: {item.pelapor_email || "-"}</span>
                       </div>
 
-                      {/* RESPON SELLER */}
                       {item.respon_seller && (
                         <div className="mt-3 bg-purple-50 border border-purple-200 rounded-xl p-3">
                           <p className="text-xs font-bold text-purple-600">
@@ -444,7 +424,6 @@ function SellerComplaints() {
                         </div>
                       )}
 
-                      {/* CATATAN ADMIN */}
                       {item.catatan_admin && (
                         <div className="mt-3 bg-blue-50 border border-blue-200 rounded-xl p-3">
                           <p className="text-xs font-bold text-blue-600">
@@ -459,30 +438,16 @@ function SellerComplaints() {
 
                     {/* RIGHT - ACTIONS */}
                     <div className="flex flex-col gap-2 shrink-0 min-w-[140px]">
-                      {/* 🔥 TOMBOL RESPON & SELESAI/TOLAK - TETAP ADA UNTUK MENUNGGU, DIPROSES, DAN DIRESPON */}
                       {isActionable && (
                         <>
                           <button
-                            onClick={() =>
-                              setShowDetail(
-                                showDetail === item.id_laporan
-                                  ? null
-                                  : item.id_laporan,
-                              )
-                            }
-                            className={`px-4 py-2 rounded-xl text-white font-bold text-sm transition flex items-center gap-2 ${
-                              showDetail === item.id_laporan
-                                ? "bg-slate-600 hover:bg-slate-700"
-                                : "bg-blue-600 hover:bg-blue-700"
-                            }`}
+                            onClick={() => handleResponse(item)}
+                            className="px-4 py-2 rounded-xl bg-blue-600 text-white font-bold text-sm hover:bg-blue-700 transition flex items-center gap-2"
                           >
                             <MessageSquare size={16} />
-                            {showDetail === item.id_laporan
-                              ? "Tutup"
-                              : "Respon"}
+                            Respon via Chat
                           </button>
 
-                          {/* 🔥 TOMBOL SELESAI & TOLAK - TETAP ADA */}
                           <div className="flex gap-2">
                             <button
                               onClick={() =>
@@ -516,47 +481,6 @@ function SellerComplaints() {
                       )}
                     </div>
                   </div>
-
-                  {/* RESPON FORM */}
-                  {showDetail === item.id_laporan && isActionable && (
-                    <div className="mt-4 border-t pt-4">
-                      <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4">
-                        <p className="text-sm text-yellow-700">
-                          ⚠️ Komplain ini sudah{" "}
-                          <strong>{daysSince} hari</strong> belum ditindak.
-                          {daysSince >= 3 &&
-                            " Segera respon untuk menghindari teguran admin!"}
-                        </p>
-                      </div>
-                      <textarea
-                        rows={3}
-                        value={responseText}
-                        onChange={(e) => setResponseText(e.target.value)}
-                        placeholder="Tulis respon Anda untuk pembeli..."
-                        className="w-full rounded-xl border border-slate-200 p-4 resize-none outline-none focus:border-blue-500"
-                      />
-                      <div className="flex gap-2 mt-3">
-                        <button
-                          onClick={() => handleResponse(item.id_laporan)}
-                          disabled={isSubmitting}
-                          className={`px-6 py-2 rounded-xl text-white font-bold text-sm flex items-center gap-2 ${
-                            isSubmitting
-                              ? "bg-blue-400 cursor-not-allowed"
-                              : "bg-blue-600 hover:bg-blue-700"
-                          }`}
-                        >
-                          <Send size={16} />
-                          {isSubmitting ? "Mengirim..." : "Kirim Respon"}
-                        </button>
-                        <button
-                          onClick={() => setShowDetail(null)}
-                          className="px-6 py-2 rounded-xl bg-slate-100 font-bold text-sm hover:bg-slate-200"
-                        >
-                          Batal
-                        </button>
-                      </div>
-                    </div>
-                  )}
                 </div>
               );
             })}

@@ -1,3 +1,5 @@
+// src/pages/seller/ObrolanSeller.jsx - FULL DENGAN COMPLAINT BANNER
+
 import {
   Search,
   Send,
@@ -8,6 +10,9 @@ import {
   Smile,
   User,
   Bell,
+  Package,
+  AlertTriangle,
+  X,
 } from "lucide-react";
 import SellerLayout from "../../layouts/SellerLayout";
 import { useState, useEffect, useRef } from "react";
@@ -29,11 +34,30 @@ function ObrolanSeller() {
   const [messages, setMessages] = useState([]);
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [notifications, setNotifications] = useState([]);
+  const [activeComplaint, setActiveComplaint] = useState(null);
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
 
   const currentUser = JSON.parse(localStorage.getItem("currentUser") || "null");
   const userId = currentUser?.id_pengguna || currentUser?.id;
+
+  // 🔥 CEK APAKAH ADA KOMPLAIN DARI LOCALSTORAGE
+  useEffect(() => {
+    const complaintData = localStorage.getItem("activeComplaint");
+    if (complaintData) {
+      try {
+        const parsed = JSON.parse(complaintData);
+        setActiveComplaint(parsed);
+      } catch (e) {
+        console.error("Error parsing complaint data:", e);
+      }
+    }
+  }, []);
+
+  const clearComplaint = () => {
+    setActiveComplaint(null);
+    localStorage.removeItem("activeComplaint");
+  };
 
   // Fetch chat rooms from API
   useEffect(() => {
@@ -313,6 +337,65 @@ function ObrolanSeller() {
               </div>
             ) : (
               <>
+                {/* 🔥 KOMPLAIN ACTIVE - TAMPILKAN PRODUK YANG DIKOMPLAIN */}
+                {activeComplaint && (
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-4 mx-4 mt-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-4 flex-1">
+                        <div className="w-16 h-16 rounded-xl overflow-hidden border border-red-300 flex-shrink-0">
+                          <img
+                            src={
+                              activeComplaint.produk?.url_gambar ||
+                              "https://via.placeholder.com/80"
+                            }
+                            alt={
+                              activeComplaint.produk?.nama_produk || "Produk"
+                            }
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.src =
+                                "https://via.placeholder.com/80?text=No+Image";
+                            }}
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <AlertTriangle size={16} className="text-red-500" />
+                            <span className="text-xs font-bold text-red-600 uppercase">
+                              Komplain Produk
+                            </span>
+                          </div>
+                          <h4 className="font-bold text-slate-900 text-sm">
+                            {activeComplaint.produk?.nama_produk || "Produk"}
+                          </h4>
+                          <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                            <span>
+                              ID: #{activeComplaint.produk?.id_produk || "-"}
+                            </span>
+                            <span>•</span>
+                            <span>
+                              Harga: Rp{" "}
+                              {Number(
+                                activeComplaint.produk?.harga || 0,
+                              ).toLocaleString("id-ID")}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-600 mt-1 bg-white/70 p-2 rounded-lg">
+                            <span className="font-semibold">Alasan:</span>{" "}
+                            {activeComplaint.alasan || "-"}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={clearComplaint}
+                        className="w-8 h-8 rounded-full bg-white/80 hover:bg-red-100 flex items-center justify-center text-slate-400 hover:text-red-500 transition flex-shrink-0"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="h-[72px] border-b border-slate-200 px-5 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="relative">
