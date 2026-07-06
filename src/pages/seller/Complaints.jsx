@@ -1,4 +1,4 @@
-// src/pages/seller/Complaints.jsx - UPDATE LENGKAP
+// src/pages/seller/Complaints.jsx - FULL LENGKAP
 
 import {
   AlertTriangle,
@@ -8,10 +8,8 @@ import {
   Search,
   MessageSquare,
   Send,
-  Eye,
   Package,
   User,
-  Calendar,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import SellerLayout from "../../layouts/SellerLayout";
@@ -330,7 +328,9 @@ function SellerComplaints() {
             {filteredComplaints.map((item) => {
               const status = getStatusBadge(item.status);
               const isActionable =
-                item.status === "menunggu" || item.status === "diproses";
+                item.status === "menunggu" ||
+                item.status === "diproses" ||
+                item.status === "direspon";
               const daysSince = getDaysSince(item.created_at);
               const isUrgent = daysSince >= 3;
 
@@ -368,7 +368,7 @@ function SellerComplaints() {
                         </span>
                       </div>
 
-                      {/* 🔥 PRODUK YANG DIKOMPLAIN */}
+                      {/* PRODUK YANG DIKOMPLAIN */}
                       <div className="mt-4 bg-white rounded-2xl border border-slate-200 p-4">
                         <div className="flex items-center gap-4">
                           <img
@@ -459,6 +459,7 @@ function SellerComplaints() {
 
                     {/* RIGHT - ACTIONS */}
                     <div className="flex flex-col gap-2 shrink-0 min-w-[140px]">
+                      {/* 🔥 TOMBOL RESPON & SELESAI/TOLAK - TETAP ADA UNTUK MENUNGGU, DIPROSES, DAN DIRESPON */}
                       {isActionable && (
                         <>
                           <button
@@ -480,6 +481,8 @@ function SellerComplaints() {
                               ? "Tutup"
                               : "Respon"}
                           </button>
+
+                          {/* 🔥 TOMBOL SELESAI & TOLAK - TETAP ADA */}
                           <div className="flex gap-2">
                             <button
                               onClick={() =>
@@ -511,15 +514,10 @@ function SellerComplaints() {
                           ❌ Ditolak
                         </span>
                       )}
-                      {item.status === "direspon" && (
-                        <span className="text-xs text-purple-600 font-bold bg-purple-50 px-4 py-2 rounded-xl text-center">
-                          ✅ Direspon
-                        </span>
-                      )}
                     </div>
                   </div>
 
-                  {/* 🔥 RESPON FORM */}
+                  {/* RESPON FORM */}
                   {showDetail === item.id_laporan && isActionable && (
                     <div className="mt-4 border-t pt-4">
                       <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 mb-4">
