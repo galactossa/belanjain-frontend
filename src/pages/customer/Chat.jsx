@@ -44,15 +44,19 @@ function Chat() {
   // 🔥 CEK APAKAH ADA KOMPLAIN DARI LOCALSTORAGE
   useEffect(() => {
     const complaintData = localStorage.getItem("activeComplaint");
+    console.log("🔍 Raw complaintData from localStorage:", complaintData);
     if (complaintData) {
       try {
         const parsed = JSON.parse(complaintData);
+        console.log("✅ Parsed complaint:", parsed);
+        console.log("✅ id_pelapor:", parsed.id_pelapor);
+        console.log("✅ userId:", userId);
         setActiveComplaint(parsed);
       } catch (e) {
         console.error("Error parsing complaint data:", e);
       }
     }
-  }, []);
+  }, [userId]);
 
   const clearComplaint = () => {
     setActiveComplaint(null);
@@ -463,8 +467,8 @@ function Chat() {
               </div>
             </div>
 
-            {/* 🔥 KOMPLAIN ACTIVE - TAMPILKAN DI DALAM CHAT PANEL (HANYA JIKA USER YANG DIAJAK CHAT ADALAH PELAPOR) */}
-            {activeComplaint && activeComplaint.id_pelapor === userId && (
+            {/* 🔥 KOMPLAIN ACTIVE - TAMPILKAN DI DALAM CHAT PANEL (TANPA KONDISI) */}
+            {activeComplaint && (
               <div className="bg-red-50 border border-red-200 rounded-xl p-4 mx-4 mt-4">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-4 flex-1">
