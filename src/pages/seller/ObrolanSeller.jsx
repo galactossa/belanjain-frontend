@@ -376,8 +376,8 @@ function ObrolanSeller() {
                   </button>
                 </div>
 
-                {/* 🔥 KOMPLAIN ACTIVE */}
-                {activeComplaint && (
+                {/* 🔥 KOMPLAIN ACTIVE - HANYA TAMPIL JIKA SELLER YANG LOGIN ADALAH SELLER YANG DIKOMPLAIN */}
+                {activeComplaint && activeComplaint.seller_id === userId && (
                   <div className="bg-red-50 border border-red-200 rounded-xl p-4 mx-4 mt-4">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-4 flex-1">

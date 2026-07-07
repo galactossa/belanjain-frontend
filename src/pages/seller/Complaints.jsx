@@ -72,7 +72,7 @@ function SellerComplaints() {
     fetchComplaints();
   }, [storeId]);
 
-  // 🔥 HANDLE RESPON - LANGSUNG KE CHAT (DIPERBAIKI)
+  // 🔥 HANDLE RESPON - LANGSUNG KE CHAT
   const handleResponse = (complaint) => {
     console.log("🔍 Full complaint data:", complaint);
 
@@ -85,6 +85,7 @@ function SellerComplaints() {
       stok: complaint.produk_stok || 0,
     };
 
+    // 🔥 TAMBAHKAN SELLER_ID
     const complaintData = {
       id_laporan: complaint.id_laporan,
       id_pelapor: complaint.id_pelapor,
@@ -93,6 +94,8 @@ function SellerComplaints() {
       produk: produkData,
       status: complaint.status,
       from: "seller",
+      seller_id: currentUser?.id_pengguna || currentUser?.id, // 🔥 TAMBAH INI
+      seller_name: currentUser?.nama || "Seller", // 🔥 TAMBAH INI
     };
 
     console.log("📦 Saving to localStorage:", complaintData);
@@ -102,11 +105,9 @@ function SellerComplaints() {
     const saved = localStorage.getItem("activeComplaint");
     console.log("✅ Verifikasi saved:", saved);
 
-    // 🔥 GANTI CARA NAVIGASI
     const chatUrl = `/seller/chat/${complaint.id_pelapor}`;
     console.log("🔄 Redirecting to:", chatUrl);
 
-    // 🔥 PAKAI window.location.href SEBAGAI FALLBACK
     try {
       navigate(chatUrl);
     } catch (error) {
