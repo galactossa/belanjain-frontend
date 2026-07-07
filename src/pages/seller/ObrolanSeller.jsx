@@ -1,4 +1,4 @@
-// src/pages/seller/ObrolanSeller.jsx - FULL DENGAN COMPLAINT BANNER DI DALAM CHAT
+// src/pages/seller/ObrolanSeller.jsx - FULL (LANGSUNG TAMPILKAN KOMPLAIN)
 
 import {
   Search,
@@ -47,6 +47,7 @@ function ObrolanSeller() {
     if (complaintData) {
       try {
         const parsed = JSON.parse(complaintData);
+        console.log("✅ Seller complaint loaded:", parsed);
         setActiveComplaint(parsed);
       } catch (e) {
         console.error("Error parsing complaint data:", e);
@@ -363,7 +364,7 @@ function ObrolanSeller() {
                   </button>
                 </div>
 
-                {/* 🔥 KOMPLAIN ACTIVE - TAMPILKAN DI DALAM CHAT PANEL (TANPA KONDISI) */}
+                {/* 🔥 KOMPLAIN ACTIVE - TAMPILKAN LANGSUNG (TANPA KONDISI) */}
                 {activeComplaint && (
                   <div className="bg-red-50 border border-red-200 rounded-xl p-4 mx-4 mt-4">
                     <div className="flex items-start justify-between">
