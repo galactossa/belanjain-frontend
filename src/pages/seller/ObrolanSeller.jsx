@@ -376,64 +376,70 @@ function ObrolanSeller() {
                   </button>
                 </div>
 
-                {/* 🔥 KOMPLAIN ACTIVE - HANYA TAMPIL JIKA SELLER YANG LOGIN ADALAH SELLER YANG DIKOMPLAIN */}
-                {activeComplaint && activeComplaint.seller_id === userId && (
-                  <div className="bg-red-50 border border-red-200 rounded-xl p-4 mx-4 mt-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-4 flex-1">
-                        <div className="w-16 h-16 rounded-xl overflow-hidden border border-red-300 flex-shrink-0">
-                          <img
-                            src={
-                              activeComplaint.produk?.url_gambar ||
-                              "https://via.placeholder.com/80"
-                            }
-                            alt={
-                              activeComplaint.produk?.nama_produk || "Produk"
-                            }
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.src =
-                                "https://via.placeholder.com/80?text=No+Image";
-                            }}
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <AlertTriangle size={16} className="text-red-500" />
-                            <span className="text-xs font-bold text-red-600 uppercase">
-                              Komplain Produk
-                            </span>
+                {/* 🔥 KOMPLAIN ACTIVE - HANYA TAMPIL JIKA SELLER SEDANG CHAT DENGAN PELAPOR */}
+                {activeComplaint &&
+                  activeComplaint.seller_id === userId &&
+                  selectedChat &&
+                  activeComplaint.id_pelapor === selectedChat.other_user_id && (
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-4 mx-4 mt-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-4 flex-1">
+                          <div className="w-16 h-16 rounded-xl overflow-hidden border border-red-300 flex-shrink-0">
+                            <img
+                              src={
+                                activeComplaint.produk?.url_gambar ||
+                                "https://via.placeholder.com/80"
+                              }
+                              alt={
+                                activeComplaint.produk?.nama_produk || "Produk"
+                              }
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.src =
+                                  "https://via.placeholder.com/80?text=No+Image";
+                              }}
+                            />
                           </div>
-                          <h4 className="font-bold text-slate-900 text-sm">
-                            {activeComplaint.produk?.nama_produk || "Produk"}
-                          </h4>
-                          <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
-                            <span>
-                              ID: #{activeComplaint.produk?.id_produk || "-"}
-                            </span>
-                            <span>•</span>
-                            <span>
-                              Harga: Rp{" "}
-                              {Number(
-                                activeComplaint.produk?.harga || 0,
-                              ).toLocaleString("id-ID")}
-                            </span>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <AlertTriangle
+                                size={16}
+                                className="text-red-500"
+                              />
+                              <span className="text-xs font-bold text-red-600 uppercase">
+                                Komplain Produk
+                              </span>
+                            </div>
+                            <h4 className="font-bold text-slate-900 text-sm">
+                              {activeComplaint.produk?.nama_produk || "Produk"}
+                            </h4>
+                            <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                              <span>
+                                ID: #{activeComplaint.produk?.id_produk || "-"}
+                              </span>
+                              <span>•</span>
+                              <span>
+                                Harga: Rp{" "}
+                                {Number(
+                                  activeComplaint.produk?.harga || 0,
+                                ).toLocaleString("id-ID")}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-600 mt-1 bg-white/70 p-2 rounded-lg">
+                              <span className="font-semibold">Alasan:</span>{" "}
+                              {activeComplaint.alasan || "-"}
+                            </p>
                           </div>
-                          <p className="text-xs text-slate-600 mt-1 bg-white/70 p-2 rounded-lg">
-                            <span className="font-semibold">Alasan:</span>{" "}
-                            {activeComplaint.alasan || "-"}
-                          </p>
                         </div>
+                        <button
+                          onClick={clearComplaint}
+                          className="w-8 h-8 rounded-full bg-white/80 hover:bg-red-100 flex items-center justify-center text-slate-400 hover:text-red-500 transition flex-shrink-0"
+                        >
+                          <X size={16} />
+                        </button>
                       </div>
-                      <button
-                        onClick={clearComplaint}
-                        className="w-8 h-8 rounded-full bg-white/80 hover:bg-red-100 flex items-center justify-center text-slate-400 hover:text-red-500 transition flex-shrink-0"
-                      >
-                        <X size={16} />
-                      </button>
                     </div>
-                  </div>
-                )}
+                  )}
 
                 <div className="flex-1 bg-[#f7f8fa] px-6 py-6 relative overflow-y-auto">
                   {messages.length === 0 ? (
