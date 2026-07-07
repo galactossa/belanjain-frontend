@@ -1,4 +1,4 @@
-// src/pages/seller/ObrolanSeller.jsx - FULL (LANGSUNG TAMPILKAN KOMPLAIN)
+// src/pages/seller/ObrolanSeller.jsx - FULL DENGAN PARAMETER ID
 
 import {
   Search,
@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import SellerLayout from "../../layouts/SellerLayout";
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import EmojiPicker from "emoji-picker-react";
 import ModalNotifications from "../../components/seller/ModalNotifications";
 import api from "../../api/api";
@@ -24,6 +24,7 @@ import { connectSocket } from "../../untils/socket";
 
 function ObrolanSeller() {
   const navigate = useNavigate();
+  const { id } = useParams(); // 🔥 AMBIL ID DARI URL
   const [showEmoji, setShowEmoji] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -71,7 +72,18 @@ function ObrolanSeller() {
         const response = await api.get(`/chat/rooms/${userId}`);
         const rooms = response.data.data || [];
         setChats(rooms);
-        if (rooms.length > 0) {
+
+        // 🔥 JIKA ADA ID DARI URL, LANGSUNG PILIH CHAT TERSEBUT
+        if (id && rooms.length > 0) {
+          const targetChat = rooms.find(
+            (room) => room.other_user_id === parseInt(id),
+          );
+          if (targetChat) {
+            setSelectedChat(targetChat);
+          } else if (rooms.length > 0) {
+            setSelectedChat(rooms[0]);
+          }
+        } else if (rooms.length > 0) {
           setSelectedChat(rooms[0]);
         }
       } catch (error) {
@@ -81,7 +93,7 @@ function ObrolanSeller() {
       }
     };
     fetchChatRooms();
-  }, [userId]);
+  }, [userId, id]);
 
   // Fetch messages
   useEffect(() => {
@@ -364,7 +376,7 @@ function ObrolanSeller() {
                   </button>
                 </div>
 
-                {/* 🔥 KOMPLAIN ACTIVE - TAMPILKAN LANGSUNG (TANPA KONDISI) */}
+                {/* 🔥 KOMPLAIN ACTIVE */}
                 {activeComplaint && (
                   <div className="bg-red-50 border border-red-200 rounded-xl p-4 mx-4 mt-4">
                     <div className="flex items-start justify-between">

@@ -122,7 +122,7 @@ function App() {
       <Route path="/seller/dashboard" element={<DashboardSeller />} />
       <Route path="/seller/products" element={<ProductsSeller />} />
       <Route path="/seller/orders" element={<OrdersSeller />} />
-      <Route path="/seller/chat" element={<ObrolanSeller />} />
+      <Route path="/seller/chat/:id" element={<ObrolanSeller />} />
       <Route path="/seller/analystics" element={<Analystics />} />
       <Route path="/seller/settings" element={<Settings />} />
       <Route path="/seller/store-profile" element={<StoreProfile />} />
