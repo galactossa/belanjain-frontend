@@ -1,4 +1,4 @@
-// src/pages/seller/Complaints.jsx - FULL LENGKAP DENGAN REDIRECT KE CHAT
+// src/pages/seller/Complaints.jsx - FULL LENGKAP
 
 import {
   AlertTriangle,
@@ -98,8 +98,21 @@ function SellerComplaints() {
     console.log("📦 Saving to localStorage:", complaintData);
     localStorage.setItem("activeComplaint", JSON.stringify(complaintData));
 
-    // Redirect ke halaman chat dengan user ID pelapor
-    navigate(`/seller/chat/${complaint.id_pelapor}`);
+    // 🔥 VERIFIKASI SETELAH DISIMPAN
+    const saved = localStorage.getItem("activeComplaint");
+    console.log("✅ Verifikasi saved:", saved);
+
+    // 🔥 GANTI CARA NAVIGASI
+    const chatUrl = `/seller/chat/${complaint.id_pelapor}`;
+    console.log("🔄 Redirecting to:", chatUrl);
+
+    // 🔥 PAKAI window.location.href SEBAGAI FALLBACK
+    try {
+      navigate(chatUrl);
+    } catch (error) {
+      console.error("❌ Navigate error:", error);
+      window.location.href = chatUrl;
+    }
   };
 
   const handleResolve = async (complaintId, status) => {
