@@ -1,4 +1,4 @@
-// src/pages/seller/ObrolanSeller.jsx - FULL DENGAN PARAMETER ID
+// src/pages/seller/ObrolanSeller.jsx - FULL DENGAN TYPING, UNREAD, READ RECEIPT
 
 import {
   Search,
@@ -24,7 +24,7 @@ import { connectSocket } from "../../untils/socket";
 
 function ObrolanSeller() {
   const navigate = useNavigate();
-  const { id } = useParams(); // 🔥 AMBIL ID DARI URL
+  const { id } = useParams();
   const [showEmoji, setShowEmoji] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -36,13 +36,15 @@ function ObrolanSeller() {
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [activeComplaint, setActiveComplaint] = useState(null);
+  const [typingUser, setTypingUser] = useState(null);
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
 
   const currentUser = JSON.parse(localStorage.getItem("currentUser") || "null");
   const userId = currentUser?.id_pengguna || currentUser?.id;
 
-  // 🔥 CEK APAKAH ADA KOMPLAIN DARI LOCALSTORAGE
+  // ================= KOMPLAIN =================
   useEffect(() => {
     const complaintData = localStorage.getItem("activeComplaint");
     if (complaintData) {
@@ -61,7 +63,7 @@ function ObrolanSeller() {
     localStorage.removeItem("activeComplaint");
   };
 
-  // Fetch chat rooms from API
+  // ================= FETCH CHAT ROOMS =================
   useEffect(() => {
     const fetchChatRooms = async () => {
       if (!userId) {
@@ -73,7 +75,6 @@ function ObrolanSeller() {
         const rooms = response.data.data || [];
         setChats(rooms);
 
-        // 🔥 JIKA ADA ID DARI URL, LANGSUNG PILIH CHAT TERSEBUT
         if (id && rooms.length > 0) {
           const targetChat = rooms.find(
             (room) => room.other_user_id === parseInt(id),
@@ -95,7 +96,7 @@ function ObrolanSeller() {
     fetchChatRooms();
   }, [userId, id]);
 
-  // Fetch messages
+  // ================= FETCH MESSAGES & MARK AS READ =================
   useEffect(() => {
     const fetchMessages = async () => {
       if (!selectedChat || !userId) return;
@@ -103,7 +104,29 @@ function ObrolanSeller() {
         const response = await api.get(
           `/chat/history/${userId}/${selectedChat.other_user_id}`,
         );
-        setMessages(response.data.data.data || []);
+        const msgs = response.data.data.data || [];
+        setMessages(msgs);
+
+        // MARK AS READ - Tandai pesan yang diterima sebagai sudah dibaca
+        const unreadMessages = msgs.filter(
+          (msg) => msg.sender_id === selectedChat.other_user_id && !msg.is_read,
+        );
+
+        if (unreadMessages.length > 0 && socketRef.current) {
+          const messageIds = unreadMessages.map((msg) => msg.id);
+
+          socketRef.current.emit("mark-read", {
+            message_ids: messageIds,
+            sender_id: selectedChat.other_user_id,
+          });
+
+          // Update local state
+          setMessages((prev) =>
+            prev.map((msg) =>
+              messageIds.includes(msg.id) ? { ...msg, is_read: true } : msg,
+            ),
+          );
+        }
       } catch (error) {
         console.error("Error fetching messages:", error);
       }
@@ -111,7 +134,7 @@ function ObrolanSeller() {
     fetchMessages();
   }, [selectedChat, userId]);
 
-  // Socket.io setup
+  // ================= SOCKET.IO =================
   useEffect(() => {
     if (!userId) return;
 
@@ -130,6 +153,8 @@ function ObrolanSeller() {
           message.receiver_id === selectedChat?.other_user_id)
       ) {
         setMessages((prev) => [...prev, message]);
+        // Refresh chat rooms untuk update unread count
+        refreshChatRooms();
       }
     });
 
@@ -142,15 +167,35 @@ function ObrolanSeller() {
       alert(error.error || "Gagal mengirim pesan");
     });
 
+    // ================= TYPING INDICATOR =================
+    socket.on("user-typing", (data) => {
+      if (data.user_id === selectedChat?.other_user_id) {
+        setTypingUser(data.is_typing ? data.user_name : null);
+      }
+    });
+
     return () => {
       socket.off("online-users");
       socket.off("new-message");
       socket.off("message-sent");
       socket.off("message-error");
+      socket.off("user-typing");
     };
   }, [currentUser, selectedChat, userId]);
 
-  // Send message
+  // ================= REFRESH CHAT ROOMS =================
+  const refreshChatRooms = async () => {
+    if (!userId) return;
+    try {
+      const response = await api.get(`/chat/rooms/${userId}`);
+      const rooms = response.data.data || [];
+      setChats(rooms);
+    } catch (error) {
+      console.error("Error refreshing chat rooms:", error);
+    }
+  };
+
+  // ================= SEND MESSAGE =================
   const handleSend = () => {
     if (!message.trim() || !selectedChat || !userId) return;
 
@@ -166,7 +211,43 @@ function ObrolanSeller() {
     setMessage("");
   };
 
-  // Fetch notifications
+  // ================= TYPING HANDLER =================
+  const handleTyping = (isTyping) => {
+    if (!selectedChat || !socketRef.current) return;
+
+    socketRef.current.emit("typing", {
+      receiver_id: selectedChat.other_user_id,
+      is_typing: isTyping,
+    });
+
+    if (!isTyping) {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
+      }
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    setMessage(value);
+
+    if (value.length > 0) {
+      handleTyping(true);
+
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+
+      typingTimeoutRef.current = setTimeout(() => {
+        handleTyping(false);
+      }, 1500);
+    } else {
+      handleTyping(false);
+    }
+  };
+
+  // ================= FETCH NOTIFICATIONS =================
   useEffect(() => {
     const fetchNotifications = async () => {
       if (!userId) return;
@@ -179,6 +260,11 @@ function ObrolanSeller() {
     };
     fetchNotifications();
   }, [userId]);
+
+  // ================= SCROLL TO BOTTOM =================
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   const filteredChats = chats.filter((chat) =>
     chat.other_user_name?.toLowerCase().includes(searchTerm.toLowerCase()),
@@ -244,6 +330,7 @@ function ObrolanSeller() {
         </div>
 
         <div className="bg-white border border-slate-200 rounded-[10px] overflow-hidden flex h-[calc(100vh-110px)]">
+          {/* SIDEBAR CHAT */}
           <div className="w-[320px] border-r border-slate-200 bg-[#f8f8f8] flex flex-col">
             <div className="p-4 border-b border-slate-200">
               <div className="flex items-center justify-between">
@@ -324,11 +411,18 @@ function ObrolanSeller() {
                                 : ""}
                             </p>
                           </div>
-                          <p
-                            className={`mt-2 text-[11px] font-semibold line-clamp-1 ${isActive ? "text-white" : "text-slate-500"}`}
-                          >
-                            {chat.last_message || "Mulai percakapan"}
-                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <p
+                              className={`text-[11px] font-semibold line-clamp-1 ${isActive ? "text-white" : "text-slate-500"}`}
+                            >
+                              {chat.last_message || "Mulai percakapan"}
+                            </p>
+                            {chat.unread_count > 0 && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500 text-white font-bold flex-shrink-0">
+                                {chat.unread_count}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -338,6 +432,7 @@ function ObrolanSeller() {
             </div>
           </div>
 
+          {/* CHAT PANEL */}
           <div className="flex-1 flex flex-col bg-white">
             {!selectedChat ? (
               <div className="flex-1 flex items-center justify-center text-slate-400">
@@ -350,6 +445,7 @@ function ObrolanSeller() {
               </div>
             ) : (
               <>
+                {/* HEADER */}
                 <div className="h-[72px] border-b border-slate-200 px-5 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="relative">
@@ -376,7 +472,7 @@ function ObrolanSeller() {
                   </button>
                 </div>
 
-                {/* 🔥 KOMPLAIN ACTIVE - HANYA TAMPIL JIKA SELLER SEDANG CHAT DENGAN PELAPOR */}
+                {/* KOMPLAIN BANNER */}
                 {activeComplaint &&
                   activeComplaint.seller_id === userId &&
                   selectedChat &&
@@ -441,6 +537,28 @@ function ObrolanSeller() {
                     </div>
                   )}
 
+                {/* TYPING INDICATOR */}
+                {typingUser && (
+                  <div className="px-4 py-2 text-sm text-slate-500 italic flex items-center gap-2">
+                    <div className="flex gap-1">
+                      <span
+                        className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"
+                        style={{ animationDelay: "0ms" }}
+                      ></span>
+                      <span
+                        className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"
+                        style={{ animationDelay: "150ms" }}
+                      ></span>
+                      <span
+                        className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"
+                        style={{ animationDelay: "300ms" }}
+                      ></span>
+                    </div>
+                    <span>{typingUser} sedang mengetik...</span>
+                  </div>
+                )}
+
+                {/* MESSAGES */}
                 <div className="flex-1 bg-[#f7f8fa] px-6 py-6 relative overflow-y-auto">
                   {messages.length === 0 ? (
                     <div className="flex items-center justify-center h-full text-slate-400">
@@ -468,16 +586,31 @@ function ObrolanSeller() {
                               }`}
                             >
                               <p className="font-medium">{msg.message}</p>
-                              <p
-                                className={`text-[10px] mt-1 ${isSeller ? "text-blue-100" : "text-slate-400"}`}
-                              >
-                                {msg.created_at
-                                  ? new Date(msg.created_at).toLocaleTimeString(
-                                      "id-ID",
-                                      { hour: "2-digit", minute: "2-digit" },
-                                    )
-                                  : ""}
-                              </p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <p
+                                  className={`text-[10px] ${isSeller ? "text-blue-100" : "text-slate-400"}`}
+                                >
+                                  {msg.created_at
+                                    ? new Date(
+                                        msg.created_at,
+                                      ).toLocaleTimeString("id-ID", {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      })
+                                    : ""}
+                                </p>
+                                {/* READ RECEIPT */}
+                                {isSeller && msg.is_read && (
+                                  <span className="text-[9px] text-blue-300">
+                                    ✓✓ Dibaca
+                                  </span>
+                                )}
+                                {isSeller && !msg.is_read && (
+                                  <span className="text-[9px] text-blue-200">
+                                    ✓ Dikirim
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         );
@@ -487,15 +620,17 @@ function ObrolanSeller() {
                   )}
                 </div>
 
+                {/* INPUT */}
                 <div className="h-[66px] border-t border-slate-200 bg-white px-5 flex items-center gap-4">
                   <div className="flex-1 h-12 rounded-2xl bg-slate-100 px-5 flex items-center gap-3">
                     <input
                       type="text"
                       placeholder="Ketik pesan..."
                       value={message}
-                      onChange={(e) => setMessage(e.target.value)}
+                      onChange={handleInputChange}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
+                          handleTyping(false);
                           handleSend();
                         }
                       }}
@@ -519,7 +654,10 @@ function ObrolanSeller() {
                     </div>
                   </div>
                   <button
-                    onClick={handleSend}
+                    onClick={() => {
+                      handleTyping(false);
+                      handleSend();
+                    }}
                     className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center"
                   >
                     <Send size={18} />

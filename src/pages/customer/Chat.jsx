@@ -1,4 +1,4 @@
-// src/pages/customer/Chat.jsx - FULL (LANGSUNG TAMPILKAN KOMPLAIN)
+// src/pages/customer/Chat.jsx - FULL DENGAN TYPING, UNREAD, READ RECEIPT
 
 import {
   Search,
@@ -38,25 +38,21 @@ function Chat() {
   const [newMessage, setNewMessage] = useState("");
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [activeComplaint, setActiveComplaint] = useState(null);
+  const [typingUser, setTypingUser] = useState(null);
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
 
-  // 🔥 CEK APAKAH ADA KOMPLAIN DARI LOCALSTORAGE
+  // ================= KOMPLAIN =================
   useEffect(() => {
     const complaintData = localStorage.getItem("activeComplaint");
-    console.log("🔍 Raw complaintData from localStorage:", complaintData);
-
     if (complaintData) {
       try {
         const parsed = JSON.parse(complaintData);
-        console.log("✅ Parsed complaint:", parsed);
-        console.log("✅ produk data:", parsed.produk);
         setActiveComplaint(parsed);
       } catch (e) {
         console.error("Error parsing complaint data:", e);
       }
-    } else {
-      console.log("⚠️ Tidak ada activeComplaint di localStorage");
     }
   }, []);
 
@@ -65,7 +61,7 @@ function Chat() {
     localStorage.removeItem("activeComplaint");
   };
 
-  // 🔥 FUNGSI UNTUK GET NAMA TOKO (FALLBACK)
+  // ================= FUNGSI GET NAMA TOKO =================
   const getDisplayName = async (userId, role) => {
     if (role === "penjual") {
       try {
@@ -77,7 +73,6 @@ function Chat() {
         console.warn("Gagal ambil nama toko, pakai nama user:", e);
       }
     }
-    // Fallback: ambil nama user
     try {
       const res = await api.get(`/pengguna/${userId}`);
       return res.data.data?.nama || "User";
@@ -86,6 +81,7 @@ function Chat() {
     }
   };
 
+  // ================= FETCH CHAT ROOMS =================
   useEffect(() => {
     const fetchChatRooms = async () => {
       if (!userId) {
@@ -96,7 +92,6 @@ function Chat() {
         const response = await api.get(`/chat/rooms/${userId}`);
         let rooms = response.data.data || [];
 
-        // 🔥 PERBAIKAN: Format ulang nama untuk penjual
         const formattedRooms = await Promise.all(
           rooms.map(async (room) => {
             let displayName = room.other_user_name;
@@ -108,9 +103,7 @@ function Chat() {
                 if (tokoRes.data.data?.nama_toko) {
                   displayName = tokoRes.data.data.nama_toko;
                 }
-              } catch (e) {
-                // Tetap pakai nama user
-              }
+              } catch (e) {}
             }
             return {
               ...room,
@@ -132,13 +125,11 @@ function Chat() {
             );
             setMessages(messagesRes.data.data.data || []);
           } else {
-            // 🔥 BUAT ROOM BARU DARI ID
             try {
               const userRes = await api.get(`/pengguna/${id}`);
               const userData = userRes.data.data;
               let displayName = userData.nama || "User";
 
-              // Cek apakah user ini penjual, ambil nama toko
               if (userData.role === "penjual") {
                 try {
                   const tokoRes = await api.get(`/toko/user/${id}`);
@@ -177,7 +168,7 @@ function Chat() {
     fetchChatRooms();
   }, [userId, id]);
 
-  // Load messages when active chat changes
+  // ================= FETCH MESSAGES & MARK AS READ =================
   useEffect(() => {
     const fetchMessages = async () => {
       if (!activeChat || !userId) return;
@@ -185,7 +176,28 @@ function Chat() {
         const response = await api.get(
           `/chat/history/${userId}/${activeChat.other_user_id}`,
         );
-        setMessages(response.data.data.data || []);
+        const msgs = response.data.data.data || [];
+        setMessages(msgs);
+
+        // MARK AS READ
+        const unreadMessages = msgs.filter(
+          (msg) => msg.sender_id === activeChat.other_user_id && !msg.is_read,
+        );
+
+        if (unreadMessages.length > 0 && socketRef.current) {
+          const messageIds = unreadMessages.map((msg) => msg.id);
+
+          socketRef.current.emit("mark-read", {
+            message_ids: messageIds,
+            sender_id: activeChat.other_user_id,
+          });
+
+          setMessages((prev) =>
+            prev.map((msg) =>
+              messageIds.includes(msg.id) ? { ...msg, is_read: true } : msg,
+            ),
+          );
+        }
       } catch (error) {
         console.error("Error fetching messages:", error);
       }
@@ -193,7 +205,7 @@ function Chat() {
     fetchMessages();
   }, [activeChat, userId]);
 
-  // Socket.io setup
+  // ================= SOCKET.IO =================
   useEffect(() => {
     if (!userId) return;
 
@@ -225,20 +237,28 @@ function Chat() {
       alert(error.error || "Gagal mengirim pesan");
     });
 
+    // TYPING INDICATOR
+    socket.on("user-typing", (data) => {
+      if (data.user_id === activeChat?.other_user_id) {
+        setTypingUser(data.is_typing ? data.user_name : null);
+      }
+    });
+
     return () => {
       socket.off("online-users");
       socket.off("new-message");
       socket.off("message-sent");
       socket.off("message-error");
+      socket.off("user-typing");
     };
   }, [currentUser, activeChat, userId]);
 
+  // ================= REFRESH CHAT ROOMS =================
   const refreshChatRooms = async () => {
     if (!userId) return;
     try {
       const response = await api.get(`/chat/rooms/${userId}`);
       let rooms = response.data.data || [];
-      // Format ulang nama
       const formattedRooms = await Promise.all(
         rooms.map(async (room) => {
           let displayName = room.other_user_name;
@@ -259,6 +279,7 @@ function Chat() {
     }
   };
 
+  // ================= SEND MESSAGE =================
   const handleSendMessage = () => {
     if (!newMessage.trim() || !activeChat || !userId) return;
 
@@ -274,13 +295,43 @@ function Chat() {
     setNewMessage("");
   };
 
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
+  // ================= TYPING HANDLER =================
+  const handleTyping = (isTyping) => {
+    if (!activeChat || !socketRef.current) return;
+
+    socketRef.current.emit("typing", {
+      receiver_id: activeChat.other_user_id,
+      is_typing: isTyping,
+    });
+
+    if (!isTyping) {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
+      }
     }
   };
 
+  const handleInputChange = (e) => {
+    const value = e.target.value;
+    setNewMessage(value);
+
+    if (value.length > 0) {
+      handleTyping(true);
+
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+
+      typingTimeoutRef.current = setTimeout(() => {
+        handleTyping(false);
+      }, 1500);
+    } else {
+      handleTyping(false);
+    }
+  };
+
+  // ================= SCROLL TO BOTTOM =================
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -392,7 +443,7 @@ function Chat() {
                               : ""}
                           </span>
                         </div>
-                        <div className="flex justify-between items-center mt-2">
+                        <div className="flex items-center gap-2 mt-1">
                           <p
                             className={`text-sm truncate ${isActive ? "text-white/80" : "text-slate-500"}`}
                           >
@@ -400,13 +451,13 @@ function Chat() {
                           </p>
                           {room.unread_count > 0 && (
                             <span
-                              className={`text-[10px] px-2 py-1 rounded-md font-bold ${
+                              className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
                                 isActive
                                   ? "bg-white text-indigo-600"
-                                  : "bg-emerald-100 text-emerald-600"
+                                  : "bg-red-500 text-white"
                               }`}
                             >
-                              {room.unread_count} baru
+                              {room.unread_count}
                             </span>
                           )}
                         </div>
@@ -435,6 +486,7 @@ function Chat() {
           </div>
         ) : (
           <div className="flex-1 flex flex-col">
+            {/* HEADER */}
             <div className="h-[105px] bg-white border-b px-7 flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="relative">
@@ -469,7 +521,7 @@ function Chat() {
               </div>
             </div>
 
-            {/* 🔥 KOMPLAIN ACTIVE - HANYA TAMPIL JIKA CHAT DENGAN SELLER YANG DIKOMPLAIN */}
+            {/* KOMPLAIN BANNER */}
             {activeComplaint &&
               activeChat &&
               activeComplaint.seller_id === activeChat.other_user_id && (
@@ -530,6 +582,28 @@ function Chat() {
                 </div>
               )}
 
+            {/* TYPING INDICATOR */}
+            {typingUser && (
+              <div className="px-4 py-2 text-sm text-slate-500 italic flex items-center gap-2">
+                <div className="flex gap-1">
+                  <span
+                    className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"
+                    style={{ animationDelay: "0ms" }}
+                  ></span>
+                  <span
+                    className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"
+                    style={{ animationDelay: "150ms" }}
+                  ></span>
+                  <span
+                    className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"
+                    style={{ animationDelay: "300ms" }}
+                  ></span>
+                </div>
+                <span>{typingUser} sedang mengetik...</span>
+              </div>
+            )}
+
+            {/* MESSAGES */}
             <div className="flex-1 overflow-y-auto bg-[#F5F6F8] p-8">
               {messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-slate-400">
@@ -559,11 +633,24 @@ function Chat() {
                           }`}
                         >
                           <p>{msg.message}</p>
-                          <span
-                            className={`block mt-2 text-xs ${isSender ? "text-blue-100" : "text-slate-400"}`}
-                          >
-                            {formatTime(msg.created_at)}
-                          </span>
+                          <div className="flex items-center gap-2 mt-2">
+                            <span
+                              className={`text-xs ${isSender ? "text-blue-100" : "text-slate-400"}`}
+                            >
+                              {formatTime(msg.created_at)}
+                            </span>
+                            {/* READ RECEIPT */}
+                            {isSender && msg.is_read && (
+                              <span className="text-[9px] text-blue-300">
+                                ✓✓ Dibaca
+                              </span>
+                            )}
+                            {isSender && !msg.is_read && (
+                              <span className="text-[9px] text-blue-200">
+                                ✓ Dikirim
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
@@ -573,6 +660,7 @@ function Chat() {
               )}
             </div>
 
+            {/* INPUT */}
             <div className="h-[95px] border-t bg-white px-8 flex items-center">
               <button className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mr-2">
                 <Paperclip size={18} />
@@ -583,8 +671,13 @@ function Chat() {
               <input
                 type="text"
                 value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyDown={handleKeyDown}
+                onChange={handleInputChange}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleTyping(false);
+                    handleSendMessage();
+                  }
+                }}
                 placeholder="Ketik pesan..."
                 className="flex-1 h-14 bg-[#F3F5F9] rounded-full px-6 outline-none"
               />
@@ -592,7 +685,10 @@ function Chat() {
                 <Smile size={18} />
               </button>
               <button
-                onClick={handleSendMessage}
+                onClick={() => {
+                  handleTyping(false);
+                  handleSendMessage();
+                }}
                 disabled={!newMessage.trim()}
                 className={`ml-3 w-14 h-14 rounded-2xl flex items-center justify-center ${
                   newMessage.trim()
